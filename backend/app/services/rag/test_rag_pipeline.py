@@ -8,8 +8,8 @@ if __name__ == "__main__":
 
     results = retrieve_relevant_chunks(question)
 
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
+    documents = results.get("documents", [[]])[0][:2]
+    metadatas = results.get("metadatas", [[]])[0][:2]
 
     prompt = build_rag_prompt(question, documents, metadatas)
 
