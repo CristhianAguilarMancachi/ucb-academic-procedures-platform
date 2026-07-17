@@ -1,0 +1,32 @@
+<div class="sidebar-wrap">
+  <div class="brand">
+    <img src="assets/images/logo-ucb.png" alt="Logo UCB" class="brand-logo" />
+  </div>
+
+  <ng-container *ngFor="let section of groupedMenu | keyvalue">
+    <div class="menu-section">
+      <div class="section-title">{{ section.key }}</div>
+
+      <a
+        *ngFor="let item of section.value"
+        [routerLink]="item.route"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        class="menu-link"
+      >
+        <span class="menu-left">
+          <ng-container [ngSwitch]="item.icon">
+            <ng-icon *ngSwitchCase="'plus'" name="heroPlusCircle" class="menu-icon"></ng-icon>
+            <ng-icon *ngSwitchCase="'folder'" name="heroFolderOpen" class="menu-icon"></ng-icon>
+            <ng-icon *ngSwitchCase="'alert'" name="heroExclamationCircle" class="menu-icon"></ng-icon>
+            <ng-icon *ngSwitchCase="'sparkles'" name="heroSparkles" class="menu-icon"></ng-icon>
+          </ng-container>
+
+          <span>{{ item.label }}</span>
+        </span>
+
+        <span *ngIf="item.badge" class="badge">{{ item.badge }}</span>
+      </a>
+    </div>
+  </ng-container>
+</div>

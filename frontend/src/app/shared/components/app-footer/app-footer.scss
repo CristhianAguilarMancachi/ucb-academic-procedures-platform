@@ -1,0 +1,36 @@
+.footer-wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(6, 20, 40, 0.88);
+}
+
+.footer-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #aeb9c7;
+  font-size: 0.84rem;
+}
+
+.divider {
+  opacity: 0.5;
+}
+
+.footer-social {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-social a {
+  color: #c6d0dc;
+  text-decoration: none;
+}
+
+.footer-icon {
+  width: 18px;
+  height: 18px;
+}
