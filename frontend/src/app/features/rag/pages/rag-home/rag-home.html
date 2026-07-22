@@ -1,64 +1,58 @@
-<section class="rag-home">
-  <div class="hero-icon">
-    <ng-icon name="heroSparkles" class="sparkle-icon"></ng-icon>
-  </div>
+<section class="rag-home" [class.chat-mode]="conversationStarted()">
+  <ng-container *ngIf="!conversationStarted(); else chatMode">
+    <div class="welcome-mode">
+      <div class="welcome-inner">
+        <div class="hero-icon">
+          <ng-icon name="heroSparkles" class="sparkle-icon"></ng-icon>
+        </div>
 
-  <div class="hero-text">
-    <h2>Hola, soy tu <span>asistente académico</span></h2>
-    <p>
-      Estoy aquí para ayudarte a encontrar información oficial sobre los trámites académicos
-      de la Universidad Católica Boliviana “San Pablo”.
-    </p>
-  </div>
+        <div class="hero-text">
+          <h2>Hola, soy tu <span>asistente académico</span></h2>
+          <p>
+            Encuentra información oficial sobre trámites, reglamentos y consultas académicas
+            de la Universidad Católica Boliviana “San Pablo”.
+          </p>
+        </div>
 
-  <div class="query-box">
-    <input
-      type="text"
-      placeholder="Escribe tu consulta aquí..."
-      [(ngModel)]="question"
-      (keyup.enter)="submitQuery()"
-    />
+        <div class="composer composer-centered">
+          <input
+            type="text"
+            placeholder="Escribe tu consulta aquí..."
+            [(ngModel)]="question"
+            (keyup.enter)="submitQuery()"
+          />
 
-    <button class="send-button" (click)="submitQuery()" [disabled]="loading">
-      <ng-icon name="heroPaperAirplane" class="send-icon"></ng-icon>
-    </button>
-  </div>
+          <button class="composer-send" (click)="submitQuery()" [disabled]="loading()">
+            <ng-icon name="heroPaperAirplane" class="send-icon"></ng-icon>
+          </button>
+        </div>
 
-  <div class="suggested-title" *ngIf="!answer && !loading">
-    O puedes probar con algunas preguntas sugeridas:
-  </div>
+        <div class="suggested-header">
+          <span>Preguntas sugeridas</span>
+        </div>
 
-  <div class="suggested-grid" *ngIf="!answer && !loading">
-    <button
-      class="suggested-card"
-      *ngFor="let item of suggestedQuestions"
-      (click)="useSuggestedQuestion(item)"
-    >
-      {{ item }}
-    </button>
-  </div>
-
-  <div class="rag-state" *ngIf="loading">
-    Consultando información...
-  </div>
-
-  <div class="rag-state error" *ngIf="errorMessage">
-    {{ errorMessage }}
-  </div>
-
-  <div class="answer-panel" *ngIf="answer && !loading">
-    <h3>Respuesta</h3>
-    <p class="answer-text">{{ answer }}</p>
-
-    <div class="sources-panel" *ngIf="sources.length > 0">
-      <h4>Fuentes utilizadas</h4>
-
-      <div class="source-card" *ngFor="let source of sources">
-        <div><strong>Documento:</strong> {{ source.document }}</div>
-        <div *ngIf="source.page !== null"><strong>Página:</strong> {{ source.page }}</div>
-        <div *ngIf="source.article_number"><strong>Artículo:</strong> {{ source.article_number }}</div>
-        <div *ngIf="source.chunk_strategy"><strong>Tipo de fragmento:</strong> {{ source.chunk_strategy }}</div>
+        <div class="suggested-grid compact">
+          <button
+            class="suggested-card compact"
+            *ngFor="let item of suggestedQuestions"
+            (click)="useSuggestedQuestion(item)"
+          >
+            {{ item }}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  </ng-container>
+
+  <ng-template #chatMode>
+    <app-rag-chat
+      [messages]="messages()"
+      [question]="question"
+      [loading]="loading()"
+      (questionChange)="updateQuestion($event)"
+      (submit)="submitQuery()"
+      (clear)="clearConversation()"
+      (toggleSources)="toggleSources($event)"
+    />
+  </ng-template>
 </section>

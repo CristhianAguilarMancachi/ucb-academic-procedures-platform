@@ -1,24 +1,21 @@
 export interface RagSource {
-  document: string;
+  document: string | null;
   page: number | null;
-  article_number?: string | null;
-  chunk_strategy?: string | null;
+  article_number: string | null;
+  chunk_strategy: string | null;
+  section: string | null;
+  subsection: string | null;
 }
 
 export interface RagQueryRequest {
   question: string;
-  selected_tramite?: string | null;
+  session_id?: string | null;
 }
 
 export interface RagQueryResponse {
+  session_id: string;
   question: string;
+  standalone_question?: string | null;
   answer: string;
   sources: RagSource[];
-  selected_tramite?: string | null;
-}
-
-export interface RagTramite {
-  id: string;
-  name: string;
-  document_names: string[];
 }

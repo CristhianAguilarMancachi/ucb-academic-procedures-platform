@@ -1,109 +1,545 @@
+import hashlib
+import re
+import pytesseract
+from pdf2image import convert_from_path
+import unicodedata
+
 from pathlib import Path
-from uuid import uuid4
-import shutil
 
-from app.core.config import DOCUMENTS_DIR, CHUNK_SIZE, CHUNK_OVERLAP, VECTORSTORE_DIR
-from app.utils.file_loader import load_pdf_text
-from app.utils.text_splitter import split_text
-from app.services.rag.embeddings import generate_embeddings
-from app.services.rag.vector_store import get_or_create_collection
+import fitz
+from sentence_transformers import SentenceTransformer
+from sqlalchemy.orm import Session
 
+from app.core.config import DOCUMENTS_DIR, EMBEDDING_MODEL
+from app.models.documento_institucional import DocumentoInstitucional
+from app.models.version_documento import VersionDocumento
+from app.models.chunk_documento import ChunkDocumento
 
-def build_metadata(file_path: Path, page_number: int, chunk_index: int, chunk_data: dict) -> dict:
-    metadata = {
-        "source": file_path.name,
-        "page": int(page_number),
-        "chunk_index": int(chunk_index),
-        "chunk_strategy": str(chunk_data.get("strategy", "unknown")),
-    }
-
-    article_number = chunk_data.get("article_number")
-    section_title = chunk_data.get("section_title")
-
-    if article_number is not None:
-        metadata["article_number"] = str(article_number)
-
-    if section_title is not None:
-        metadata["section_title"] = str(section_title)
-
-    return metadata
+embedding_model = SentenceTransformer(EMBEDDING_MODEL)
 
 
-def clear_vectorstore() -> None:
-    if VECTORSTORE_DIR.exists():
-        shutil.rmtree(VECTORSTORE_DIR)
-    VECTORSTORE_DIR.mkdir(parents=True, exist_ok=True)
+def calculate_file_hash(file_path: Path) -> str:
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):
+            sha256.update(chunk)
+    return sha256.hexdigest()
 
 
-def ingest_pdf(file_path: Path) -> int:
-    collection = get_or_create_collection()
-    pages = load_pdf_text(file_path)
+def extract_text_by_page(file_path: str | Path) -> list[dict]:
+    path = Path(file_path)
+    pdf = fitz.open(path)
+    pages = []
 
-    documents = []
-    metadatas = []
-    ids = []
-
-    for page_data in pages:
-        page_number = page_data["page_number"]
-        text = page_data["text"]
-
-        chunks = split_text(
-            text=text,
-            chunk_size=CHUNK_SIZE,
-            overlap=CHUNK_OVERLAP
+    for page_index in range(len(pdf)):
+        page = pdf.load_page(page_index)
+        text = page.get_text("text")
+        pages.append(
+            {
+                "page_number": page_index + 1,
+                "text": text.strip()
+            }
         )
 
-        for chunk_index, chunk_data in enumerate(chunks, start=1):
-            chunk_text = chunk_data["text"]
+    pdf.close()
+    return pages
 
-            documents.append(chunk_text)
-            metadatas.append(
-                build_metadata(
-                    file_path=file_path,
-                    page_number=page_number,
-                    chunk_index=chunk_index,
-                    chunk_data=chunk_data
-                )
+def has_meaningful_text(pages: list[dict], min_total_chars: int = 400) -> bool:
+    total_chars = sum(len(page["text"].strip()) for page in pages)
+    non_empty_pages = sum(1 for page in pages if page["text"].strip())
+
+    if total_chars < min_total_chars:
+        return False
+
+    if non_empty_pages == 0:
+        return False
+
+    return True
+
+
+def extract_text_by_page_with_ocr(file_path: str | Path) -> list[dict]:
+    path = Path(file_path)
+    images = convert_from_path(str(path), dpi=300)
+    pages = []
+
+    for page_index, image in enumerate(images, start=1):
+        try:
+            text = pytesseract.image_to_string(
+                image,
+                lang="spa",
+                config="--psm 6"
             )
-            ids.append(str(uuid4()))
+        except Exception:
+            text = pytesseract.image_to_string(
+                image,
+                lang="eng",
+                config="--psm 6"
+            )
 
-    if not documents:
-        return 0
+        pages.append(
+            {
+                "page_number": page_index,
+                "text": text.strip()
+            }
+        )
 
-    embeddings = generate_embeddings(documents)
+    return pages
 
-    collection.add(
-        ids=ids,
-        documents=documents,
-        metadatas=metadatas,
-        embeddings=embeddings
+def clean_page_lines(lines: list[str]) -> list[str]:
+    cleaned = []
+
+    skip_patterns = [
+        "UNIVERSIDAD CATÓLICA BOLIVIANA",
+        "PABLO”",
+        "Versión",
+        "Vigencia",
+        "Nº Página",
+        "LINEAMIENTOS PARA LA IMPLEMENTACIÓN",
+        "DE LOS CURSOS Y TALLERES DE FORMACIÓN",
+        "INTEGRAL",
+        "REGLAMENTO GENERAL DE MODALIDADES DE GRADUACIÓN",
+    ]
+
+    for line in lines:
+        normalized = " ".join(line.split()).strip()
+
+        if not normalized:
+            continue
+
+        if normalized in {"1", "2", "3", "4"}:
+            continue
+
+        if normalized.startswith("Jun.-2025"):
+            continue
+
+        if re.fullmatch(r"Página \d+ de \d+", normalized, flags=re.IGNORECASE):
+            continue
+
+        if any(pattern in normalized for pattern in skip_patterns):
+            continue
+
+        cleaned.append(normalized)
+
+    return cleaned
+
+def normalize_ocr_text(text: str) -> str:
+    if not text:
+        return ""
+
+    text = unicodedata.normalize("NFKC", text)
+
+    replacements = {
+        "evaluacibn": "evaluación",
+        "informacibn": "información",
+        "habilitacibn": "habilitación",
+        "reposicibn": "reposición",
+        "calificacibn": "calificación",
+        "Direccidn": "Dirección",
+        "direction": "dirección",
+        "reprobation": "reprobación",
+        "option": "opción",
+        "formacibn": "formación",
+        "contribution": "contribución",
+        "formative": "formativo",
+        "Académico Administrativa": "Académico Administrativa",
+        "Io": "lo",
+        "tai": "tal",
+        "motive": "motivo",
+        "deformación": "de formación",
+        "cursarla asignatura": "cursar la asignatura",
+        "Debera": "Deberá",
+        "debera": "deberá",
+        "Evaluacion": "Evaluación",
+        "evaluacion": "evaluación",
+        "Titulo": "Título",
+        "titulo": "título",
+        "Modalidades de Graduacion": "Modalidades de Graduación",
+        "Graduacion": "Graduación",
+        "graduacion": "graduación",
+        "Monografia": "Monografía",
+        "Pasantia": "Pasantía",
+        "Tecnico": "Técnico",
+        "tecnico": "técnico",
+        "Universitario Superior": "Universitario Superior",
+        "Via Diplomado": "Vía Diplomado",
+        "via diplomado": "vía diplomado",
+    }
+
+    for wrong, right in replacements.items():
+        text = text.replace(wrong, right)
+
+    # Limpieza de caracteres basura frecuentes de OCR
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"\n?\s*[%£§¢¬]+\s*\n?", "\n", text)
+    text = re.sub(r"\n?\s*\d+\s*S\s*[’']\s*\n?", "\n", text)
+    text = re.sub(r"\n?\s*Pagina\s+\d+\s+de\s+\d+\s*\n?", "\n", text, flags=re.IGNORECASE)
+
+    # Quitar encabezados OCR frecuentes del reglamento
+    text = re.sub(r"REGLAMENTO GENERAL DE MODALIDADES DE GRADUACI[OÓ]N", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"UNIVERSIDAD CAT[OÓ]LICA BOLIVIANA.*?SAN PABLO", "", text, flags=re.IGNORECASE)
+
+    # Arreglos de espacios antes de puntuación
+    text = re.sub(r"\s+([,.;:])", r"\1", text)
+
+    return text.strip()
+
+
+def normalize_page_text_content(pages: list[dict]) -> list[dict]:
+    normalized_pages = []
+
+    for page in pages:
+        normalized_pages.append(
+            {
+                "page_number": page["page_number"],
+                "text": normalize_ocr_text(page["text"])
+            }
+        )
+
+    return normalized_pages
+
+
+def normalize_pages_text(pages: list[dict]) -> list[dict]:
+    normalized_pages = []
+
+    for page in pages:
+        raw_lines = page["text"].splitlines()
+        cleaned_lines = clean_page_lines(raw_lines)
+
+        normalized_pages.append(
+            {
+                "page_number": page["page_number"],
+                "text": "\n".join(cleaned_lines).strip()
+            }
+        )
+
+    return normalized_pages
+
+
+def split_normative_blocks(pages: list[dict]) -> list[dict]:
+    blocks = []
+    current_block = None
+    current_section = None
+    current_subsection = None
+    chunk_number = 1
+
+    article_pattern = re.compile(r"^(ART[IÍ]CULO\s+\d+[°º]?)", re.IGNORECASE)
+    chapter_pattern = re.compile(r"^(CAP[IÍ]TULO\s+[IVXLC\d]+)", re.IGNORECASE)
+    title_pattern = re.compile(r"^(T[IÍ]TULO\s+[IVXLC\d]+)", re.IGNORECASE)
+
+    for page in pages:
+        page_number = page["page_number"]
+        lines = [line.strip() for line in page["text"].splitlines() if line.strip()]
+
+        for line in lines:
+            if title_pattern.match(line):
+                current_section = line
+                continue
+
+            if chapter_pattern.match(line):
+                current_subsection = line
+                continue
+
+            article_match = article_pattern.match(line)
+
+            if article_match:
+                if current_block and current_block["content"].strip():
+                    blocks.append(current_block)
+                    chunk_number += 1
+
+                current_block = {
+                    "numero_chunk": chunk_number,
+                    "pagina_inicio": page_number,
+                    "pagina_fin": page_number,
+                    "seccion": current_section,
+                    "subseccion": current_subsection,
+                    "articulo_numero": article_match.group(1),
+                    "estrategia_chunking": "estructura_normativa",
+                    "content": line,
+                }
+                continue
+
+            if current_block:
+                current_block["content"] += "\n" + line
+                current_block["pagina_fin"] = page_number
+
+    if current_block and current_block["content"].strip():
+        blocks.append(current_block)
+
+    return refine_normative_blocks(blocks, max_words=180)
+
+def split_large_normative_block(block: dict, max_words: int = 180) -> list[dict]:
+    content = block["content"].strip()
+    paragraphs = [p.strip() for p in content.split("\n") if p.strip()]
+
+    if len(content.split()) <= max_words:
+        return [block]
+
+    sub_blocks = []
+    current_parts = []
+    current_words = 0
+    sub_index = 1
+
+    for paragraph in paragraphs:
+        paragraph_words = len(paragraph.split())
+
+        if current_parts and current_words + paragraph_words > max_words:
+            new_block = block.copy()
+            new_block["content"] = "\n".join(current_parts).strip()
+            new_block["subseccion"] = (
+                f"{block['subseccion']} - parte {sub_index}"
+                if block.get("subseccion")
+                else f"parte {sub_index}"
+            )
+            sub_blocks.append(new_block)
+            sub_index += 1
+            current_parts = [paragraph]
+            current_words = paragraph_words
+        else:
+            current_parts.append(paragraph)
+            current_words += paragraph_words
+
+    if current_parts:
+        new_block = block.copy()
+        new_block["content"] = "\n".join(current_parts).strip()
+        new_block["subseccion"] = (
+            f"{block['subseccion']} - parte {sub_index}"
+            if block.get("subseccion")
+            else f"parte {sub_index}"
+        )
+        sub_blocks.append(new_block)
+
+    return sub_blocks
+
+
+def refine_normative_blocks(blocks: list[dict], max_words: int = 180) -> list[dict]:
+    refined = []
+
+    for block in blocks:
+        refined.extend(split_large_normative_block(block, max_words=max_words))
+
+    for idx, block in enumerate(refined, start=1):
+        block["numero_chunk"] = idx
+
+    return refined
+
+
+def split_lineamiento_blocks(pages: list[dict]) -> list[dict]:
+    blocks = []
+    current_block = None
+    chunk_number = 1
+    current_section = None
+
+    section_pattern = re.compile(r"^[A-Z]\.\s+")
+    numeral_pattern = re.compile(r"^\d+\.\s+")
+
+    for page in pages:
+        page_number = page["page_number"]
+        lines = [line.strip() for line in page["text"].splitlines() if line.strip()]
+
+        for line in lines:
+            if section_pattern.match(line):
+                current_section = line
+
+                if current_block and current_block["content"].strip():
+                    blocks.append(current_block)
+                    chunk_number += 1
+
+                current_block = {
+                    "numero_chunk": chunk_number,
+                    "pagina_inicio": page_number,
+                    "pagina_fin": page_number,
+                    "seccion": current_section,
+                    "subseccion": None,
+                    "articulo_numero": None,
+                    "estrategia_chunking": "lineamiento",
+                    "content": line,
+                }
+                continue
+
+            if numeral_pattern.match(line):
+                if current_block and current_block["content"].strip():
+                    blocks.append(current_block)
+                    chunk_number += 1
+
+                current_block = {
+                    "numero_chunk": chunk_number,
+                    "pagina_inicio": page_number,
+                    "pagina_fin": page_number,
+                    "seccion": current_section,
+                    "subseccion": line[:120],
+                    "articulo_numero": None,
+                    "estrategia_chunking": "lineamiento",
+                    "content": line,
+                }
+                continue
+
+            if current_block:
+                current_block["content"] += "\n" + line
+                current_block["pagina_fin"] = page_number
+
+    if current_block and current_block["content"].strip():
+        blocks.append(current_block)
+
+    return blocks
+
+
+def split_faq_blocks(pages: list[dict]) -> list[dict]:
+    blocks = []
+    chunk_number = 1
+
+    for page in pages:
+        page_number = page["page_number"]
+        raw_text = page["text"].strip()
+
+        if not raw_text:
+            continue
+
+        sections = re.split(r"\n(?=-\s|\w.*:)", raw_text)
+
+        for section in sections:
+            content = section.strip()
+            if not content:
+                continue
+
+            first_line = content.splitlines()[0][:120]
+
+            blocks.append(
+                {
+                    "numero_chunk": chunk_number,
+                    "pagina_inicio": page_number,
+                    "pagina_fin": page_number,
+                    "seccion": "consultas_frecuentes",
+                    "subseccion": first_line,
+                    "articulo_numero": None,
+                    "estrategia_chunking": "faq_tematico",
+                    "content": content,
+                }
+            )
+            chunk_number += 1
+
+    return blocks
+
+
+def estimate_tokens(text: str) -> int:
+    return max(1, int(len(text.split()) * 1.3))
+
+
+def create_embeddings(texts: list[str]) -> list[list[float]]:
+    if not texts:
+        return []
+    return embedding_model.encode(texts).tolist()
+
+
+def ingest_document(
+    db: Session,
+    file_path: str,
+    titulo: str,
+    tipo_documento: str,
+    unidad_origen: str,
+    numero_version: str = "1",
+    descripcion: str | None = None,
+    observacion: str | None = None,
+    chunking_mode: str = "normativo"
+):
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"No existe el archivo: {file_path}")
+
+    file_hash = calculate_file_hash(path)
+    pages = extract_text_by_page(path)
+
+    if not has_meaningful_text(pages):
+        print(f"[INFO] No se encontró texto suficiente en {path.name}. Aplicando OCR...")
+        pages = extract_text_by_page_with_ocr(path)
+
+    pages = normalize_page_text_content(pages)
+    pages = normalize_pages_text(pages)
+
+    documento = DocumentoInstitucional(
+        titulo=titulo,
+        tipo_documento=tipo_documento,
+        descripcion=descripcion,
+        unidad_origen=unidad_origen,
+        estado="activo",
+        ruta_archivo=str(path),
+        hash_archivo=file_hash,
     )
+    db.add(documento)
+    db.flush()
 
-    return len(documents)
+    version = VersionDocumento(
+        id_documento_institucional=documento.id_documento_institucional,
+        numero_version=numero_version,
+        ruta_archivo=str(path),
+        hash_archivo=file_hash,
+        estado="activo",
+        observacion=observacion,
+    )
+    db.add(version)
+    db.flush()
 
+    if chunking_mode == "faq":
+        blocks = split_faq_blocks(pages)
+    elif chunking_mode == "lineamiento":
+        blocks = split_lineamiento_blocks(pages)
+    else:
+        blocks = split_normative_blocks(pages)
 
-def ingest_all_pdfs(reset_vectorstore: bool = False) -> dict:
-    if reset_vectorstore:
-        clear_vectorstore()
+    contents = [block["content"] for block in blocks if block["content"].strip()]
+    embeddings = create_embeddings(contents)
 
-    total_chunks = 0
-    indexed_files = 0
+    for idx, (block, embedding) in enumerate(zip(blocks, embeddings), start=1):
+        chunk = ChunkDocumento(
+            id_version_documento=version.id_version_documento,
+            contenido=block["content"],
+            numero_chunk=idx,
+            pagina_inicio=block["pagina_inicio"],
+            pagina_fin=block["pagina_fin"],
+            seccion=block["seccion"],
+            subseccion=block["subseccion"],
+            articulo_numero=block["articulo_numero"],
+            estrategia_chunking=block["estrategia_chunking"],
+            tokens_aproximados=estimate_tokens(block["content"]),
+            embedding=embedding,
+            activo=True,
+        )
+        db.add(chunk)
 
-    for file_path in DOCUMENTS_DIR.glob("*.pdf"):
-        chunks_count = ingest_pdf(file_path)
-        if chunks_count > 0:
-            indexed_files += 1
-            total_chunks += chunks_count
+    db.flush()
+
+    documento.id_version_actual = version.id_versiono_documento if hasattr(version, "id_versiono_documento") else version.id_version_documento
+    db.commit()
 
     return {
-        "indexed_files": indexed_files,
-        "total_chunks": total_chunks,
+        "documento_id": documento.id_documento_institucional,
+        "version_id": version.id_version_documento,
+        "chunks_creados": len(contents),
+        "archivo": str(path),
     }
 
 
-if __name__ == "__main__":
-    result = ingest_all_pdfs(reset_vectorstore=True)
-    print(
-        f"Documentos indexados: {result['indexed_files']} | "
-        f"Total de chunks indexados: {result['total_chunks']}"
+def ingest_from_documents_dir(
+    db: Session,
+    filename: str,
+    titulo: str,
+    tipo_documento: str,
+    unidad_origen: str,
+    numero_version: str = "1",
+    descripcion: str | None = None,
+    observacion: str | None = None,
+    chunking_mode: str = "normativo"
+):
+    file_path = DOCUMENTS_DIR / filename
+
+    return ingest_document(
+        db=db,
+        file_path=str(file_path),
+        titulo=titulo,
+        tipo_documento=tipo_documento,
+        unidad_origen=unidad_origen,
+        numero_version=numero_version,
+        descripcion=descripcion,
+        observacion=observacion,
+        chunking_mode=chunking_mode,
     )

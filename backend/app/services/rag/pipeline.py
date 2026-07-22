@@ -1,126 +1,153 @@
+import re
+from sqlalchemy.orm import Session
+
+from app.core.config import TOP_K
+from app.services.chat.query_normalization_service import normalize_user_question
+from app.services.chat.query_rewrite_service import rewrite_question_with_history
 from app.services.rag.retriever import retrieve_relevant_chunks
-from app.services.rag.prompt_builder import build_rag_prompt
-from app.services.rag.generator import generate_response
-from app.services.rag.tramites_catalog import get_tramite_by_id
+from app.services.rag.generator import generate_answer
+from app.services.rag.topic_router import detect_allowed_documents
+from app.services.rag.answer_router import try_intent_based_answer
+from app.services.rag.response_builder import build_structured_response, render_response
 
 
-def score_chunk(question: str, chunk_text: str, metadata: dict) -> int:
-    score = 0
+def try_exact_answer(question: str, documents: list[str]) -> dict | None:
+    q = question.lower()
+    combined = "\n".join(documents)
 
-    question_lower = question.lower()
-    chunk_lower = chunk_text.lower()
+    if "nota mínima" in q or "nota minima" in q:
+        match = re.search(
+            r"nota minima de aprobaci[oó]n\s+ser[aá]\s+de\s+(\d+)\s+puntos\s+sobre\s+100",
+            combined,
+            re.IGNORECASE
+        )
+        if match:
+            return build_structured_response(
+                answer_type="quantity",
+                answer_text=f"La nota mínima de aprobación es de {match.group(1)} puntos sobre 100.",
+                grounded=True
+            )
 
-    question_words = [
-        word.strip("¿?.,:;()[]{}\"'").lower()
-        for word in question.split()
-        if len(word.strip("¿?.,:;()[]{}\"'")) > 3
-    ]
+    if "cuántas oportunidades" in q or "cuantas oportunidades" in q:
+        match = re.search(
+            r"tendr[aá]n?\s+(\w+)\s+oportunidades\s+para\s+aprobar\s+la\s+evaluaci[oó]n\s+final",
+            combined,
+            re.IGNORECASE
+        )
+        if match:
+            value = match.group(1).strip().lower()
+            if value == "dos":
+                answer = "Los estudiantes habilitados tienen dos oportunidades para aprobar la evaluación final."
+            else:
+                answer = f"Los estudiantes habilitados tienen {value} oportunidades para aprobar la evaluación final."
 
-    for word in question_words:
-        if word in chunk_lower:
-            score += 2
+            return build_structured_response(
+                answer_type="quantity",
+                answer_text=answer,
+                grounded=True
+            )
 
-    if "requisito" in question_lower or "requisitos" in question_lower:
-        if "requisito" in chunk_lower or "requisitos" in chunk_lower:
-            score += 4
+    if "cuántas horas" in q or "cuantas horas" in q:
+        match = re.search(
+            r"deben\s+cumplir\s+(\d+)\s+horas\s+acad[eé]micas\s+de\s+formaci[oó]n\s+integral",
+            combined,
+            re.IGNORECASE
+        )
+        if match:
+            return build_structured_response(
+                answer_type="quantity",
+                answer_text=f"Un estudiante debe cumplir {match.group(1)} horas académicas de formación integral.",
+                grounded=True
+            )
 
-    if "diploma académico" in question_lower and "diploma académico" in chunk_lower:
-        score += 6
+    if "cuántos talleres" in q or "cuantos talleres" in q or "cuántos cursos" in q or "cuantos cursos" in q:
+        match = re.search(
+            r"deben\s+acreditar\s+(\d+)\s+talleres\s+o\s+cursos\s+completos",
+            combined,
+            re.IGNORECASE
+        )
+        if match:
+            return build_structured_response(
+                answer_type="quantity",
+                answer_text=f"Los estudiantes deben acreditar {match.group(1)} talleres o cursos completos.",
+                grounded=True
+            )
 
-    if "título profesional" in question_lower and "título profesional" in chunk_lower:
-        score += 6
+    if "correo" in q or "beca" in q or "posgrado" in q or "exterior" in q:
+        email_match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", combined)
+        if email_match and ("beca" in q or "posgrado" in q or "exterior" in q):
+            return build_structured_response(
+                answer_type="contact",
+                answer_text=(
+                    f"El estudiante debe comunicarse con la Analista Académica al correo "
+                    f"{email_match.group(0)} y explicar qué documentos le pidieron exactamente."
+                ),
+                grounded=True
+            )
 
-    if "revalidación" in question_lower and "revalidación" in chunk_lower:
-        score += 6
-
-    if metadata.get("article_number"):
-        score += 1
-
-    if metadata.get("chunk_strategy") == "article":
-        score += 1
-
-    return score
+    return None
 
 
-def select_best_chunks(
+def clean_final_answer(answer: str) -> str:
+    answer = re.sub(r"[ \t]+", " ", answer).strip()
+    answer = re.sub(r" *\n *", "\n", answer)
+    answer = answer.replace("Debera", "Deberá")
+    answer = answer.replace("debera", "deberá")
+    answer = answer.replace("por la que", "por la cual")
+    return answer
+
+
+def run_rag_pipeline(
+    db: Session,
     question: str,
-    documents: list[str],
-    metadatas: list[dict],
-    max_chunks: int = 3
-) -> tuple[list[str], list[dict]]:
-    paired = list(zip(documents, metadatas))
+    conversation_history: list[dict[str, str]] | None = None,
+    top_k: int | None = None
+) -> dict:
+    effective_top_k = top_k or TOP_K
 
-    scored = []
-    for doc, meta in paired:
-        scored.append((score_chunk(question, doc, meta), doc, meta))
+    normalized_question = normalize_user_question(question)
 
-    scored.sort(key=lambda item: item[0], reverse=True)
+    standalone_question = rewrite_question_with_history(
+        question=normalized_question,
+        conversation_history=conversation_history or []
+    )
 
-    selected = scored[:max_chunks]
+    allowed_documents = detect_allowed_documents(standalone_question)
 
-    selected_documents = [item[1] for item in selected]
-    selected_metadatas = [item[2] for item in selected]
-
-    return selected_documents, selected_metadatas
-
-
-def run_rag_pipeline(question: str, selected_tramite: str | None = None) -> dict:
-    allowed_documents = None
-
-    if selected_tramite:
-        tramite = get_tramite_by_id(selected_tramite)
-        if tramite:
-            allowed_documents = tramite["document_names"]
-
-    retrieved_documents, retrieved_metadatas = retrieve_relevant_chunks(
-        query=question,
-        top_k=4,
+    documents, metadatas = retrieve_relevant_chunks(
+        db=db,
+        query=standalone_question,
+        top_k=effective_top_k,
         allowed_documents=allowed_documents
     )
 
-    if not retrieved_documents:
+    if not documents:
         return {
             "question": question,
-            "answer": "No se encontró información relevante para responder la consulta.",
-            "sources": [],
-            "selected_tramite": selected_tramite,
+            "standalone_question": standalone_question if standalone_question != normalized_question else None,
+            "answer": "No se encontró información suficiente en los documentos cargados.",
+            "sources": []
         }
 
-    selected_documents, selected_metadatas = select_best_chunks(
-        question=question,
-        documents=retrieved_documents,
-        metadatas=retrieved_metadatas,
-        max_chunks=3
-    )
+    structured_response = try_exact_answer(standalone_question, documents)
 
-    prompt = build_rag_prompt(question, selected_documents, selected_metadatas)
-    answer = generate_response(prompt)
+    if not structured_response:
+        structured_response = try_intent_based_answer(standalone_question, documents)
 
-    sources = []
-    seen = set()
-
-    for meta in selected_metadatas:
-        source_key = (
-            meta.get("source"),
-            meta.get("page"),
-            meta.get("article_number"),
-            meta.get("chunk_strategy"),
+    if not structured_response:
+        llm_answer = generate_answer(question=standalone_question, context_chunks=documents)
+        structured_response = build_structured_response(
+            answer_type="general",
+            answer_text=llm_answer,
+            grounded=True
         )
 
-        if source_key in seen:
-            continue
-        seen.add(source_key)
-
-        sources.append({
-            "document": meta.get("source"),
-            "page": meta.get("page"),
-            "article_number": meta.get("article_number"),
-            "chunk_strategy": meta.get("chunk_strategy"),
-        })
+    answer = render_response(structured_response)
+    answer = clean_final_answer(answer)
 
     return {
         "question": question,
+        "standalone_question": standalone_question if standalone_question != normalized_question else None,
         "answer": answer,
-        "sources": sources,
-        "selected_tramite": selected_tramite,
+        "sources": metadatas
     }

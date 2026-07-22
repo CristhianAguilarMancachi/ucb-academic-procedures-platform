@@ -1,55 +1,88 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
 .header-wrap {
+  height: 80px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 16px 28px;
-  background: rgba(8, 26, 53, 0.92);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0 1.6rem;
+  background:
+    linear-gradient(180deg, #061a31 0%, #071f3b 100%);
+  border-bottom: 1px solid rgba(255, 213, 74, 0.08);
+  box-sizing: border-box;
 }
 
-.header-left h1 {
-  margin: 0;
-  font-size: 1.45rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
+.header-left {
+  min-width: 0;
 
-.header-left p {
-  margin: 4px 0 0;
-  font-size: 0.92rem;
-  color: #aeb9c7;
+  h1 {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #f8fbff;
+    letter-spacing: 0.01em;
+    line-height: 1.15;
+  }
+
+  p {
+    margin: 0.2rem 0 0;
+    font-size: 0.75rem;
+    color: #c2d4e7;
+    line-height: 1.2;
+  }
 }
 
 .header-nav {
   display: flex;
   align-items: center;
-  gap: 22px;
-}
+  gap: 0.35rem;
+  flex-wrap: wrap;
 
-.header-nav a {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #dbe5f1;
-  text-decoration: none;
-  font-size: 0.95rem;
-  font-weight: 500;
-  padding: 8px 4px;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s ease, border-color 0.2s ease;
-}
+  a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.72rem 0.95rem;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #d9e4ef;
+    font-size: 0.73rem;
+    font-weight: 500;
+    transition: 0.2s ease;
+    border: 1px solid transparent;
+    position: relative;
 
-.header-nav a:hover {
-  color: #ffffff;
-}
+    &:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 213, 74, 0.08);
+    }
 
-.header-nav a.active {
-  color: #ffffff;
-  border-bottom-color: #f2b632;
+    &.active {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 213, 74, 0.18);
+    }
+
+    &.active::after {
+      content: '';
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: -1px;
+      height: 2px;
+      border-radius: 999px;
+      background: #ffd54a;
+    }
+  }
 }
 
 .nav-icon {
-  width: 18px;
-  height: 18px;
-  color: #dbe5f1;
+  font-size: 1rem;
+  color: inherit;
+  flex-shrink: 0;
 }
