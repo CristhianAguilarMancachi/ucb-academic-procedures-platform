@@ -60,20 +60,14 @@ def extract_rewritten_question(raw_text: str, fallback_question: str) -> str:
 def rewrite_question_with_history(
     question: str,
     conversation_history: list[dict[str, str]] | None = None,
+    query_type: str = "general",
 ) -> str:
-    """
-    Convierte la pregunta actual en una consulta autónoma.
-    Si no hay historial, devuelve la pregunta tal como vino.
-    Si hay historial, usa el LLM local para reinterpretar la pregunta actual
-    considerando seguimiento conversacional, redacción pobre o ambigüedad moderada.
-    """
     question = question.strip()
 
     if not conversation_history:
         return question
 
     history_text = build_history_text(conversation_history, max_turns=8)
-
     if not history_text:
         return question
 
@@ -81,11 +75,18 @@ def rewrite_question_with_history(
 Tu tarea es convertir la última consulta del usuario en una pregunta autónoma y clara,
 lista para buscar información en documentos institucionales.
 
+Tipo de consulta detectado:
+{query_type}
+
 Reglas:
 - Mantén el idioma en español.
 - Si la consulta ya es autosuficiente, devuélvela casi igual.
-- Si depende del historial, intégralo y conviértela en una pregunta completa.
-- Si la consulta tiene errores menores, redacción pobre o es ambigua pero recuperable, interprétala de la forma más probable usando el historial.
+- Si depende del historial, úsalo solo para resolver referencias como "esa prueba", "eso", "ese trámite", "esa modalidad", "lo anterior".
+- Si la nueva consulta introduce una intención nueva clara, NO arrastres detalles específicos de preguntas anteriores que no se mencionen en la consulta actual.
+- Ejemplos de detalles que NO debes arrastrar salvo que la nueva consulta los mencione: notas específicas como 59, reprobación, inhabilitación, porcentajes, plazos, números concretos o condiciones particulares.
+- Si la consulta está en primera persona, conviértela a una forma objetiva e institucional.
+- Si parece una opinión ("piensas que...", "crees que..."), conviértela en una consulta normativa o académica objetiva.
+- Si la consulta tiene errores menores, redacción pobre o ambigüedad moderada, interprétala de la forma más probable usando el historial.
 - No respondas la pregunta.
 - No expliques nada.
 - No agregues artículos, páginas o referencias normativas.

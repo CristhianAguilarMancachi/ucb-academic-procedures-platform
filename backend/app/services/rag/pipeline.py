@@ -8,6 +8,8 @@ from app.services.rag.retriever import retrieve_relevant_chunks
 from app.services.rag.generator import generate_answer
 from app.services.rag.topic_router import detect_allowed_documents
 from app.services.rag.answer_router import try_intent_based_answer
+from app.services.rag.query_classifier import classify_query
+from app.services.rag.retrieval_hints import get_retrieval_hints
 from app.services.rag.response_builder import build_structured_response, render_response
 
 
@@ -106,22 +108,40 @@ def run_rag_pipeline(
     effective_top_k = top_k or TOP_K
 
     normalized_question = normalize_user_question(question)
+    query_type = classify_query(normalized_question)
 
     standalone_question = rewrite_question_with_history(
         question=normalized_question,
-        conversation_history=conversation_history or []
+        conversation_history=conversation_history or [],
+        query_type=query_type,
     )
 
+    # Si la reformulación sale demasiado larga, probablemente arrastró contexto de más.
+    # En ese caso, priorizamos la versión original normalizada.
+    if len(standalone_question.split()) > max(len(normalized_question.split()) * 3, 24):
+        standalone_question = normalized_question
+
     allowed_documents = detect_allowed_documents(standalone_question)
+    retrieval_hints = get_retrieval_hints(query_type)
 
     documents, metadatas = retrieve_relevant_chunks(
         db=db,
         query=standalone_question,
         top_k=effective_top_k,
-        allowed_documents=allowed_documents
+        allowed_documents=allowed_documents,
+        query_type=query_type,
+        retrieval_hints=retrieval_hints,
     )
 
     if not documents:
+        if query_type == "ambiguous":
+            return {
+                "question": question,
+                "standalone_question": standalone_question if standalone_question != normalized_question else None,
+                "answer": "No se pudo identificar con claridad a qué trámite o situación te refieres. Intenta mencionar el trámite, modalidad o tema.",
+                "sources": []
+            }
+
         return {
             "question": question,
             "standalone_question": standalone_question if standalone_question != normalized_question else None,
@@ -129,13 +149,20 @@ def run_rag_pipeline(
             "sources": []
         }
 
-    structured_response = try_exact_answer(standalone_question, documents)
+    structured_response = None
+
+    if query_type in {"factoid", "contact"}:
+        structured_response = try_exact_answer(standalone_question, documents)
 
     if not structured_response:
         structured_response = try_intent_based_answer(standalone_question, documents)
 
     if not structured_response:
-        llm_answer = generate_answer(question=standalone_question, context_chunks=documents)
+        llm_answer = generate_answer(
+            question=standalone_question,
+            context_chunks=documents,
+            query_type=query_type,
+        )
         structured_response = build_structured_response(
             answer_type="general",
             answer_text=llm_answer,

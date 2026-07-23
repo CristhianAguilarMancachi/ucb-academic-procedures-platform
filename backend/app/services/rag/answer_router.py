@@ -13,14 +13,18 @@ def detect_answer_intent(question: str) -> str:
         or "que ocurre si" in q
         or "qué sucede si" in q
         or "que sucede si" in q
+        or "repruebo" in q
+        or "reprueba" in q
+        or "reprobé" in q
+        or "reprobe" in q
     ):
         return "consequence"
 
     if "qué modalidades" in q or "que modalidades" in q:
         return "list_modalities"
 
-    if "puede" in q or "se puede" in q or "es posible" in q:
-        return "possibility"
+    if "puede" in q or "puedo" in q or "se puede" in q or "es posible" in q:
+        return "eligibility"
 
     if "correo" in q or "contact" in q or "beca" in q or "posgrado" in q or "exterior" in q:
         return "contact"
@@ -35,26 +39,29 @@ def try_intent_based_answer(question: str, documents: list[str]) -> dict | None:
 
     if intent == "consequence":
         consequence_patterns = [
-            r"no habilitaci[oó]n a la evaluaci[oó]n final significa que el estudiante deber[aá] volver a cursar la asignatura",
+            r"no existe otra oportunidad",
+            r"solo una vez por asignatura",
             r"deber[aá]\s+volver\s+a\s+cursar\s+la\s+asignatura",
             r"equivale\s+a\s+la\s+reprobaci[oó]n\s+de\s+la\s+asignatura",
         ]
 
+        matches = []
         for pattern in consequence_patterns:
             match = re.search(pattern, combined, re.IGNORECASE)
             if match:
-                sentence = match.group(0).strip()
-                sentence = re.sub(r"\s+", " ", sentence)
-                sentence = sentence[0].upper() + sentence[1:]
-                if not sentence.endswith("."):
-                    sentence += "."
-                return build_structured_response(
-                    answer_type="consequence",
-                    answer_text=sentence,
-                    grounded=True
-                )
+                matches.append(match.group(0).strip())
 
-    if intent == "possibility":
+        if matches:
+            sentence = ". ".join(dict.fromkeys(m.capitalize() for m in matches))
+            if not sentence.endswith("."):
+                sentence += "."
+            return build_structured_response(
+                answer_type="consequence",
+                answer_text=sentence,
+                grounded=True
+            )
+
+    if intent == "eligibility":
         if "excelencia" in q and "inhabilit" in q:
             if "inhabilitaciones cuentan como reprobaciones" in combined.lower():
                 return build_structured_response(
