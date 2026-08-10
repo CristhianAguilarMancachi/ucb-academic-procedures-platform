@@ -1,0 +1,11 @@
+<section>
+  <h1>Verificación de correo</h1>
+
+  <p>{{ mensaje }}</p>
+
+  @if (!cargando && exitoso) {
+    <a routerLink="/login">
+      Iniciar sesión
+    </a>
+  }
+</section>

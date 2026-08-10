@@ -1,0 +1,249 @@
+<section>
+
+  <h1>Administración de usuarios</h1>
+
+  <p>
+    Consulta y administra las cuentas registradas
+    en el sistema.
+  </p>
+
+
+  <form
+    [formGroup]="formulario"
+    (ngSubmit)="buscar()"
+  >
+
+    <div>
+
+      <label for="busqueda">
+        Buscar
+      </label>
+
+      <input
+        id="busqueda"
+        type="text"
+        formControlName="busqueda"
+        placeholder="Nombre o correo"
+      />
+
+    </div>
+
+
+    <div>
+
+      <label for="estado">
+        Estado
+      </label>
+
+      <select
+        id="estado"
+        formControlName="estado"
+      >
+
+        <option value="">
+          Todos
+        </option>
+
+        <option value="activo">
+          Activo
+        </option>
+
+        <option value="pendiente_verificacion">
+          Pendiente de verificación
+        </option>
+
+        <option value="bloqueado">
+          Bloqueado
+        </option>
+
+        <option value="inactivo">
+          Inactivo
+        </option>
+
+      </select>
+
+    </div>
+
+
+    <button type="submit">
+      Buscar
+    </button>
+
+
+    <button
+      type="button"
+      (click)="limpiarFiltros()"
+    >
+      Limpiar
+    </button>
+
+  </form>
+
+
+  @if (cargando()) {
+
+    <p>
+      Cargando usuarios...
+    </p>
+
+  }
+
+
+  @if (error()) {
+
+    <p>
+      {{ error() }}
+    </p>
+
+  }
+
+
+  @if (!cargando() && !error()) {
+
+    <p>
+      Total de usuarios:
+      {{ total() }}
+    </p>
+
+
+    @if (usuarios().length === 0) {
+
+      <p>
+        No se encontraron usuarios.
+      </p>
+
+    }
+
+
+    @if (usuarios().length > 0) {
+
+      <table>
+
+        <thead>
+
+          <tr>
+            <th>
+              Nombre
+            </th>
+
+            <th>
+              Estado
+            </th>
+
+            <th>
+              Último acceso
+            </th>
+
+            <th>
+              Fecha de registro
+            </th>
+
+            <th>
+              Acciones
+            </th>
+          </tr>
+
+        </thead>
+
+
+        <tbody>
+
+          @for (
+            usuario of usuarios();
+            track usuario.id_usuario
+          ) {
+
+            <tr>
+
+              <td>
+                {{
+                  usuario.nombres
+                }}
+                {{
+                  usuario.apellidos
+                }}
+              </td>
+
+              <td>
+                {{
+                  usuario.estado
+                }}
+              </td>
+
+              <td>
+
+                @if (
+                  usuario.fecha_ultimo_acceso
+                ) {
+
+                  {{
+                    usuario.fecha_ultimo_acceso
+                    | date:'dd/MM/yyyy HH:mm'
+                  }}
+
+                } @else {
+
+                  Sin acceso registrado
+
+                }
+
+              </td>
+
+              <td>
+                {{
+                  usuario.fecha_creacion
+                  | date:'dd/MM/yyyy HH:mm'
+                }}
+              </td>
+
+              <td>
+
+                <button
+                  type="button"
+                  (click)="verDetalle(usuario)"
+                >
+                  Ver detalle
+                </button>
+
+              </td>
+
+            </tr>
+
+          }
+
+        </tbody>
+
+      </table>
+
+    }
+
+
+    <div>
+
+      <button
+        type="button"
+        (click)="paginaAnterior()"
+        [disabled]="!hayPaginaAnterior()"
+      >
+        Anterior
+      </button>
+
+
+      <span>
+        Página {{ pagina() }}
+      </span>
+
+
+      <button
+        type="button"
+        (click)="paginaSiguiente()"
+        [disabled]="!hayPaginaSiguiente()"
+      >
+        Siguiente
+      </button>
+
+    </div>
+
+  }
+
+</section>

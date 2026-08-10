@@ -1,0 +1,344 @@
+<section>
+
+  <button
+    type="button"
+    (click)="volver()"
+  >
+    Volver a usuarios
+  </button>
+
+
+  <h1>
+    Detalle del usuario
+  </h1>
+
+
+  @if (cargando()) {
+
+    <p>
+      Cargando usuario...
+    </p>
+
+  }
+
+
+  @if (error()) {
+
+    <p>
+      {{ error() }}
+    </p>
+
+  }
+
+
+  @if (mensaje()) {
+
+    <p>
+      {{ mensaje() }}
+    </p>
+
+  }
+
+
+  @if (
+    usuario();
+    as usuarioActual
+  ) {
+
+    @if (!cargando()) {
+
+      <div>
+
+        <h2>
+          Información general
+        </h2>
+
+
+        <p>
+          <strong>Nombre:</strong>
+
+          {{ usuarioActual.nombres }}
+          {{ usuarioActual.apellidos }}
+        </p>
+
+
+        <p>
+          <strong>Estado:</strong>
+
+          {{ usuarioActual.estado }}
+        </p>
+
+
+        <p>
+          <strong>Fecha de registro:</strong>
+
+          {{
+            usuarioActual.fecha_creacion
+            | date:'dd/MM/yyyy HH:mm'
+          }}
+        </p>
+
+
+        <p>
+          <strong>Último acceso:</strong>
+
+          @if (
+            usuarioActual.fecha_ultimo_acceso
+          ) {
+
+            {{
+              usuarioActual.fecha_ultimo_acceso
+              | date:'dd/MM/yyyy HH:mm'
+            }}
+
+          } @else {
+
+            Sin acceso registrado
+
+          }
+        </p>
+
+      </div>
+
+
+      <hr />
+
+
+      <div>
+
+        <h2>
+          Correos
+        </h2>
+
+
+        @if (
+          usuarioActual.correos.length === 0
+        ) {
+
+          <p>
+            No existen correos registrados.
+          </p>
+
+        }
+
+
+        @for (
+          correo of usuarioActual.correos;
+          track correo.id_usuario_correo
+        ) {
+
+          <div>
+
+            <p>
+              <strong>Correo:</strong>
+              {{ correo.correo }}
+            </p>
+
+
+            <p>
+              <strong>Tipo:</strong>
+              {{ correo.tipo }}
+            </p>
+
+
+            <p>
+              <strong>Principal:</strong>
+              {{ correo.es_principal ? 'Sí' : 'No' }}
+            </p>
+
+
+            <p>
+              <strong>Verificado:</strong>
+              {{ correo.verificado ? 'Sí' : 'No' }}
+            </p>
+
+          </div>
+
+        }
+
+      </div>
+
+
+      <hr />
+
+
+      <div>
+
+        <h2>
+          Roles
+        </h2>
+
+
+        @if (
+          usuarioActual.roles.length === 0
+        ) {
+
+          <p>
+            El usuario no tiene roles activos.
+          </p>
+
+        }
+
+
+        @for (
+          rol of usuarioActual.roles;
+          track rol.id_rol
+        ) {
+
+          <div>
+
+            <strong>
+              {{ rol.nombre }}
+            </strong>
+
+            @if (rol.descripcion) {
+
+              <p>
+                {{ rol.descripcion }}
+              </p>
+
+            }
+
+
+            <button
+              type="button"
+              (click)="revocarRol(rol)"
+              [disabled]="procesando()"
+            >
+              Quitar rol
+            </button>
+
+          </div>
+
+        }
+
+
+        <h3>
+          Asignar rol
+        </h3>
+
+
+        <form
+          [formGroup]="formularioRol"
+          (ngSubmit)="asignarRol()"
+        >
+
+          <select
+            formControlName="id_rol"
+          >
+
+            <option [ngValue]="0">
+              Selecciona un rol
+            </option>
+
+
+            @for (
+              rol of rolesDisponibles();
+              track rol.id_rol
+            ) {
+
+              <option
+                [ngValue]="rol.id_rol"
+                [disabled]="tieneRol(rol.id_rol)"
+              >
+                {{ rol.nombre }}
+              </option>
+
+            }
+
+          </select>
+
+
+          <button
+            type="submit"
+            [disabled]="procesando()"
+          >
+            Asignar rol
+          </button>
+
+        </form>
+
+      </div>
+
+
+      <hr />
+
+
+      <div>
+
+        <h2>
+          Estado de la cuenta
+        </h2>
+
+
+        <form
+          [formGroup]="formularioEstado"
+          (ngSubmit)="cambiarEstado()"
+        >
+
+          <div>
+
+            <label for="estado">
+              Estado
+            </label>
+
+
+            <select
+              id="estado"
+              formControlName="estado"
+            >
+
+              <option value="activo">
+                Activo
+              </option>
+
+              <option value="bloqueado">
+                Bloqueado
+              </option>
+
+              <option value="inactivo">
+                Inactivo
+              </option>
+
+              <option value="pendiente_verificacion">
+                Pendiente de verificación
+              </option>
+
+            </select>
+
+          </div>
+
+
+          <div>
+
+            <label for="motivo">
+              Motivo
+            </label>
+
+
+            <input
+              id="motivo"
+              type="text"
+              formControlName="motivo"
+              placeholder="Motivo del cambio"
+            />
+
+          </div>
+
+
+          <button
+            type="submit"
+            [disabled]="procesando()"
+          >
+            Actualizar estado
+          </button>
+
+        </form>
+
+      </div>
+
+    }
+
+  }
+
+</section>

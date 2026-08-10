@@ -1,0 +1,59 @@
+<section>
+  <h1>Iniciar sesión</h1>
+
+  <form
+    [formGroup]="formulario"
+    (ngSubmit)="iniciarSesion()"
+  >
+    <div>
+      <label for="correo">Correo</label>
+      <input
+        id="correo"
+        type="email"
+        formControlName="correo"
+        autocomplete="email"
+      />
+
+      @if (
+        formulario.controls.correo.touched &&
+        formulario.controls.correo.invalid
+      ) {
+        <small>Ingresa un correo válido.</small>
+      }
+    </div>
+
+    <div>
+      <label for="contrasena">Contraseña</label>
+      <input
+        id="contrasena"
+        type="password"
+        formControlName="contrasena"
+        autocomplete="current-password"
+      />
+    </div>
+
+    @if (error) {
+      <p>{{ error }}</p>
+    }
+
+    <button
+      type="submit"
+      [disabled]="cargando"
+    >
+      {{ cargando ? 'Ingresando...' : 'Iniciar sesión' }}
+    </button>
+  </form>
+
+  <p>
+    <a routerLink="/recuperar-contrasena">
+      ¿Olvidaste tu contraseña?
+    </a>
+  </p>
+
+  <p>
+    ¿No tienes una cuenta?
+    <a routerLink="/registro">
+      Registrarse
+    </a>
+  </p>
+</section>

@@ -1,0 +1,90 @@
+<section>
+  <h1>Mi perfil</h1>
+
+  @if (cargando()) {
+    <p>Cargando perfil...</p>
+  }
+
+  @if (error()) {
+    <p>{{ error() }}</p>
+  }
+
+  @if (usuario(); as usuarioActual) {
+
+    @if (!cargando()) {
+      <div>
+        <p>
+          <strong>Correo principal:</strong>
+          {{ obtenerCorreoPrincipal() }}
+        </p>
+
+        <p>
+          <strong>Correo verificado:</strong>
+          {{ correoPrincipalVerificado() ? 'Sí' : 'No' }}
+        </p>
+
+        <p>
+          <strong>Estado:</strong>
+          {{ usuarioActual.estado }}
+        </p>
+
+        <p>
+          <strong>Roles:</strong>
+
+          @for (
+            rol of usuarioActual.roles;
+            track rol.id_rol
+          ) {
+            <span>{{ rol.nombre }} </span>
+          }
+        </p>
+      </div>
+
+      <h2>Datos personales</h2>
+
+      <form
+        [formGroup]="formulario"
+        (ngSubmit)="guardarCambios()"
+      >
+        <div>
+          <label for="nombres">
+            Nombres
+          </label>
+
+          <input
+            id="nombres"
+            type="text"
+            formControlName="nombres"
+          />
+        </div>
+
+        <div>
+          <label for="apellidos">
+            Apellidos
+          </label>
+
+          <input
+            id="apellidos"
+            type="text"
+            formControlName="apellidos"
+          />
+        </div>
+
+        @if (mensaje()) {
+          <p>{{ mensaje() }}</p>
+        }
+
+        <button
+          type="submit"
+          [disabled]="guardando()"
+        >
+          {{
+            guardando()
+              ? 'Guardando...'
+              : 'Guardar cambios'
+          }}
+        </button>
+      </form>
+    }
+  }
+</section>

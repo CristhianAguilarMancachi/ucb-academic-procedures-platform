@@ -12,3 +12,6 @@ pgvector
 pytesseract
 pdf2image
 Pillow
+email-validator
+pwdlib[argon2]
+PyJWT

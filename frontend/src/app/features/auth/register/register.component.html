@@ -1,0 +1,80 @@
+<section>
+  <h1>Crear cuenta</h1>
+
+  <form
+    [formGroup]="formulario"
+    (ngSubmit)="registrar()"
+  >
+    <div>
+      <label for="nombres">Nombres</label>
+      <input
+        id="nombres"
+        type="text"
+        formControlName="nombres"
+      />
+    </div>
+
+    <div>
+      <label for="apellidos">Apellidos</label>
+      <input
+        id="apellidos"
+        type="text"
+        formControlName="apellidos"
+      />
+    </div>
+
+    <div>
+      <label for="correo">Correo</label>
+      <input
+        id="correo"
+        type="email"
+        formControlName="correo"
+      />
+    </div>
+
+    <div>
+      <label for="contrasena">Contraseña</label>
+      <input
+        id="contrasena"
+        type="password"
+        formControlName="contrasena"
+      />
+    </div>
+
+    <div>
+      <label for="confirmar">
+        Confirmar contraseña
+      </label>
+
+      <input
+        id="confirmar"
+        type="password"
+        formControlName="confirmar_contrasena"
+      />
+    </div>
+
+    @if (error) {
+      <p>{{ error }}</p>
+    }
+
+    @if (mensaje) {
+      <p>{{ mensaje }}</p>
+
+      <p>
+        Revisa tu correo para verificar la cuenta antes
+        de iniciar sesión.
+      </p>
+    }
+
+    <button
+      type="submit"
+      [disabled]="cargando"
+    >
+      {{ cargando ? 'Creando cuenta...' : 'Registrarse' }}
+    </button>
+  </form>
+
+  <a routerLink="/login">
+    Ya tengo una cuenta
+  </a>
+</section>
