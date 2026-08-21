@@ -68,6 +68,36 @@ def get_bool_env(
     )
 
 
+def get_positive_float_env(
+    name: str,
+    default: float,
+) -> float:
+    """
+    Obtiene una variable numérica decimal mayor que cero.
+    """
+    value = os.getenv(name)
+
+    if value is None or not value.strip():
+        return default
+
+    try:
+        result = float(
+            value.strip()
+        )
+    except ValueError as exc:
+        raise RuntimeError(
+            f"La variable {name!r} debe contener "
+            "un valor numérico."
+        ) from exc
+
+    if result <= 0:
+        raise RuntimeError(
+            f"La variable {name!r} debe ser mayor que cero."
+        )
+
+    return result
+
+
 # ============================================================
 # BASE DE DATOS
 # ============================================================
@@ -117,6 +147,53 @@ TOP_K = int(
         "4",
     )
 )
+
+
+# ============================================================
+# API EXTERNA DE PAGOS / FACTURACIÓN
+# ============================================================
+#
+# En desarrollo:
+#     PAGO_API_BASE_URL=http://mock_pago_api:9000
+#
+# En producción:
+#     PAGO_API_BASE_URL=<URL proporcionada institucionalmente>
+#
+# Ninguna URL, código de concepto ni credencial se almacena
+# directamente en la lógica de negocio.
+# ============================================================
+
+PAGO_API_BASE_URL = get_required_env(
+    "PAGO_API_BASE_URL"
+).rstrip("/")
+
+
+PAGO_API_VALIDAR_PATH = os.getenv(
+    "PAGO_API_VALIDAR_PATH",
+    "/api/v1/facturas/validar",
+).strip()
+
+if not PAGO_API_VALIDAR_PATH:
+    raise RuntimeError(
+        "PAGO_API_VALIDAR_PATH no puede estar vacío."
+    )
+
+if not PAGO_API_VALIDAR_PATH.startswith("/"):
+    PAGO_API_VALIDAR_PATH = (
+        "/" + PAGO_API_VALIDAR_PATH
+    )
+
+
+PAGO_API_TIMEOUT = get_positive_float_env(
+    "PAGO_API_TIMEOUT",
+    default=10.0,
+)
+
+
+PAGO_API_TOKEN = os.getenv(
+    "PAGO_API_TOKEN",
+    "",
+).strip()
 
 
 # ============================================================
@@ -241,6 +318,7 @@ LOGIN_ATTEMPT_WINDOW_MINUTES = int(
     )
 )
 
+
 # ============================================================
 # CORREO ELECTRÓNICO
 # ============================================================
@@ -298,6 +376,7 @@ if SMTP_USE_TLS and SMTP_USE_SSL:
         "SMTP_USE_TLS y SMTP_USE_SSL no pueden estar "
         "activados simultáneamente."
     )
+
 
 # ============================================================
 # CORS

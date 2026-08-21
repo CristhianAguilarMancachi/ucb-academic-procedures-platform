@@ -56,6 +56,53 @@ services:
       timeout: 10s
       retries: 5
 
+  # ==========================================================
+  # API EXTERNA SIMULADA DE PAGOS / FACTURACION
+  # ==========================================================
+  #
+  # Este servicio representa durante desarrollo al sistema
+  # externo de pagos que posteriormente sera sustituido por
+  # la API institucional.
+  #
+  # El backend se comunica con este servicio exclusivamente
+  # mediante HTTP.
+  # ==========================================================
+
+  mock_pago_api:
+    build:
+      context: ./backend
+    container_name: ucb_mock_pago_api
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    command:
+      [
+        "uvicorn",
+        "mock_pago_api.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "9000"
+      ]
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./backend:/app
+      - mock_pago_data:/app/mock_pago_api/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:9000/health', timeout=3)"
+        ]
+      start_interval: 2s
+      start_period: 10s
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -72,6 +119,8 @@ services:
         condition: service_healthy
       ollama:
         condition: service_started
+      mock_pago_api:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -115,3 +164,4 @@ volumes:
   postgres_data:
   pgadmin_data:
   ollama_data:
+  mock_pago_data:
