@@ -10,8 +10,8 @@ export class RagService {
   private http = inject(HttpClient);
 
   // La solicitud se realiza al mismo dominio desde el cual se abre el frontend.
-  // Nginx redirige /rag/query hacia el backend FastAPI.
-  private apiUrl = '/rag/query';
+  // Nginx redirige /api hacia el backend FastAPI.
+  private readonly apiUrl = '/api/rag/query';
 
   query(body: RagQueryRequest): Observable<RagQueryResponse> {
     return this.http.post<RagQueryResponse>(this.apiUrl, body);
