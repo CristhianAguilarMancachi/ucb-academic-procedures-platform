@@ -82,6 +82,7 @@ def obtener_token_verificacion_disponible(
     *,
     token_hash: str,
     fecha_actual: datetime,
+    bloquear: bool = False,
 ) -> TokenVerificacionCorreo | None:
     """
     Busca un token que todavía pueda utilizarse.
@@ -107,6 +108,11 @@ def obtener_token_verificacion_disponible(
         )
     )
 
+    if bloquear:
+        consulta = consulta.with_for_update().execution_options(
+            populate_existing=True,
+        )
+
     return db.scalars(consulta).one_or_none()
 
 
@@ -115,6 +121,7 @@ def listar_tokens_correo(
     id_usuario_correo: int,
     *,
     solo_pendientes: bool = False,
+    desde: datetime | None = None,
     fecha_actual: datetime | None = None,
 ) -> Sequence[TokenVerificacionCorreo]:
     """
@@ -126,6 +133,9 @@ def listar_tokens_correo(
         TokenVerificacionCorreo.id_usuario_correo
         == id_usuario_correo,
     )
+
+    if desde is not None:
+        consulta = consulta.where(TokenVerificacionCorreo.fecha_creacion > desde)
 
     if solo_pendientes:
         if fecha_actual is None:

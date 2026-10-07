@@ -1,11 +1,12 @@
+-- ESQUEMA MAESTRO DE REFERENCIA: acceso/cuenta y M03 Fases 1–6.
+-- Creación desde cero. NO ejecutar sobre una base existente.
+-- Para actualizar Fases 1–3 usar exclusivamente el SQL manual de Fases 4–6.
+-- No contiene personas ni flujos institucionales de ejemplo.
+-- Conserva el alcance previo de este archivo; el esquema RAG/chat se gestiona aparte.
 BEGIN;
 
+
 CREATE EXTENSION IF NOT EXISTS citext;
-
-
--- =========================================================
--- FUNCION: ACTUALIZAR FECHA DE MODIFICACION
--- =========================================================
 
 CREATE OR REPLACE FUNCTION actualizar_fecha_actualizacion()
 RETURNS TRIGGER AS $$
@@ -15,15 +16,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
--- =========================================================
--- TABLA: USUARIO
--- =========================================================
-
+-- USUARIO
 CREATE TABLE usuario (
     id_usuario BIGSERIAL PRIMARY KEY,
 
     nombres VARCHAR(100) NOT NULL,
+
     apellidos VARCHAR(100) NOT NULL,
 
     contrasena_hash TEXT,
@@ -56,22 +54,7 @@ CREATE TABLE usuario (
         )
 );
 
-
-CREATE TRIGGER trg_usuario_fecha_actualizacion
-BEFORE UPDATE ON usuario
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-CREATE INDEX idx_usuario_estado
-    ON usuario (estado);
-
-
-
--- =========================================================
--- TABLA: USUARIO_CORREO
--- =========================================================
-
+-- USUARIO_CORREO
 CREATE TABLE usuario_correo (
     id_usuario_correo BIGSERIAL PRIMARY KEY,
 
@@ -125,32 +108,7 @@ CREATE TABLE usuario_correo (
         )
 );
 
-
-CREATE TRIGGER trg_usuario_correo_fecha_actualizacion
-BEFORE UPDATE ON usuario_correo
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-CREATE UNIQUE INDEX uq_usuario_correo_principal_activo
-    ON usuario_correo (id_usuario)
-    WHERE es_principal = TRUE
-      AND activo = TRUE;
-
-
-CREATE INDEX idx_usuario_correo_usuario
-    ON usuario_correo (id_usuario);
-
-
-CREATE INDEX idx_usuario_correo_busqueda
-    ON usuario_correo (correo);
-
-
-
--- =========================================================
--- TABLA: ROL
--- =========================================================
-
+-- ROL
 CREATE TABLE rol (
     id_rol BIGSERIAL PRIMARY KEY,
 
@@ -173,18 +131,7 @@ CREATE TABLE rol (
         CHECK (LENGTH(TRIM(nombre)) >= 3)
 );
 
-
-CREATE TRIGGER trg_rol_fecha_actualizacion
-BEFORE UPDATE ON rol
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-
--- =========================================================
--- TABLA: USUARIO_ROL
--- =========================================================
-
+-- USUARIO_ROL
 CREATE TABLE usuario_rol (
     id_usuario_rol BIGSERIAL PRIMARY KEY,
 
@@ -231,24 +178,7 @@ CREATE TABLE usuario_rol (
         )
 );
 
-
-CREATE INDEX idx_usuario_rol_usuario
-    ON usuario_rol (id_usuario);
-
-
-CREATE INDEX idx_usuario_rol_rol
-    ON usuario_rol (id_rol);
-
-
-CREATE INDEX idx_usuario_rol_activo
-    ON usuario_rol (id_usuario, activo);
-
-
-
--- =========================================================
--- TABLA: SESION_USUARIO
--- =========================================================
-
+-- SESION_USUARIO
 CREATE TABLE sesion_usuario (
     id_sesion BIGSERIAL PRIMARY KEY,
 
@@ -296,28 +226,7 @@ CREATE TABLE sesion_usuario (
         )
 );
 
-
-CREATE INDEX idx_sesion_usuario
-    ON sesion_usuario (id_usuario);
-
-
-CREATE INDEX idx_sesion_usuario_vigente
-    ON sesion_usuario (
-        id_usuario,
-        fecha_expiracion
-    )
-    WHERE fecha_revocacion IS NULL;
-
-
-CREATE INDEX idx_sesion_expiracion
-    ON sesion_usuario (fecha_expiracion);
-
-
-
--- =========================================================
--- TABLA: TOKEN_VERIFICACION_CORREO
--- =========================================================
-
+-- TOKEN_VERIFICACION_CORREO
 CREATE TABLE token_verificacion_correo (
     id_token_verificacion BIGSERIAL PRIMARY KEY,
 
@@ -360,22 +269,7 @@ CREATE TABLE token_verificacion_correo (
         )
 );
 
-
-CREATE INDEX idx_token_verificacion_correo
-    ON token_verificacion_correo (id_usuario_correo);
-
-
-CREATE INDEX idx_token_verificacion_expiracion
-    ON token_verificacion_correo (fecha_expiracion)
-    WHERE fecha_utilizacion IS NULL
-      AND fecha_revocacion IS NULL;
-
-
-
--- =========================================================
--- TABLA: TOKEN_RECUPERACION_CONTRASENA
--- =========================================================
-
+-- TOKEN_RECUPERACION_CONTRASENA
 CREATE TABLE token_recuperacion_contrasena (
     id_token_recuperacion BIGSERIAL PRIMARY KEY,
 
@@ -418,22 +312,7 @@ CREATE TABLE token_recuperacion_contrasena (
         )
 );
 
-
-CREATE INDEX idx_token_recuperacion_usuario
-    ON token_recuperacion_contrasena (id_usuario);
-
-
-CREATE INDEX idx_token_recuperacion_expiracion
-    ON token_recuperacion_contrasena (fecha_expiracion)
-    WHERE fecha_utilizacion IS NULL
-      AND fecha_revocacion IS NULL;
-
-
-
--- =========================================================
--- TABLA: EVENTO_AUTENTICACION
--- =========================================================
-
+-- EVENTO_AUTENTICACION
 CREATE TABLE evento_autenticacion (
     id_evento_autenticacion BIGSERIAL PRIMARY KEY,
 
@@ -476,35 +355,7 @@ CREATE TABLE evento_autenticacion (
         )
 );
 
-
-CREATE INDEX idx_evento_autenticacion_usuario
-    ON evento_autenticacion (id_usuario);
-
-
-CREATE INDEX idx_evento_autenticacion_correo_fecha
-    ON evento_autenticacion (
-        correo_intentado,
-        fecha_evento DESC
-    );
-
-
-CREATE INDEX idx_evento_autenticacion_ip_fecha
-    ON evento_autenticacion (
-        direccion_ip,
-        fecha_evento DESC
-    );
-
-
-CREATE INDEX idx_evento_autenticacion_fallido
-    ON evento_autenticacion (fecha_evento DESC)
-    WHERE exitoso = FALSE;
-
-
-
--- =========================================================
--- TABLA: AUDITORIA
--- =========================================================
-
+-- AUDITORIA
 CREATE TABLE auditoria (
     id_auditoria BIGSERIAL PRIMARY KEY,
 
@@ -541,231 +392,7 @@ CREATE TABLE auditoria (
         CHECK (LENGTH(TRIM(modulo)) >= 3)
 );
 
-
-CREATE INDEX idx_auditoria_usuario
-    ON auditoria (id_usuario_actor);
-
-
-CREATE INDEX idx_auditoria_fecha
-    ON auditoria (fecha_evento DESC);
-
-
-CREATE INDEX idx_auditoria_modulo
-    ON auditoria (
-        modulo,
-        fecha_evento DESC
-    );
-
-
-CREATE INDEX idx_auditoria_entidad
-    ON auditoria (
-        entidad,
-        id_entidad
-    );
-
-
-
--- =========================================================
--- REGISTROS: ROL
--- =========================================================
-
-INSERT INTO rol (
-    id_rol,
-    nombre,
-    descripcion,
-    activo
-)
-VALUES
-    (
-        1,
-        'solicitante',
-        'Usuario que consulta información y solicita o realiza seguimiento de trámites.',
-        TRUE
-    ),
-    (
-        2,
-        'personal_administrativo',
-        'Personal autorizado para revisar, gestionar y actualizar trámites.',
-        TRUE
-    ),
-    (
-        3,
-        'administrador',
-        'Usuario autorizado para administrar cuentas, roles y configuración del sistema.',
-        TRUE
-    );
-
-
-
--- =========================================================
--- REGISTROS: USUARIO
--- =========================================================
-
-INSERT INTO usuario (
-    id_usuario,
-    nombres,
-    apellidos,
-    contrasena_hash,
-    estado
-)
-VALUES
-    (
-        1,
-        'Usuario',
-        'Prueba',
-        '<HASH_ARGON2_USUARIO_PRUEBA>',
-        'activo'
-    ),
-    (
-        2,
-        'Usuario',
-        'Secundario',
-        '<HASH_ARGON2_USUARIO_SECUNDARIO>',
-        'activo'
-    );
-
-
-
--- =========================================================
--- REGISTROS: USUARIO_CORREO
--- =========================================================
-
-INSERT INTO usuario_correo (
-    id_usuario_correo,
-    id_usuario,
-    correo,
-    tipo,
-    es_principal,
-    verificado,
-    activo,
-    fecha_verificacion
-)
-VALUES
-    (
-        1,
-        1,
-        'usuario.prueba@ucb.edu.bo',
-        'institucional',
-        TRUE,
-        TRUE,
-        TRUE,
-        CURRENT_TIMESTAMP
-    ),
-    (
-        2,
-        2,
-        'usuario.secundario@ucb.edu.bo',
-        'institucional',
-        TRUE,
-        FALSE,
-        TRUE,
-        NULL
-    );
-
-
-
--- =========================================================
--- REGISTROS: USUARIO_ROL
--- =========================================================
-
-INSERT INTO usuario_rol (
-    id_usuario_rol,
-    id_usuario,
-    id_rol,
-    activo,
-    asignado_por
-)
-VALUES
-    (
-        1,
-        1,
-        1,
-        TRUE,
-        NULL
-    ),
-    (
-        2,
-        1,
-        3,
-        TRUE,
-        NULL
-    ),
-    (
-        3,
-        2,
-        1,
-        TRUE,
-        NULL
-    );
-
-
-
--- =========================================================
--- AJUSTE DE SECUENCIAS
--- =========================================================
-
-SELECT setval(
-    pg_get_serial_sequence('usuario', 'id_usuario'),
-    (SELECT MAX(id_usuario) FROM usuario)
-);
-
-SELECT setval(
-    pg_get_serial_sequence('usuario_correo', 'id_usuario_correo'),
-    (SELECT MAX(id_usuario_correo) FROM usuario_correo)
-);
-
-SELECT setval(
-    pg_get_serial_sequence('rol', 'id_rol'),
-    (SELECT MAX(id_rol) FROM rol)
-);
-
-SELECT setval(
-    pg_get_serial_sequence('usuario_rol', 'id_usuario_rol'),
-    (SELECT MAX(id_usuario_rol) FROM usuario_rol)
-);
-
-
-COMMIT;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- =========================================================
--- MODULO: GESTION Y SEGUIMIENTO
--- FASE 1: CATALOGO Y CONFIGURACION
--- =========================================================
---
--- Este bloque agrega la estructura base del modulo de
--- gestion y seguimiento de tramites.
---
--- IMPORTANTE:
--- La tabla tramite_etapa se crea como estructura configurable.
--- No se cargan procesos internos de tramites mientras estos
--- no hayan sido confirmados institucionalmente.
--- =========================================================
-
-BEGIN;
--- =========================================================
--- TABLA: UNIDAD_ADMINISTRATIVA
--- =========================================================
-
+-- UNIDAD_ADMINISTRATIVA
 CREATE TABLE unidad_administrativa (
     id_unidad BIGSERIAL PRIMARY KEY,
 
@@ -789,22 +416,7 @@ CREATE TABLE unidad_administrativa (
         CHECK (LENGTH(TRIM(nombre)) >= 3)
 );
 
-
-CREATE TRIGGER trg_unidad_administrativa_fecha_actualizacion
-BEFORE UPDATE ON unidad_administrativa
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-CREATE INDEX idx_unidad_administrativa_activo
-    ON unidad_administrativa (activo);
-
-
-
--- =========================================================
--- TABLA: USUARIO_UNIDAD
--- =========================================================
-
+-- USUARIO_UNIDAD
 CREATE TABLE usuario_unidad (
     id_usuario_unidad BIGSERIAL PRIMARY KEY,
 
@@ -853,27 +465,7 @@ CREATE TABLE usuario_unidad (
         )
 );
 
-
-CREATE INDEX idx_usuario_unidad_usuario
-    ON usuario_unidad (id_usuario);
-
-
-CREATE INDEX idx_usuario_unidad_unidad
-    ON usuario_unidad (id_unidad);
-
-
-CREATE INDEX idx_usuario_unidad_activo
-    ON usuario_unidad (
-        id_unidad,
-        activo
-    );
-
-
-
--- =========================================================
--- TABLA: TRAMITE
--- =========================================================
-
+-- TRAMITE
 CREATE TABLE tramite (
     id_tramite BIGSERIAL PRIMARY KEY,
 
@@ -916,187 +508,23 @@ CREATE TABLE tramite (
                 activo = TRUE
                 AND publicado = TRUE
             )
-        )
-);
-
-
-CREATE TRIGGER trg_tramite_fecha_actualizacion
-BEFORE UPDATE ON tramite
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-CREATE INDEX idx_tramite_activo
-    ON tramite (activo);
-
-
-CREATE INDEX idx_tramite_publicado
-    ON tramite (publicado);
-
-
-CREATE INDEX idx_tramite_catalogo
-    ON tramite (
-        activo,
-        publicado
-    );
-
-
-
--- =========================================================
--- TABLA: TRAMITE_REQUISITO
--- =========================================================
-
-CREATE TABLE tramite_requisito (
-    id_requisito BIGSERIAL PRIMARY KEY,
-
-    id_tramite BIGINT NOT NULL,
-
-    nombre VARCHAR(200) NOT NULL,
-
-    descripcion TEXT,
-
-    obligatorio BOOLEAN NOT NULL
-        DEFAULT TRUE,
-
-    orden INTEGER NOT NULL
-        DEFAULT 1,
-
-    activo BOOLEAN NOT NULL
-        DEFAULT TRUE,
-
-    fecha_creacion TIMESTAMPTZ NOT NULL
-        DEFAULT CURRENT_TIMESTAMP,
-
-    fecha_actualizacion TIMESTAMPTZ NOT NULL
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_tramite_requisito_tramite
-        FOREIGN KEY (id_tramite)
-        REFERENCES tramite(id_tramite)
-        ON DELETE CASCADE,
-
-    CONSTRAINT uq_tramite_requisito_nombre
-        UNIQUE (id_tramite, nombre),
-
-    CONSTRAINT ck_tramite_requisito_nombre_no_vacio
-        CHECK (LENGTH(TRIM(nombre)) >= 2),
-
-    CONSTRAINT ck_tramite_requisito_orden
-        CHECK (orden > 0)
-);
-
-
-CREATE TRIGGER trg_tramite_requisito_fecha_actualizacion
-BEFORE UPDATE ON tramite_requisito
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-CREATE INDEX idx_tramite_requisito_tramite
-    ON tramite_requisito (id_tramite);
-
-
-CREATE INDEX idx_tramite_requisito_tramite_activo
-    ON tramite_requisito (
-        id_tramite,
-        activo
-    );
-
-
-CREATE INDEX idx_tramite_requisito_orden
-    ON tramite_requisito (
-        id_tramite,
-        orden
-    );
-
-
-
--- =========================================================
--- TABLA: TRAMITE_REQUISITO_ECONOMICO
--- =========================================================
-
-CREATE TABLE tramite_requisito_economico (
-    id_requisito_economico BIGSERIAL PRIMARY KEY,
-
-    id_requisito BIGINT NOT NULL,
-
-    concepto VARCHAR(200) NOT NULL,
-
-    monto NUMERIC(12, 2) NOT NULL,
-
-    moneda VARCHAR(3) NOT NULL
-        DEFAULT 'BOB',
-
-    gestion SMALLINT NOT NULL,
-
-    codigo_concepto_externo VARCHAR(100),
-
-    activo BOOLEAN NOT NULL
-        DEFAULT TRUE,
-
-    fecha_creacion TIMESTAMPTZ NOT NULL
-        DEFAULT CURRENT_TIMESTAMP,
-
-    fecha_actualizacion TIMESTAMPTZ NOT NULL
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_tramite_requisito_economico_requisito
-        FOREIGN KEY (id_requisito)
-        REFERENCES tramite_requisito(id_requisito)
-        ON DELETE CASCADE,
-
-    CONSTRAINT uq_tramite_requisito_economico_gestion
-        UNIQUE (
-            id_requisito,
-            gestion
         ),
 
-    CONSTRAINT ck_tramite_requisito_economico_concepto
-        CHECK (LENGTH(TRIM(concepto)) >= 2),
+    tiempo_estimado TEXT,
 
-    CONSTRAINT ck_tramite_requisito_economico_monto
-        CHECK (monto > 0),
+    canales_atencion TEXT,
 
-    CONSTRAINT ck_tramite_requisito_economico_moneda
-        CHECK (LENGTH(TRIM(moneda)) = 3),
+    instrucciones TEXT,
 
-    CONSTRAINT ck_tramite_requisito_economico_gestion
-        CHECK (
-            gestion >= 2000
-            AND gestion <= 2100
-        )
+    condiciones TEXT,
+
+    tipo_finalizacion VARCHAR(30),
+
+    CONSTRAINT ck_tramite_tipo_finalizacion CHECK
+        (tipo_finalizacion IN ('entrega', 'resultado_registrado', 'externo'))
 );
 
-
-CREATE TRIGGER trg_tramite_requisito_economico_fecha_actualizacion
-BEFORE UPDATE ON tramite_requisito_economico
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-CREATE INDEX idx_tramite_requisito_economico_requisito
-    ON tramite_requisito_economico (id_requisito);
-
-
-CREATE INDEX idx_tramite_requisito_economico_gestion
-    ON tramite_requisito_economico (
-        gestion,
-        activo
-    );
-
-
-CREATE INDEX idx_tramite_requisito_economico_codigo_externo
-    ON tramite_requisito_economico (
-        codigo_concepto_externo
-    )
-    WHERE codigo_concepto_externo IS NOT NULL;
-
-
-
--- =========================================================
--- TABLA: TRAMITE_CAMPO
--- =========================================================
-
+-- TRAMITE_CAMPO
 CREATE TABLE tramite_campo (
     id_campo BIGSERIAL PRIMARY KEY,
 
@@ -1161,41 +589,7 @@ CREATE TABLE tramite_campo (
         CHECK (orden > 0)
 );
 
-
-CREATE TRIGGER trg_tramite_campo_fecha_actualizacion
-BEFORE UPDATE ON tramite_campo
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-CREATE INDEX idx_tramite_campo_tramite
-    ON tramite_campo (id_tramite);
-
-
-CREATE INDEX idx_tramite_campo_tramite_activo
-    ON tramite_campo (
-        id_tramite,
-        activo
-    );
-
-
-CREATE INDEX idx_tramite_campo_orden
-    ON tramite_campo (
-        id_tramite,
-        orden
-    );
-
-
-
--- =========================================================
--- TABLA: TRAMITE_ETAPA
--- =========================================================
---
--- Estructura configurable.
--- No se deben insertar etapas ni flujos de procesos internos
--- hasta contar con informacion institucional confirmada.
--- =========================================================
-
+-- TRAMITE_ETAPA
 CREATE TABLE tramite_etapa (
     id_etapa BIGSERIAL PRIMARY KEY,
 
@@ -1234,6 +628,8 @@ CREATE TABLE tramite_etapa (
         REFERENCES unidad_administrativa(id_unidad)
         ON DELETE RESTRICT,
 
+    CONSTRAINT uq_tramite_etapa_pertenencia UNIQUE (id_tramite, id_etapa),
+
     CONSTRAINT uq_tramite_etapa_orden
         UNIQUE (
             id_tramite,
@@ -1244,86 +640,118 @@ CREATE TABLE tramite_etapa (
         CHECK (LENGTH(TRIM(nombre)) >= 2),
 
     CONSTRAINT ck_tramite_etapa_orden
-        CHECK (orden > 0)
+        CHECK (orden > 0),
+
+    visible_solicitante BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+-- TRAMITE_REQUISITO
+CREATE TABLE tramite_requisito (
+    id_requisito BIGSERIAL PRIMARY KEY,
 
-CREATE TRIGGER trg_tramite_etapa_fecha_actualizacion
-BEFORE UPDATE ON tramite_etapa
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
+    id_tramite BIGINT NOT NULL,
 
+    nombre VARCHAR(200) NOT NULL,
 
-CREATE INDEX idx_tramite_etapa_tramite
-    ON tramite_etapa (id_tramite);
+    descripcion TEXT,
 
+    obligatorio BOOLEAN NOT NULL
+        DEFAULT TRUE,
 
-CREATE INDEX idx_tramite_etapa_unidad
-    ON tramite_etapa (id_unidad);
+    orden INTEGER NOT NULL
+        DEFAULT 1,
 
+    activo BOOLEAN NOT NULL
+        DEFAULT TRUE,
 
-CREATE INDEX idx_tramite_etapa_tramite_activo
-    ON tramite_etapa (
-        id_tramite,
-        activo
-    );
+    fecha_creacion TIMESTAMPTZ NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
 
+    fecha_actualizacion TIMESTAMPTZ NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
 
-CREATE UNIQUE INDEX uq_tramite_etapa_inicial_activa
-    ON tramite_etapa (id_tramite)
-    WHERE es_inicial = TRUE
-      AND activo = TRUE;
+    CONSTRAINT fk_tramite_requisito_tramite
+        FOREIGN KEY (id_tramite)
+        REFERENCES tramite(id_tramite)
+        ON DELETE CASCADE,
 
+    CONSTRAINT uq_tramite_requisito_nombre
+        UNIQUE (id_tramite, nombre),
 
-CREATE UNIQUE INDEX uq_tramite_etapa_final_activa
-    ON tramite_etapa (id_tramite)
-    WHERE es_final = TRUE
-      AND activo = TRUE;
+    CONSTRAINT ck_tramite_requisito_nombre_no_vacio
+        CHECK (LENGTH(TRIM(nombre)) >= 2),
 
-COMMIT;
+    CONSTRAINT ck_tramite_requisito_orden
+        CHECK (orden > 0),
 
+    id_etapa BIGINT,
 
+    CONSTRAINT fk_tramite_requisito_etapa FOREIGN KEY (id_tramite, id_etapa) REFERENCES tramite_etapa(id_tramite, id_etapa) ON DELETE RESTRICT,
 
+    requiere_presentacion_fisica BOOLEAN NOT NULL DEFAULT FALSE,
 
+    condicion JSONB,
 
+    CONSTRAINT ck_tramite_requisito_condicion CHECK
+        (condicion IS NULL OR (jsonb_typeof(condicion) = 'object'
+            AND condicion->>'operador' = 'igual'
+            AND condicion->>'origen' IN ('solicitud_dato', 'perfil_academico')))
+);
 
+-- TRAMITE_REQUISITO_ECONOMICO
+CREATE TABLE tramite_requisito_economico (
+    id_requisito_economico BIGSERIAL PRIMARY KEY,
 
+    id_requisito BIGINT NOT NULL,
 
+    concepto VARCHAR(200) NOT NULL,
 
+    monto NUMERIC(12, 2) NOT NULL,
 
+    moneda VARCHAR(3) NOT NULL
+        DEFAULT 'BOB',
 
+    gestion SMALLINT NOT NULL,
 
+    codigo_concepto_externo VARCHAR(100),
 
+    activo BOOLEAN NOT NULL
+        DEFAULT TRUE,
 
+    fecha_creacion TIMESTAMPTZ NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
 
+    fecha_actualizacion TIMESTAMPTZ NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
 
--- =========================================================
--- MODULO: GESTION Y SEGUIMIENTO
--- FASE 2: SOLICITUD DE TRAMITE POR EL SOLICITANTE
--- =========================================================
---
--- Este bloque agrega la estructura necesaria para que un
--- solicitante pueda crear, guardar y enviar solicitudes.
---
--- IMPORTANTE:
---
--- - No se utiliza codigo de ticket.
--- - No se almacenan documentos adjuntos.
--- - No se implementa todavia recepcion administrativa.
--- - No se implementan etapas ni flujo interno.
--- - Los datos especificos de cada tramite se obtienen desde
---   tramite_campo y se almacenan en solicitud_dato.
--- - Para requisitos economicos el solicitante proporciona
---   el numero de factura recibido luego de realizar el pago.
--- - El sistema no procesa ni realiza el cobro.
--- =========================================================
+    CONSTRAINT fk_tramite_requisito_economico_requisito
+        FOREIGN KEY (id_requisito)
+        REFERENCES tramite_requisito(id_requisito)
+        ON DELETE CASCADE,
 
+    CONSTRAINT uq_tramite_requisito_economico_gestion
+        UNIQUE (
+            id_requisito,
+            gestion
+        ),
 
+    CONSTRAINT ck_tramite_requisito_economico_concepto
+        CHECK (LENGTH(TRIM(concepto)) >= 2),
 
--- =========================================================
--- TABLA: PERFIL_ACADEMICO
--- =========================================================
+    CONSTRAINT ck_tramite_requisito_economico_monto
+        CHECK (monto > 0),
 
+    CONSTRAINT ck_tramite_requisito_economico_moneda
+        CHECK (LENGTH(TRIM(moneda)) = 3),
+
+    CONSTRAINT ck_tramite_requisito_economico_gestion
+        CHECK (
+            gestion >= 2000
+            AND gestion <= 2100
+        )
+);
+
+-- PERFIL_ACADEMICO
 CREATE TABLE perfil_academico (
     id_perfil BIGSERIAL PRIMARY KEY,
 
@@ -1384,32 +812,7 @@ CREATE TABLE perfil_academico (
         )
 );
 
-
-CREATE TRIGGER trg_perfil_academico_fecha_actualizacion
-BEFORE UPDATE ON perfil_academico
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-CREATE INDEX idx_perfil_academico_codigo_estudiante
-    ON perfil_academico (
-        codigo_estudiante
-    )
-    WHERE codigo_estudiante IS NOT NULL;
-
-
-CREATE INDEX idx_perfil_academico_documento_identidad
-    ON perfil_academico (
-        documento_identidad
-    )
-    WHERE documento_identidad IS NOT NULL;
-
-
-
--- =========================================================
--- TABLA: SOLICITUD
--- =========================================================
-
+-- SOLICITUD
 CREATE TABLE solicitud (
     id_solicitud BIGSERIAL PRIMARY KEY,
 
@@ -1438,84 +841,34 @@ CREATE TABLE solicitud (
         REFERENCES tramite(id_tramite)
         ON DELETE RESTRICT,
 
-    CONSTRAINT ck_solicitud_estado
-        CHECK (
-            estado IN (
-                'borrador',
-                'pendiente_recepcion'
-            )
-        ),
-
-    CONSTRAINT ck_solicitud_fecha_envio
-        CHECK (
-            (
-                estado = 'borrador'
-                AND fecha_envio IS NULL
-            )
-            OR
-            (
-                estado <> 'borrador'
-                AND fecha_envio IS NOT NULL
-            )
-        ),
-
     CONSTRAINT ck_solicitud_fecha_envio_cronologia
         CHECK (
             fecha_envio IS NULL
             OR fecha_envio >= fecha_creacion
-        )
+        ),
+
+    id_etapa_actual BIGINT,
+
+    CONSTRAINT ck_solicitud_proceso_etapa CHECK (estado <> 'en_proceso' OR id_etapa_actual IS NOT NULL),
+
+    nombre_tramite_snapshot VARCHAR(200),
+
+    tipo_finalizacion VARCHAR(30),
+
+    CONSTRAINT ck_solicitud_tipo_finalizacion CHECK
+        (tipo_finalizacion IN ('entrega', 'resultado_registrado', 'externo')),
+
+    CONSTRAINT ck_solicitud_estado CHECK (estado IN (
+        'borrador', 'pendiente_recepcion', 'en_revision', 'en_proceso',
+        'lista_para_entrega', 'finalizada', 'cancelada', 'rechazada')),
+
+    CONSTRAINT ck_solicitud_fecha_envio CHECK (
+        (estado = 'borrador' AND fecha_envio IS NULL)
+        OR estado = 'cancelada'
+        OR (estado NOT IN ('borrador', 'cancelada') AND fecha_envio IS NOT NULL))
 );
 
-
-CREATE TRIGGER trg_solicitud_fecha_actualizacion
-BEFORE UPDATE ON solicitud
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-CREATE INDEX idx_solicitud_solicitante
-    ON solicitud (
-        id_solicitante
-    );
-
-
-CREATE INDEX idx_solicitud_tramite
-    ON solicitud (
-        id_tramite
-    );
-
-
-CREATE INDEX idx_solicitud_estado
-    ON solicitud (
-        estado
-    );
-
-
-CREATE INDEX idx_solicitud_solicitante_estado
-    ON solicitud (
-        id_solicitante,
-        estado
-    );
-
-
-CREATE INDEX idx_solicitud_fecha_creacion
-    ON solicitud (
-        fecha_creacion DESC
-    );
-
-
-
--- =========================================================
--- TABLA: SOLICITUD_DATO
--- =========================================================
---
--- Guarda los valores ingresados para los campos configurados
--- en tramite_campo.
---
--- No se crean columnas especificas como:
--- sede_destino, motivo, carrera_destino, etc.
--- =========================================================
-
+-- SOLICITUD_DATO
 CREATE TABLE solicitud_dato (
     id_solicitud_dato BIGSERIAL PRIMARY KEY,
 
@@ -1550,47 +903,97 @@ CREATE TABLE solicitud_dato (
     CONSTRAINT ck_solicitud_dato_valor
         CHECK (
             valor <> 'null'::jsonb
+        ),
+
+    clave_snapshot VARCHAR(100),
+
+    etiqueta_snapshot VARCHAR(200)
+);
+
+-- SOLICITUD_RECEPCION
+CREATE TABLE solicitud_recepcion (
+    id_recepcion BIGSERIAL PRIMARY KEY,
+
+    id_solicitud BIGINT NOT NULL,
+
+    id_usuario_receptor BIGINT NOT NULL,
+
+    fecha_recepcion TIMESTAMPTZ NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_solicitud_recepcion_solicitud
+        FOREIGN KEY (id_solicitud)
+        REFERENCES solicitud(id_solicitud)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_solicitud_recepcion_usuario
+        FOREIGN KEY (id_usuario_receptor)
+        REFERENCES usuario(id_usuario)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT uq_solicitud_recepcion_solicitud
+        UNIQUE (
+            id_solicitud
         )
 );
 
+-- SOLICITUD_ETAPA
+CREATE TABLE solicitud_etapa (
+    id_solicitud_etapa BIGSERIAL PRIMARY KEY,
 
-CREATE TRIGGER trg_solicitud_dato_fecha_actualizacion
-BEFORE UPDATE ON solicitud_dato
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
+    id_solicitud BIGINT NOT NULL REFERENCES solicitud(id_solicitud) ON DELETE CASCADE,
 
+    id_etapa_origen BIGINT REFERENCES tramite_etapa(id_etapa) ON DELETE RESTRICT,
 
-CREATE INDEX idx_solicitud_dato_solicitud
-    ON solicitud_dato (
-        id_solicitud
-    );
+    id_unidad BIGINT REFERENCES unidad_administrativa(id_unidad) ON DELETE RESTRICT,
 
+    nombre VARCHAR(150) NOT NULL,
 
-CREATE INDEX idx_solicitud_dato_campo
-    ON solicitud_dato (
-        id_campo
-    );
+    descripcion TEXT,
 
+    orden INTEGER NOT NULL CHECK (orden > 0),
 
+    es_inicial BOOLEAN NOT NULL,
 
--- =========================================================
--- TABLA: SOLICITUD_REQUISITO
--- =========================================================
---
--- Representa una fotografia de los requisitos aplicables
--- al momento de enviar formalmente una solicitud.
---
--- Los cambios posteriores realizados en tramite_requisito
--- o tramite_requisito_economico no modifican la informacion
--- historica almacenada en una solicitud ya enviada.
---
--- Para los requisitos economicos se puede almacenar el
--- numero de factura proporcionado por el solicitante.
---
--- La validacion de la factura ocurre posteriormente mediante
--- la API externa en Fase 3.
--- =========================================================
+    es_final BOOLEAN NOT NULL,
 
+    visible_solicitante BOOLEAN NOT NULL DEFAULT FALSE,
+
+    estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+
+    id_usuario_inicio BIGINT REFERENCES usuario(id_usuario) ON DELETE RESTRICT,
+
+    id_usuario_finalizacion BIGINT REFERENCES usuario(id_usuario) ON DELETE RESTRICT,
+
+    fecha_inicio TIMESTAMPTZ,
+
+    fecha_finalizacion TIMESTAMPTZ,
+
+    fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    fecha_actualizacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_solicitud_etapa_orden UNIQUE (id_solicitud, orden),
+
+    CONSTRAINT uq_solicitud_etapa_origen UNIQUE (id_solicitud, id_etapa_origen),
+
+    CONSTRAINT uq_solicitud_etapa_pertenencia UNIQUE (id_solicitud, id_solicitud_etapa),
+
+    CONSTRAINT ck_solicitud_etapa_estado CHECK (estado IN ('pendiente', 'en_curso', 'completada')),
+
+    CONSTRAINT ck_solicitud_etapa_fechas CHECK (
+        (estado = 'pendiente' AND fecha_inicio IS NULL AND fecha_finalizacion IS NULL
+            AND id_usuario_inicio IS NULL AND id_usuario_finalizacion IS NULL)
+        OR (estado = 'en_curso' AND fecha_inicio IS NOT NULL AND id_usuario_inicio IS NOT NULL
+            AND fecha_finalizacion IS NULL AND id_usuario_finalizacion IS NULL)
+        OR (estado = 'completada' AND fecha_inicio IS NOT NULL AND fecha_finalizacion IS NOT NULL
+            AND id_usuario_inicio IS NOT NULL AND id_usuario_finalizacion IS NOT NULL
+            AND fecha_finalizacion >= fecha_inicio)),
+
+    CONSTRAINT ck_solicitud_etapa_inicio CHECK (fecha_inicio IS NULL OR fecha_inicio >= fecha_creacion)
+);
+
+-- SOLICITUD_REQUISITO
 CREATE TABLE solicitud_requisito (
     id_solicitud_requisito BIGSERIAL PRIMARY KEY,
 
@@ -1708,144 +1111,33 @@ CREATE TABLE solicitud_requisito (
         CHECK (
             numero_factura IS NULL
             OR LENGTH(TRIM(numero_factura)) >= 1
-        )
-);
+        ),
 
-
-CREATE TRIGGER trg_solicitud_requisito_fecha_actualizacion
-BEFORE UPDATE ON solicitud_requisito
-FOR EACH ROW
-EXECUTE FUNCTION actualizar_fecha_actualizacion();
-
-
-CREATE INDEX idx_solicitud_requisito_solicitud
-    ON solicitud_requisito (
-        id_solicitud
-    );
-
-
-CREATE INDEX idx_solicitud_requisito_origen
-    ON solicitud_requisito (
-        id_requisito_origen
-    )
-    WHERE id_requisito_origen IS NOT NULL;
-
-
-CREATE INDEX idx_solicitud_requisito_economico_origen
-    ON solicitud_requisito (
-        id_requisito_economico_origen
-    )
-    WHERE id_requisito_economico_origen IS NOT NULL;
-
-
-CREATE INDEX idx_solicitud_requisito_numero_factura
-    ON solicitud_requisito (
-        numero_factura
-    )
-    WHERE numero_factura IS NOT NULL;
-
-
-
--- =========================================================
--- MODULO: GESTION Y SEGUIMIENTO
--- FASE 3: RECEPCION Y GESTION ADMINISTRATIVA
--- =========================================================
---
--- Esta fase incorpora:
---
--- - bandeja administrativa de solicitudes;
--- - recepcion administrativa;
--- - estado en_revision;
--- - verificacion de requisitos;
--- - verificacion de facturas mediante una API externa;
--- - registro historico de los intentos de verificacion.
---
--- IMPORTANTE:
---
--- - No se asigna todavia una unidad receptora.
--- - No se ejecutan etapas del tramite.
--- - No se realizan derivaciones.
--- - No se implementan observaciones ni subsanaciones.
--- - No se procesa ni cobra dinero dentro del sistema.
--- - El numero de factura lo proporciona el solicitante.
--- - El codigo enviado a la API proviene de la configuracion
---   economica del tramite.
--- - La URL y credenciales de la API se parametrizan fuera
---   de la base de datos de negocio.
--- - La API mock sera un servicio HTTP independiente.
--- =========================================================
-
-
-
--- =========================================================
--- AMPLIACION DE ESTADOS DE SOLICITUD
--- =========================================================
-
-ALTER TABLE solicitud
-DROP CONSTRAINT ck_solicitud_estado;
-
-
-ALTER TABLE solicitud
-ADD CONSTRAINT ck_solicitud_estado
-CHECK (
-    estado IN (
-        'borrador',
-        'pendiente_recepcion',
-        'en_revision'
-    )
-);
-
-
-
--- =========================================================
--- AMPLIACION: SOLICITUD_REQUISITO
--- =========================================================
---
--- Registra el resultado de la revision administrativa
--- correspondiente al snapshot de cada requisito.
---
--- Para requisitos economicos la comprobacion de pago
--- se realiza mediante la API externa.
--- =========================================================
-
-ALTER TABLE solicitud_requisito
-ADD COLUMN estado_verificacion VARCHAR(20)
+    estado_verificacion VARCHAR(20)
 NOT NULL
-DEFAULT 'pendiente';
+DEFAULT 'pendiente',
 
+    id_usuario_verificador BIGINT,
 
-ALTER TABLE solicitud_requisito
-ADD COLUMN id_usuario_verificador BIGINT;
+    fecha_verificacion TIMESTAMPTZ,
 
+    detalle_verificacion TEXT,
 
-ALTER TABLE solicitud_requisito
-ADD COLUMN fecha_verificacion TIMESTAMPTZ;
-
-
-ALTER TABLE solicitud_requisito
-ADD COLUMN detalle_verificacion TEXT;
-
-
-ALTER TABLE solicitud_requisito
-ADD CONSTRAINT fk_solicitud_requisito_usuario_verificador
+    CONSTRAINT fk_solicitud_requisito_usuario_verificador
 FOREIGN KEY (id_usuario_verificador)
 REFERENCES usuario(id_usuario)
-ON DELETE RESTRICT;
+ON DELETE RESTRICT,
 
-
-ALTER TABLE solicitud_requisito
-ADD CONSTRAINT ck_solicitud_requisito_estado_verificacion
+    CONSTRAINT ck_solicitud_requisito_estado_verificacion
 CHECK (
     estado_verificacion IN (
         'pendiente',
         'cumple',
         'no_cumple'
     )
-);
+),
 
-
-ALTER TABLE solicitud_requisito
-ADD CONSTRAINT ck_solicitud_requisito_verificacion_consistente
+    CONSTRAINT ck_solicitud_requisito_verificacion_consistente
 CHECK (
     (
         estado_verificacion = 'pendiente'
@@ -1861,127 +1153,38 @@ CHECK (
         AND id_usuario_verificador IS NOT NULL
         AND fecha_verificacion IS NOT NULL
     )
-);
+),
 
-
-ALTER TABLE solicitud_requisito
-ADD CONSTRAINT ck_solicitud_requisito_detalle_verificacion
+    CONSTRAINT ck_solicitud_requisito_detalle_verificacion
 CHECK (
     detalle_verificacion IS NULL
     OR LENGTH(TRIM(detalle_verificacion)) >= 1
+),
+
+    id_solicitud_etapa BIGINT,
+
+    requiere_presentacion_fisica BOOLEAN NOT NULL DEFAULT FALSE,
+
+    presentado BOOLEAN NOT NULL DEFAULT FALSE,
+
+    fecha_presentacion TIMESTAMPTZ,
+
+    id_usuario_presentacion BIGINT REFERENCES usuario(id_usuario) ON DELETE RESTRICT,
+
+    condicion_snapshot JSONB,
+
+    CONSTRAINT fk_solicitud_requisito_etapa FOREIGN KEY (id_solicitud, id_solicitud_etapa)
+        REFERENCES solicitud_etapa(id_solicitud, id_solicitud_etapa),
+
+    CONSTRAINT uq_solicitud_requisito_pertenencia UNIQUE (id_solicitud, id_solicitud_requisito),
+
+    CONSTRAINT ck_solicitud_requisito_presentacion CHECK (
+        (NOT presentado AND fecha_presentacion IS NULL AND id_usuario_presentacion IS NULL)
+        OR (presentado AND requiere_presentacion_fisica AND fecha_presentacion IS NOT NULL
+            AND id_usuario_presentacion IS NOT NULL AND fecha_presentacion >= fecha_creacion))
 );
 
-
-CREATE INDEX idx_solicitud_requisito_estado_verificacion
-    ON solicitud_requisito (
-        id_solicitud,
-        estado_verificacion
-    );
-
-
-CREATE INDEX idx_solicitud_requisito_usuario_verificador
-    ON solicitud_requisito (
-        id_usuario_verificador
-    )
-    WHERE id_usuario_verificador IS NOT NULL;
-
-
-
--- =========================================================
--- TABLA: SOLICITUD_RECEPCION
--- =========================================================
---
--- Registra quien recibio formalmente la solicitud y cuando.
---
--- Una solicitud solamente puede tener una recepcion inicial.
---
--- No se registra una unidad receptora porque todavia no
--- conocemos institucionalmente que unidad inicia cada
--- procedimiento.
--- =========================================================
-
-CREATE TABLE solicitud_recepcion (
-    id_recepcion BIGSERIAL PRIMARY KEY,
-
-    id_solicitud BIGINT NOT NULL,
-
-    id_usuario_receptor BIGINT NOT NULL,
-
-    fecha_recepcion TIMESTAMPTZ NOT NULL
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_solicitud_recepcion_solicitud
-        FOREIGN KEY (id_solicitud)
-        REFERENCES solicitud(id_solicitud)
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_solicitud_recepcion_usuario
-        FOREIGN KEY (id_usuario_receptor)
-        REFERENCES usuario(id_usuario)
-        ON DELETE RESTRICT,
-
-    CONSTRAINT uq_solicitud_recepcion_solicitud
-        UNIQUE (
-            id_solicitud
-        )
-);
-
-
-CREATE INDEX idx_solicitud_recepcion_usuario
-    ON solicitud_recepcion (
-        id_usuario_receptor
-    );
-
-
-CREATE INDEX idx_solicitud_recepcion_fecha
-    ON solicitud_recepcion (
-        fecha_recepcion DESC
-    );
-
-
-
--- =========================================================
--- TABLA: SOLICITUD_PAGO_VERIFICACION
--- =========================================================
---
--- Registra cada intento realizado contra la API externa
--- para validar la factura asociada a un requisito economico.
---
--- El backend envia principalmente:
---
---   numero_factura
---   codigo_concepto
---
--- La API externa informa los datos disponibles sobre esa
--- factura.
---
--- El sistema compara posteriormente:
---
---   codigo esperado vs codigo reportado
---   monto esperado  vs monto reportado
---   moneda esperada vs moneda reportada
---   estado de la factura
---
--- ESTADOS:
---
--- verificado:
---     La respuesta permite acreditar correctamente el pago.
---
--- no_verificado:
---     La factura existe o fue consultada, pero no permite
---     acreditar el requisito.
---
--- error:
---     No fue posible realizar correctamente la consulta
---     externa, por ejemplo timeout o error HTTP.
---
--- IMPORTANTE:
---
--- Una misma factura puede tener varios intentos fallidos,
--- pero solamente UNA verificacion exitosa dentro del
--- sistema.
--- =========================================================
-
+-- SOLICITUD_PAGO_VERIFICACION
 CREATE TABLE solicitud_pago_verificacion (
     id_verificacion_pago BIGSERIAL PRIMARY KEY,
 
@@ -2065,44 +1268,984 @@ CREATE TABLE solicitud_pago_verificacion (
 );
 
 
+
+-- SOLICITUD_OBSERVACION
+CREATE TABLE solicitud_observacion (
+    id_observacion BIGSERIAL PRIMARY KEY,
+
+    id_solicitud BIGINT NOT NULL REFERENCES solicitud(id_solicitud) ON DELETE RESTRICT,
+
+    id_solicitud_etapa BIGINT,
+
+    id_solicitud_requisito BIGINT,
+
+    id_usuario_observador BIGINT NOT NULL REFERENCES usuario(id_usuario) ON DELETE RESTRICT,
+
+    detalle TEXT NOT NULL,
+
+    correccion_requerida TEXT NOT NULL,
+
+    canal_subsanacion TEXT,
+
+    estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+
+    fecha_observacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    id_usuario_resolucion BIGINT REFERENCES usuario(id_usuario) ON DELETE RESTRICT,
+
+    fecha_resolucion TIMESTAMPTZ,
+
+    CONSTRAINT fk_observacion_etapa FOREIGN KEY (id_solicitud, id_solicitud_etapa)
+        REFERENCES solicitud_etapa(id_solicitud, id_solicitud_etapa),
+
+    CONSTRAINT fk_observacion_requisito FOREIGN KEY (id_solicitud, id_solicitud_requisito)
+        REFERENCES solicitud_requisito(id_solicitud, id_solicitud_requisito),
+
+    CONSTRAINT ck_observacion_texto CHECK (length(trim(detalle)) > 0 AND length(trim(correccion_requerida)) > 0),
+
+    CONSTRAINT ck_observacion_resolucion CHECK (
+        (estado = 'pendiente' AND id_usuario_resolucion IS NULL AND fecha_resolucion IS NULL)
+        OR (estado = 'resuelta' AND id_usuario_resolucion IS NOT NULL AND fecha_resolucion IS NOT NULL
+            AND fecha_resolucion >= fecha_observacion))
+);
+
+-- SOLICITUD_RESULTADO
+CREATE TABLE solicitud_resultado (
+    id_resultado BIGSERIAL PRIMARY KEY,
+
+    id_solicitud BIGINT NOT NULL UNIQUE REFERENCES solicitud(id_solicitud) ON DELETE RESTRICT,
+
+    tipo_finalizacion VARCHAR(30) NOT NULL CHECK (tipo_finalizacion IN ('entrega', 'resultado_registrado', 'externo')),
+
+    detalle TEXT,
+
+    id_usuario_registro BIGINT NOT NULL REFERENCES usuario(id_usuario) ON DELETE RESTRICT,
+
+    fecha_registro TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- SOLICITUD_ENTREGA
+CREATE TABLE solicitud_entrega (
+    id_entrega BIGSERIAL PRIMARY KEY,
+
+    id_solicitud BIGINT NOT NULL UNIQUE REFERENCES solicitud(id_solicitud) ON DELETE RESTRICT,
+
+    id_usuario_entrega BIGINT NOT NULL REFERENCES usuario(id_usuario) ON DELETE RESTRICT,
+
+    receptor VARCHAR(10) NOT NULL CHECK (receptor IN ('titular', 'tercero')),
+
+    nombre_receptor VARCHAR(200),
+
+    documento_identidad VARCHAR(50),
+
+    detalle TEXT,
+
+    fecha_entrega TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT ck_entrega_receptor CHECK (receptor <> 'tercero' OR
+        (nombre_receptor IS NOT NULL AND length(trim(nombre_receptor)) >= 2))
+);
+
+-- SOLICITUD_HISTORIAL
+CREATE TABLE solicitud_historial (
+    id_historial BIGSERIAL PRIMARY KEY,
+
+    id_solicitud BIGINT NOT NULL REFERENCES solicitud(id_solicitud) ON DELETE CASCADE,
+
+    id_usuario_actor BIGINT REFERENCES usuario(id_usuario) ON DELETE SET NULL,
+
+    id_solicitud_etapa BIGINT,
+    id_solicitud_requisito BIGINT,
+    CONSTRAINT fk_historial_etapa FOREIGN KEY (id_solicitud, id_solicitud_etapa) REFERENCES solicitud_etapa(id_solicitud, id_solicitud_etapa),
+    CONSTRAINT fk_historial_requisito FOREIGN KEY (id_solicitud, id_solicitud_requisito) REFERENCES solicitud_requisito(id_solicitud, id_solicitud_requisito),
+    evento VARCHAR(80) NOT NULL,
+
+    detalle TEXT NOT NULL,
+
+    visible_solicitante BOOLEAN NOT NULL DEFAULT TRUE,
+
+    fecha_evento TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT ck_solicitud_historial_texto CHECK (length(trim(evento)) > 0 AND length(trim(detalle)) > 0)
+);
+
+-- Referencia circular entre solicitud y su etapa actual.
+ALTER TABLE solicitud ADD CONSTRAINT fk_solicitud_etapa_actual
+    FOREIGN KEY (id_solicitud, id_etapa_actual)
+    REFERENCES solicitud_etapa(id_solicitud, id_solicitud_etapa);
+
+-- Índices y actualización automática de fechas.
+CREATE TRIGGER trg_usuario_fecha_actualizacion
+BEFORE UPDATE ON usuario
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_usuario_estado
+    ON usuario (estado);
+
+CREATE TRIGGER trg_usuario_correo_fecha_actualizacion
+BEFORE UPDATE ON usuario_correo
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE UNIQUE INDEX uq_usuario_correo_principal_activo
+    ON usuario_correo (id_usuario)
+    WHERE es_principal = TRUE
+      AND activo = TRUE;
+
+CREATE INDEX idx_usuario_correo_usuario
+    ON usuario_correo (id_usuario);
+
+CREATE INDEX idx_usuario_correo_busqueda
+    ON usuario_correo (correo);
+
+CREATE TRIGGER trg_rol_fecha_actualizacion
+BEFORE UPDATE ON rol
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_usuario_rol_usuario
+    ON usuario_rol (id_usuario);
+
+CREATE INDEX idx_usuario_rol_rol
+    ON usuario_rol (id_rol);
+
+CREATE INDEX idx_usuario_rol_activo
+    ON usuario_rol (id_usuario, activo);
+
+CREATE INDEX idx_sesion_usuario
+    ON sesion_usuario (id_usuario);
+
+CREATE INDEX idx_sesion_usuario_vigente
+    ON sesion_usuario (
+        id_usuario,
+        fecha_expiracion
+    )
+    WHERE fecha_revocacion IS NULL;
+
+CREATE INDEX idx_sesion_expiracion
+    ON sesion_usuario (fecha_expiracion);
+
+CREATE INDEX idx_token_verificacion_correo
+    ON token_verificacion_correo (id_usuario_correo);
+
+CREATE INDEX idx_token_verificacion_expiracion
+    ON token_verificacion_correo (fecha_expiracion)
+    WHERE fecha_utilizacion IS NULL
+      AND fecha_revocacion IS NULL;
+
+CREATE INDEX idx_token_recuperacion_usuario
+    ON token_recuperacion_contrasena (id_usuario);
+
+CREATE INDEX idx_token_recuperacion_expiracion
+    ON token_recuperacion_contrasena (fecha_expiracion)
+    WHERE fecha_utilizacion IS NULL
+      AND fecha_revocacion IS NULL;
+
+CREATE INDEX idx_evento_autenticacion_usuario
+    ON evento_autenticacion (id_usuario);
+
+CREATE INDEX idx_evento_autenticacion_correo_fecha
+    ON evento_autenticacion (
+        correo_intentado,
+        fecha_evento DESC
+    );
+
+CREATE INDEX idx_evento_autenticacion_ip_fecha
+    ON evento_autenticacion (
+        direccion_ip,
+        fecha_evento DESC
+    );
+
+CREATE INDEX idx_evento_autenticacion_fallido
+    ON evento_autenticacion (fecha_evento DESC)
+    WHERE exitoso = FALSE;
+
+CREATE INDEX idx_auditoria_usuario
+    ON auditoria (id_usuario_actor);
+
+CREATE INDEX idx_auditoria_fecha
+    ON auditoria (fecha_evento DESC);
+
+CREATE INDEX idx_auditoria_modulo
+    ON auditoria (
+        modulo,
+        fecha_evento DESC
+    );
+
+CREATE INDEX idx_auditoria_entidad
+    ON auditoria (
+        entidad,
+        id_entidad
+    );
+
+CREATE TRIGGER trg_unidad_administrativa_fecha_actualizacion
+BEFORE UPDATE ON unidad_administrativa
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_unidad_administrativa_activo
+    ON unidad_administrativa (activo);
+
+CREATE INDEX idx_usuario_unidad_usuario
+    ON usuario_unidad (id_usuario);
+
+CREATE INDEX idx_usuario_unidad_unidad
+    ON usuario_unidad (id_unidad);
+
+CREATE INDEX idx_usuario_unidad_activo
+    ON usuario_unidad (
+        id_unidad,
+        activo
+    );
+
+CREATE TRIGGER trg_tramite_fecha_actualizacion
+BEFORE UPDATE ON tramite
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_tramite_activo
+    ON tramite (activo);
+
+CREATE INDEX idx_tramite_publicado
+    ON tramite (publicado);
+
+CREATE INDEX idx_tramite_catalogo
+    ON tramite (
+        activo,
+        publicado
+    );
+
+CREATE TRIGGER trg_tramite_requisito_fecha_actualizacion
+BEFORE UPDATE ON tramite_requisito
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_tramite_requisito_tramite
+    ON tramite_requisito (id_tramite);
+
+CREATE INDEX idx_tramite_requisito_tramite_activo
+    ON tramite_requisito (
+        id_tramite,
+        activo
+    );
+
+CREATE INDEX idx_tramite_requisito_orden
+    ON tramite_requisito (
+        id_tramite,
+        orden
+    );
+
+CREATE TRIGGER trg_tramite_requisito_economico_fecha_actualizacion
+BEFORE UPDATE ON tramite_requisito_economico
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_tramite_requisito_economico_requisito
+    ON tramite_requisito_economico (id_requisito);
+
+CREATE INDEX idx_tramite_requisito_economico_gestion
+    ON tramite_requisito_economico (
+        gestion,
+        activo
+    );
+
+CREATE INDEX idx_tramite_requisito_economico_codigo_externo
+    ON tramite_requisito_economico (
+        codigo_concepto_externo
+    )
+    WHERE codigo_concepto_externo IS NOT NULL;
+
+CREATE TRIGGER trg_tramite_campo_fecha_actualizacion
+BEFORE UPDATE ON tramite_campo
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_tramite_campo_tramite
+    ON tramite_campo (id_tramite);
+
+CREATE INDEX idx_tramite_campo_tramite_activo
+    ON tramite_campo (
+        id_tramite,
+        activo
+    );
+
+CREATE INDEX idx_tramite_campo_orden
+    ON tramite_campo (
+        id_tramite,
+        orden
+    );
+
+CREATE TRIGGER trg_tramite_etapa_fecha_actualizacion
+BEFORE UPDATE ON tramite_etapa
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_tramite_etapa_tramite
+    ON tramite_etapa (id_tramite);
+
+CREATE INDEX idx_tramite_etapa_unidad
+    ON tramite_etapa (id_unidad);
+
+CREATE INDEX idx_tramite_etapa_tramite_activo
+    ON tramite_etapa (
+        id_tramite,
+        activo
+    );
+
+CREATE UNIQUE INDEX uq_tramite_etapa_inicial_activa
+    ON tramite_etapa (id_tramite)
+    WHERE es_inicial = TRUE
+      AND activo = TRUE;
+
+CREATE UNIQUE INDEX uq_tramite_etapa_final_activa
+    ON tramite_etapa (id_tramite)
+    WHERE es_final = TRUE
+      AND activo = TRUE;
+
+CREATE TRIGGER trg_perfil_academico_fecha_actualizacion
+BEFORE UPDATE ON perfil_academico
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_perfil_academico_codigo_estudiante
+    ON perfil_academico (
+        codigo_estudiante
+    )
+    WHERE codigo_estudiante IS NOT NULL;
+
+CREATE INDEX idx_perfil_academico_documento_identidad
+    ON perfil_academico (
+        documento_identidad
+    )
+    WHERE documento_identidad IS NOT NULL;
+
+CREATE TRIGGER trg_solicitud_fecha_actualizacion
+BEFORE UPDATE ON solicitud
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_solicitud_solicitante
+    ON solicitud (
+        id_solicitante
+    );
+
+CREATE INDEX idx_solicitud_tramite
+    ON solicitud (
+        id_tramite
+    );
+
+CREATE INDEX idx_solicitud_estado
+    ON solicitud (
+        estado
+    );
+
+CREATE INDEX idx_solicitud_solicitante_estado
+    ON solicitud (
+        id_solicitante,
+        estado
+    );
+
+CREATE INDEX idx_solicitud_fecha_creacion
+    ON solicitud (
+        fecha_creacion DESC
+    );
+
+CREATE TRIGGER trg_solicitud_dato_fecha_actualizacion
+BEFORE UPDATE ON solicitud_dato
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_solicitud_dato_solicitud
+    ON solicitud_dato (
+        id_solicitud
+    );
+
+CREATE INDEX idx_solicitud_dato_campo
+    ON solicitud_dato (
+        id_campo
+    );
+
+CREATE TRIGGER trg_solicitud_requisito_fecha_actualizacion
+BEFORE UPDATE ON solicitud_requisito
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_solicitud_requisito_solicitud
+    ON solicitud_requisito (
+        id_solicitud
+    );
+
+CREATE INDEX idx_solicitud_requisito_origen
+    ON solicitud_requisito (
+        id_requisito_origen
+    )
+    WHERE id_requisito_origen IS NOT NULL;
+
+CREATE INDEX idx_solicitud_requisito_economico_origen
+    ON solicitud_requisito (
+        id_requisito_economico_origen
+    )
+    WHERE id_requisito_economico_origen IS NOT NULL;
+
+CREATE INDEX idx_solicitud_requisito_numero_factura
+    ON solicitud_requisito (
+        numero_factura
+    )
+    WHERE numero_factura IS NOT NULL;
+
+CREATE INDEX idx_solicitud_requisito_estado_verificacion
+    ON solicitud_requisito (
+        id_solicitud,
+        estado_verificacion
+    );
+
+CREATE INDEX idx_solicitud_requisito_usuario_verificador
+    ON solicitud_requisito (
+        id_usuario_verificador
+    )
+    WHERE id_usuario_verificador IS NOT NULL;
+
+CREATE INDEX idx_solicitud_recepcion_usuario
+    ON solicitud_recepcion (
+        id_usuario_receptor
+    );
+
+CREATE INDEX idx_solicitud_recepcion_fecha
+    ON solicitud_recepcion (
+        fecha_recepcion DESC
+    );
+
 CREATE INDEX idx_pago_verificacion_requisito
     ON solicitud_pago_verificacion (
         id_solicitud_requisito
     );
-
 
 CREATE INDEX idx_pago_verificacion_usuario
     ON solicitud_pago_verificacion (
         id_usuario_verificador
     );
 
-
 CREATE INDEX idx_pago_verificacion_estado
     ON solicitud_pago_verificacion (
         estado
     );
-
 
 CREATE INDEX idx_pago_verificacion_fecha
     ON solicitud_pago_verificacion (
         fecha_verificacion DESC
     );
 
-
 CREATE INDEX idx_pago_verificacion_numero_factura
     ON solicitud_pago_verificacion (
         numero_factura_consultado
     );
-
 
 CREATE INDEX idx_pago_verificacion_codigo_consultado
     ON solicitud_pago_verificacion (
         codigo_concepto_consultado
     );
 
-
 CREATE UNIQUE INDEX uq_pago_verificacion_factura_verificada
     ON solicitud_pago_verificacion (
         numero_factura_consultado
     )
     WHERE estado = 'verificado';
+
+CREATE INDEX idx_tramite_requisito_etapa ON tramite_requisito(id_etapa);
+
+CREATE UNIQUE INDEX uq_solicitud_etapa_inicial ON solicitud_etapa(id_solicitud) WHERE es_inicial = TRUE;
+CREATE UNIQUE INDEX uq_solicitud_etapa_final ON solicitud_etapa(id_solicitud) WHERE es_final = TRUE;
+CREATE UNIQUE INDEX uq_solicitud_etapa_en_curso ON solicitud_etapa(id_solicitud) WHERE estado = 'en_curso';
+
+CREATE TRIGGER trg_solicitud_etapa_fecha_actualizacion BEFORE UPDATE ON solicitud_etapa
+    FOR EACH ROW EXECUTE FUNCTION actualizar_fecha_actualizacion();
+
+CREATE INDEX idx_solicitud_etapa_actual ON solicitud(id_etapa_actual);
+CREATE INDEX idx_solicitud_fecha_envio ON solicitud(fecha_envio, id_solicitud)
+    WHERE fecha_envio IS NOT NULL;
+
+CREATE INDEX idx_solicitud_requisito_etapa ON solicitud_requisito(id_solicitud_etapa);
+
+CREATE INDEX idx_solicitud_historial_cronologia ON solicitud_historial(id_solicitud, fecha_evento, id_historial);
+
+CREATE INDEX idx_solicitud_observacion_estado ON solicitud_observacion(id_solicitud, estado);
+
+-- Roles existentes del sistema (sin usuarios).
+INSERT INTO rol (
+    id_rol,
+    nombre,
+    descripcion,
+    activo
+)
+VALUES
+    (
+        1,
+        'solicitante',
+        'Usuario que consulta información y solicita o realiza seguimiento de trámites.',
+        TRUE
+    ),
+    (
+        2,
+        'personal_administrativo',
+        'Personal autorizado para revisar, gestionar y actualizar trámites.',
+        TRUE
+    ),
+    (
+        3,
+        'administrador',
+        'Usuario autorizado para administrar cuentas, roles y configuración del sistema.',
+        TRUE
+    );
+
+COMMIT;
+
+
+BEGIN;
+
+-- =========================================================
+-- M03 - DATOS DE CONTACTO PROPIOS DE CADA SOLICITUD
+-- =========================================================
+--
+-- Estos datos no modifican la cuenta del usuario.
+-- Representan únicamente la información de contacto elegida
+-- para una solicitud concreta.
+--
+-- Se mantienen NULL para conservar compatibilidad con
+-- solicitudes históricas ya existentes.
+-- =========================================================
+
+
+ALTER TABLE solicitud
+    ADD COLUMN nombre_contacto VARCHAR(200),
+    ADD COLUMN telefono_contacto VARCHAR(30),
+    ADD COLUMN correo_contacto VARCHAR(254);
+
+
+ALTER TABLE solicitud
+    ADD CONSTRAINT ck_solicitud_nombre_contacto
+        CHECK (
+            nombre_contacto IS NULL
+            OR LENGTH(TRIM(nombre_contacto)) >= 2
+        ),
+
+    ADD CONSTRAINT ck_solicitud_telefono_contacto
+        CHECK (
+            telefono_contacto IS NULL
+            OR LENGTH(TRIM(telefono_contacto)) >= 7
+        ),
+
+    ADD CONSTRAINT ck_solicitud_correo_contacto
+        CHECK (
+            correo_contacto IS NULL
+            OR LENGTH(TRIM(correo_contacto)) >= 5
+        );
+
+
+COMMIT;
+
+
+— —————————————————————————————————————————————
+
+
+CREATE UNIQUE INDEX uq_usuario_correo_unico_activo
+ON usuario_correo (id_usuario)
+WHERE activo = TRUE;   — —————————————————————————————————————————————
+ ALTER TABLE usuario
+ADD COLUMN telefono VARCHAR(30);
+
+ALTER TABLE usuario
+ADD CONSTRAINT ck_usuario_telefono
+CHECK (
+    telefono IS NULL
+    OR LENGTH(TRIM(telefono)) >= 7
+); 
+
+— —————————————————————————————————————————————
+BEGIN;
+
+DO $usuario_prueba$
+DECLARE
+    v_usuario BIGINT;
+    v_rol_solicitante BIGINT;
+    v_rol_administrativo BIGINT;
+
+    v_correo CITEXT := 'solicitante.personal@gmail.com';
+
+    /*
+     * Contraseña:
+     * Solicitante123!
+     *
+     * Hash Argon2 compatible con el utilizado
+     * en el script de prueba generado previamente.
+     */
+    v_contrasena_hash TEXT :=
+        '$argon2id$v=19$m=65536,t=3,p=4$jdzPk+lMYqfrDrJIW3v9gA$3bE8+HtCCyU9fPRARp6GxlKIxHsFlaMNOD2sRa2nea8';
+
+BEGIN
+
+    ------------------------------------------------------------
+    -- 1. COMPROBAR ROLES
+    ------------------------------------------------------------
+
+    SELECT id_rol
+    INTO v_rol_solicitante
+    FROM rol
+    WHERE nombre = 'solicitante'
+      AND activo = TRUE;
+
+    IF v_rol_solicitante IS NULL THEN
+        RAISE EXCEPTION
+            'No existe el rol activo solicitante.';
+    END IF;
+
+
+    SELECT id_rol
+    INTO v_rol_administrativo
+    FROM rol
+    WHERE nombre = 'personal_administrativo'
+      AND activo = TRUE;
+
+    IF v_rol_administrativo IS NULL THEN
+        RAISE EXCEPTION
+            'No existe el rol activo personal_administrativo.';
+    END IF;
+
+
+    ------------------------------------------------------------
+    -- 2. BUSCAR USUARIO SI YA EXISTE
+    ------------------------------------------------------------
+
+    SELECT u.id_usuario
+    INTO v_usuario
+    FROM usuario u
+    JOIN usuario_correo c
+      ON c.id_usuario = u.id_usuario
+    WHERE c.correo = v_correo
+    LIMIT 1;
+
+
+    ------------------------------------------------------------
+    -- 3. CREAR O ACTUALIZAR USUARIO
+    ------------------------------------------------------------
+
+    IF v_usuario IS NULL THEN
+
+        INSERT INTO usuario (
+            nombres,
+            apellidos,
+            telefono,
+            contrasena_hash,
+            estado
+        )
+        VALUES (
+            'Usuario',
+            'Solicitante Administrativo',
+            '71234567',
+            v_contrasena_hash,
+            'activo'
+        )
+        RETURNING id_usuario
+        INTO v_usuario;
+
+
+        INSERT INTO usuario_correo (
+            id_usuario,
+            correo,
+            tipo,
+            es_principal,
+            verificado,
+            activo,
+            fecha_verificacion
+        )
+        VALUES (
+            v_usuario,
+            v_correo,
+            'personal',
+            TRUE,
+            TRUE,
+            TRUE,
+            CURRENT_TIMESTAMP
+        );
+
+    ELSE
+
+        UPDATE usuario
+        SET
+            nombres = 'Usuario',
+            apellidos = 'Solicitante Administrativo',
+            telefono = '71234567',
+            contrasena_hash = v_contrasena_hash,
+            estado = 'activo',
+            fecha_actualizacion = CURRENT_TIMESTAMP
+        WHERE id_usuario = v_usuario;
+
+
+        UPDATE usuario_correo
+        SET
+            tipo = 'personal',
+            es_principal = TRUE,
+            verificado = TRUE,
+            activo = TRUE,
+            fecha_verificacion = COALESCE(
+                fecha_verificacion,
+                CURRENT_TIMESTAMP
+            ),
+            fecha_actualizacion = CURRENT_TIMESTAMP
+        WHERE id_usuario = v_usuario
+          AND correo = v_correo;
+
+    END IF;
+
+
+    ------------------------------------------------------------
+    -- 4. PERFIL ACADÉMICO
+    ------------------------------------------------------------
+
+    INSERT INTO perfil_academico (
+        id_usuario,
+        codigo_estudiante,
+        sede,
+        carrera_programa,
+        nivel_academico,
+        documento_identidad
+    )
+    VALUES (
+        v_usuario,
+        'PRUEBA-001',
+        'La Paz',
+        'Ingeniería de Sistemas',
+        'Licenciatura',
+        '1234567'
+    )
+    ON CONFLICT (id_usuario)
+    DO UPDATE SET
+        codigo_estudiante = EXCLUDED.codigo_estudiante,
+        sede = EXCLUDED.sede,
+        carrera_programa = EXCLUDED.carrera_programa,
+        nivel_academico = EXCLUDED.nivel_academico,
+        documento_identidad = EXCLUDED.documento_identidad,
+        fecha_actualizacion = CURRENT_TIMESTAMP;
+
+
+    ------------------------------------------------------------
+    -- 5. ROL SOLICITANTE
+    ------------------------------------------------------------
+
+    INSERT INTO usuario_rol (
+        id_usuario,
+        id_rol,
+        activo,
+        fecha_revocacion
+    )
+    VALUES (
+        v_usuario,
+        v_rol_solicitante,
+        TRUE,
+        NULL
+    )
+    ON CONFLICT (id_usuario, id_rol)
+    DO UPDATE SET
+        activo = TRUE,
+        fecha_revocacion = NULL;
+
+
+    ------------------------------------------------------------
+    -- 6. ROL PERSONAL ADMINISTRATIVO
+    ------------------------------------------------------------
+
+    INSERT INTO usuario_rol (
+        id_usuario,
+        id_rol,
+        activo,
+        fecha_revocacion
+    )
+    VALUES (
+        v_usuario,
+        v_rol_administrativo,
+        TRUE,
+        NULL
+    )
+    ON CONFLICT (id_usuario, id_rol)
+    DO UPDATE SET
+        activo = TRUE,
+        fecha_revocacion = NULL;
+
+END;
+$usuario_prueba$;
+
+COMMIT;
+
+
+------------------------------------------------------------
+-- COMPROBACIÓN
+------------------------------------------------------------
+
+SELECT
+    u.id_usuario,
+    u.nombres,
+    u.apellidos,
+    u.telefono,
+    u.estado,
+    c.correo,
+    c.es_principal,
+    c.verificado,
+    c.activo AS correo_activo,
+    p.documento_identidad,
+    p.codigo_estudiante,
+    p.sede,
+    p.carrera_programa,
+    p.nivel_academico,
+    ARRAY(
+        SELECT r.nombre
+        FROM usuario_rol ur
+        JOIN rol r
+          ON r.id_rol = ur.id_rol
+        WHERE ur.id_usuario = u.id_usuario
+          AND ur.activo = TRUE
+          AND r.activo = TRUE
+        ORDER BY r.nombre
+    ) AS roles_activos
+FROM usuario u
+JOIN usuario_correo c
+  ON c.id_usuario = u.id_usuario
+LEFT JOIN perfil_academico p
+  ON p.id_usuario = u.id_usuario
+WHERE c.correo = 'solicitante.personal@gmail.com';
+
+
+
+
+
+
+
+
+
+— ———————————————————————————————
+
+
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS usuario_identidad_externa (
+    id_usuario_identidad BIGSERIAL PRIMARY KEY,
+
+    id_usuario BIGINT NOT NULL,
+
+    proveedor VARCHAR(50) NOT NULL,
+
+    identificador_proveedor VARCHAR(255) NOT NULL,
+
+    fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_usuario_identidad_externa_usuario
+        FOREIGN KEY (id_usuario)
+        REFERENCES usuario(id_usuario)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_identidad_externa_proveedor_identificador
+        UNIQUE (
+            proveedor,
+            identificador_proveedor
+        ),
+
+    CONSTRAINT uq_identidad_externa_usuario_proveedor
+        UNIQUE (
+            id_usuario,
+            proveedor
+        )
+);
+
+CREATE INDEX IF NOT EXISTS idx_identidad_externa_usuario
+    ON usuario_identidad_externa (
+        id_usuario
+    );
+
+CREATE INDEX IF NOT EXISTS idx_identidad_externa_proveedor
+    ON usuario_identidad_externa (
+        proveedor
+    );
+
+COMMIT;
+
+
+
+— ————————————————————————————————
+
+
+
+
+
+
+-- ============================================================
+-- UCB ACADEMIC PROCEDURES PLATFORM
+--
+-- Valoración de respuestas del módulo informativo RAG
+--
+-- Fecha: 2026-10-06
+-- ============================================================
+
+
+BEGIN;
+
+
+-- ============================================================
+-- TABLA: chat_message_feedback
+-- ============================================================
+--
+-- Una respuesta del asistente puede tener como máximo
+-- una valoración activa:
+--
+--   1  = respuesta útil / like
+--  -1  = respuesta no útil / dislike
+--
+-- La valoración puede modificarse posteriormente.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS chat_message_feedback (
+
+    id_feedback UUID
+        PRIMARY KEY
+        DEFAULT gen_random_uuid(),
+
+    message_id UUID
+        NOT NULL,
+
+    rating SMALLINT
+        NOT NULL,
+
+    created_at TIMESTAMPTZ
+        NOT NULL
+        DEFAULT NOW(),
+
+    updated_at TIMESTAMPTZ
+        NOT NULL
+        DEFAULT NOW(),
+
+
+    CONSTRAINT fk_chat_message_feedback_message
+        FOREIGN KEY (message_id)
+        REFERENCES chat_message(id_message)
+        ON DELETE CASCADE,
+
+
+    CONSTRAINT uq_chat_message_feedback_message
+        UNIQUE (message_id),
+
+
+    CONSTRAINT ck_chat_message_feedback_rating
+        CHECK (
+            rating IN (-1, 1)
+        )
+);
+
+
+-- ============================================================
+-- ÍNDICE PARA CONSULTAS ESTADÍSTICAS
+-- ============================================================
+
+CREATE INDEX IF NOT EXISTS
+    idx_chat_message_feedback_rating
+ON chat_message_feedback(rating);
+
+
+COMMIT;

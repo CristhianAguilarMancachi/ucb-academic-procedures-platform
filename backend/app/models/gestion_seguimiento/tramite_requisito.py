@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -19,6 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from sqlalchemy.dialects.postgresql import JSONB
 from app.db.base import Base
 
 if TYPE_CHECKING:
@@ -37,6 +39,11 @@ class TramiteRequisito(Base):
     """
 
     __tablename__ = "tramite_requisito"
+
+    id_etapa: Mapped[int | None] = mapped_column(BigInteger)
+    requiere_presentacion_fisica: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    condicion: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+
 
     id_requisito: Mapped[int] = mapped_column(
         BigInteger,
@@ -120,6 +127,10 @@ class TramiteRequisito(Base):
     # =====================================================
 
     __table_args__ = (
+        ForeignKeyConstraint(["id_tramite", "id_etapa"], ["tramite_etapa.id_tramite", "tramite_etapa.id_etapa"], name="fk_tramite_requisito_etapa", ondelete="RESTRICT"),
+        Index("idx_tramite_requisito_etapa", "id_etapa"),
+        CheckConstraint("condicion IS NULL OR (jsonb_typeof(condicion) = 'object' AND condicion->>'operador' = 'igual' AND condicion->>'origen' IN ('solicitud_dato', 'perfil_academico'))", name="ck_tramite_requisito_condicion"),
+
         UniqueConstraint(
             "id_tramite",
             "nombre",

@@ -29,6 +29,7 @@ from app.db.session import get_db
 from app.models.usuario import Usuario
 from app.repositories.usuario_repository import (
     obtener_usuario_por_id_completo,
+    tiene_correo_principal_verificado,
 )
 from app.repositories.sesion_usuario_repository import (
     obtener_sesion_por_identificador_y_usuario,
@@ -161,6 +162,12 @@ def obtener_usuario_activo(
             detail=(
                 "La cuenta no está habilitada."
             ),
+        )
+
+    if not tiene_correo_principal_verificado(usuario):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Debes verificar tu correo principal antes de utilizar esta función.",
         )
 
     return usuario

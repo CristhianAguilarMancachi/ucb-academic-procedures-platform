@@ -45,6 +45,8 @@ def crear_correo(
 def obtener_correo_por_id(
     db: Session,
     id_usuario_correo: int,
+    *,
+    bloquear: bool = False,
 ) -> UsuarioCorreo | None:
     """
     Obtiene un correo mediante su identificador.
@@ -52,6 +54,8 @@ def obtener_correo_por_id(
     return db.get(
         UsuarioCorreo,
         id_usuario_correo,
+        with_for_update=bloquear,
+        populate_existing=bloquear,
     )
 
 

@@ -38,24 +38,6 @@ services:
       postgres:
         condition: service_healthy
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ucb_ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      OLLAMA_KEEP_ALIVE: "30m"
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      start_interval: 2s
-      start_period: 10s
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
   # ==========================================================
   # API EXTERNA SIMULADA DE PAGOS / FACTURACION
   # ==========================================================
@@ -117,8 +99,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      ollama:
-        condition: service_started
       mock_pago_api:
         condition: service_healthy
     healthcheck:
@@ -163,5 +143,4 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
-  ollama_data:
   mock_pago_data:

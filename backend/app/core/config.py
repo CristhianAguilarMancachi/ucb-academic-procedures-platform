@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-
 from dotenv import load_dotenv
 
 
@@ -18,20 +17,23 @@ load_dotenv(BASE_DIR / ".env")
 DATA_DIR = BASE_DIR / "data"
 DOCUMENTS_DIR = DATA_DIR / "documents"
 
-DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
+DOCUMENTS_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
 
 
 # ============================================================
 # FUNCIONES DE CONFIGURACIÓN
 # ============================================================
 
-def get_required_env(name: str) -> str:
+def get_required_env(
+    name: str,
+) -> str:
     """
     Obtiene una variable de entorno obligatoria.
-
-    El backend no debe iniciar si falta un secreto o una
-    configuración crítica.
     """
+
     value = os.getenv(name)
 
     if value is None or not value.strip():
@@ -50,6 +52,7 @@ def get_bool_env(
     """
     Convierte una variable de entorno a booleano.
     """
+
     value = os.getenv(name)
 
     if value is None:
@@ -57,14 +60,25 @@ def get_bool_env(
 
     normalized = value.strip().lower()
 
-    if normalized in {"true", "1", "yes", "on"}:
+    if normalized in {
+        "true",
+        "1",
+        "yes",
+        "on",
+    }:
         return True
 
-    if normalized in {"false", "0", "no", "off"}:
+    if normalized in {
+        "false",
+        "0",
+        "no",
+        "off",
+    }:
         return False
 
     raise RuntimeError(
-        f"La variable {name!r} debe contener un valor booleano."
+        f"La variable {name!r} debe contener "
+        "un valor booleano."
     )
 
 
@@ -73,8 +87,9 @@ def get_positive_float_env(
     default: float,
 ) -> float:
     """
-    Obtiene una variable numérica decimal mayor que cero.
+    Obtiene una variable decimal mayor que cero.
     """
+
     value = os.getenv(name)
 
     if value is None or not value.strip():
@@ -98,34 +113,137 @@ def get_positive_float_env(
     return result
 
 
+def get_non_negative_int_env(
+    name: str,
+    default: int,
+) -> int:
+    """
+    Obtiene una variable entera mayor o igual a cero.
+    """
+
+    value = os.getenv(name)
+
+    if value is None or not value.strip():
+        return default
+
+    try:
+        result = int(
+            value.strip()
+        )
+    except ValueError as exc:
+        raise RuntimeError(
+            f"La variable {name!r} debe contener "
+            "un número entero."
+        ) from exc
+
+    if result < 0:
+        raise RuntimeError(
+            f"La variable {name!r} no puede ser negativa."
+        )
+
+    return result
+
+
 # ============================================================
 # BASE DE DATOS
 # ============================================================
 
-DATABASE_URL = get_required_env("DATABASE_URL")
+DATABASE_URL = get_required_env(
+    "DATABASE_URL"
+)
 
 
 # ============================================================
-# OLLAMA Y RAG
+# GROQ - GENERACIÓN DEL RAG
 # ============================================================
 
-OLLAMA_BASE_URL = os.getenv(
-    "OLLAMA_BASE_URL",
-    "http://ollama:11434",
+GROQ_API_KEY = get_required_env(
+    "GROQ_API_KEY"
 )
 
-OLLAMA_MODEL = os.getenv(
-    "OLLAMA_MODEL",
-    "llama3.2:3b",
+GROQ_MODEL = os.getenv(
+    "GROQ_MODEL",
+    "openai/gpt-oss-120b",
+).strip()
+
+GROQ_TIMEOUT_SECONDS = get_positive_float_env(
+    "GROQ_TIMEOUT_SECONDS",
+    default=30.0,
 )
 
-EMBEDDING_MODEL = os.getenv(
-    "EMBEDDING_MODEL",
-    (
-        "sentence-transformers/"
-        "paraphrase-multilingual-MiniLM-L12-v2"
-    ),
+GROQ_MAX_RETRIES = get_non_negative_int_env(
+    "GROQ_MAX_RETRIES",
+    default=2,
 )
+
+if not GROQ_MODEL:
+    raise RuntimeError(
+        "GROQ_MODEL no puede estar vacío."
+    )
+
+
+# ============================================================
+# JINA AI - EMBEDDINGS DEL RAG
+# ============================================================
+
+JINA_API_KEY = get_required_env(
+    "JINA_API_KEY"
+)
+
+JINA_API_BASE_URL = os.getenv(
+    "JINA_API_BASE_URL",
+    "https://api.jina.ai/v1",
+).rstrip("/")
+
+JINA_EMBEDDING_MODEL = os.getenv(
+    "JINA_EMBEDDING_MODEL",
+    "jina-embeddings-v5-text-small",
+).strip()
+
+JINA_EMBEDDING_DIMENSION = int(
+    os.getenv(
+        "JINA_EMBEDDING_DIMENSION",
+        "512",
+    )
+)
+
+JINA_TIMEOUT_SECONDS = get_positive_float_env(
+    "JINA_TIMEOUT_SECONDS",
+    default=30.0,
+)
+
+JINA_MAX_RETRIES = get_non_negative_int_env(
+    "JINA_MAX_RETRIES",
+    default=2,
+)
+
+if not JINA_API_BASE_URL:
+    raise RuntimeError(
+        "JINA_API_BASE_URL no puede estar vacío."
+    )
+
+if not JINA_EMBEDDING_MODEL:
+    raise RuntimeError(
+        "JINA_EMBEDDING_MODEL no puede estar vacío."
+    )
+
+if JINA_EMBEDDING_DIMENSION not in {
+    32,
+    64,
+    128,
+    256,
+    512,
+    1024,
+}:
+    raise RuntimeError(
+        "JINA_EMBEDDING_DIMENSION debe ser "
+        "32, 64, 128, 256, 512 o 1024."
+    )
+
+
+# ============================================================
+# CONFIGURACIÓN DE RECUPERACIÓN
+# ============================================================
 
 CHUNK_SIZE = int(
     os.getenv(
@@ -150,23 +268,22 @@ TOP_K = int(
 
 
 # ============================================================
-# API EXTERNA DE PAGOS / FACTURACIÓN
+# GOOGLE IDENTITY SERVICES
 # ============================================================
-#
-# En desarrollo:
-#     PAGO_API_BASE_URL=http://mock_pago_api:9000
-#
-# En producción:
-#     PAGO_API_BASE_URL=<URL proporcionada institucionalmente>
-#
-# Ninguna URL, código de concepto ni credencial se almacena
-# directamente en la lógica de negocio.
+
+GOOGLE_CLIENT_ID = os.getenv(
+    "GOOGLE_CLIENT_ID",
+    "",
+).strip()
+
+
+# ============================================================
+# API EXTERNA DE PAGOS / FACTURACIÓN
 # ============================================================
 
 PAGO_API_BASE_URL = get_required_env(
     "PAGO_API_BASE_URL"
 ).rstrip("/")
-
 
 PAGO_API_VALIDAR_PATH = os.getenv(
     "PAGO_API_VALIDAR_PATH",
@@ -183,12 +300,10 @@ if not PAGO_API_VALIDAR_PATH.startswith("/"):
         "/" + PAGO_API_VALIDAR_PATH
     )
 
-
 PAGO_API_TIMEOUT = get_positive_float_env(
     "PAGO_API_TIMEOUT",
     default=10.0,
 )
-
 
 PAGO_API_TOKEN = os.getenv(
     "PAGO_API_TOKEN",
@@ -200,7 +315,9 @@ PAGO_API_TOKEN = os.getenv(
 # JWT Y TOKENS
 # ============================================================
 
-JWT_SECRET_KEY = get_required_env("JWT_SECRET_KEY")
+JWT_SECRET_KEY = get_required_env(
+    "JWT_SECRET_KEY"
+)
 
 JWT_ALGORITHM = os.getenv(
     "JWT_ALGORITHM",
@@ -276,17 +393,20 @@ COOKIE_DOMAIN = os.getenv(
     "COOKIE_DOMAIN",
 ) or None
 
-
 if COOKIE_SAMESITE not in {
     "lax",
     "strict",
     "none",
 }:
     raise RuntimeError(
-        "COOKIE_SAMESITE debe ser 'lax', 'strict' o 'none'."
+        "COOKIE_SAMESITE debe ser "
+        "'lax', 'strict' o 'none'."
     )
 
-if COOKIE_SAMESITE == "none" and not COOKIE_SECURE:
+if (
+    COOKIE_SAMESITE == "none"
+    and not COOKIE_SECURE
+):
     raise RuntimeError(
         "COOKIE_SECURE debe ser true cuando "
         "COOKIE_SAMESITE es 'none'."
@@ -320,49 +440,35 @@ LOGIN_ATTEMPT_WINDOW_MINUTES = int(
 
 
 # ============================================================
-# CORREO ELECTRÓNICO
+# CORREO ELECTRÓNICO / BREVO
 # ============================================================
 
-SMTP_HOST = os.getenv(
-    "SMTP_HOST",
+BREVO_API_KEY = os.getenv(
+    "BREVO_API_KEY",
     "",
 ).strip()
 
-SMTP_PORT = int(
-    os.getenv(
-        "SMTP_PORT",
-        "587",
-    )
-)
+BREVO_API_BASE_URL = os.getenv(
+    "BREVO_API_BASE_URL",
+    "https://api.brevo.com/v3",
+).rstrip("/")
 
-SMTP_USERNAME = os.getenv(
-    "SMTP_USERNAME",
-    "",
-).strip()
-
-SMTP_PASSWORD = os.getenv(
-    "SMTP_PASSWORD",
-    "",
-)
-
-SMTP_USE_TLS = get_bool_env(
-    "SMTP_USE_TLS",
-    default=True,
-)
-
-SMTP_USE_SSL = get_bool_env(
-    "SMTP_USE_SSL",
-    default=False,
+BREVO_API_TIMEOUT = get_positive_float_env(
+    "BREVO_API_TIMEOUT",
+    default=20.0,
 )
 
 EMAIL_FROM_ADDRESS = os.getenv(
     "EMAIL_FROM_ADDRESS",
-    SMTP_USERNAME,
+    os.getenv(
+        "EMAIL_FROM",
+        "",
+    ),
 ).strip()
 
 EMAIL_FROM_NAME = os.getenv(
     "EMAIL_FROM_NAME",
-    "Sistema de Trámites Académicos UCB",
+    "Sistema de Gestión de Trámites Académicos",
 ).strip()
 
 FRONTEND_BASE_URL = os.getenv(
@@ -370,11 +476,10 @@ FRONTEND_BASE_URL = os.getenv(
     "http://localhost:4200",
 ).rstrip("/")
 
-
-if SMTP_USE_TLS and SMTP_USE_SSL:
+if not EMAIL_FROM_ADDRESS:
     raise RuntimeError(
-        "SMTP_USE_TLS y SMTP_USE_SSL no pueden estar "
-        "activados simultáneamente."
+        "Debe configurarse EMAIL_FROM "
+        "o EMAIL_FROM_ADDRESS."
     )
 
 

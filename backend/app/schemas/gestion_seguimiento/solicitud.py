@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal
@@ -7,9 +9,9 @@ from typing import Any, Literal
 from pydantic import (
     BaseModel,
     ConfigDict,
+    EmailStr,
     Field,
     field_validator,
-    model_validator,
 )
 
 
@@ -17,16 +19,23 @@ EstadoSolicitud = Literal[
     "borrador",
     "pendiente_recepcion",
     "en_revision",
+    "en_proceso",
+    "lista_para_entrega",
+    "finalizada",
+    "cancelada",
+    "rechazada",
 ]
 
 
 # =========================================================
-# DATOS DINAMICOS DE LA SOLICITUD
+# DATOS DINÁMICOS DE LA SOLICITUD
 # =========================================================
 
 
 class SolicitudDatoGuardarRequest(BaseModel):
-    id_campo: int = Field(gt=0)
+    id_campo: int = Field(
+        gt=0
+    )
 
     valor: Any
 
@@ -45,7 +54,12 @@ class SolicitudDatoGuardarRequest(BaseModel):
 
 
 class SolicitudDatoResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    clave_snapshot: str | None
+    etiqueta_snapshot: str | None
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
     id_solicitud_dato: int
     id_solicitud: int
@@ -58,7 +72,7 @@ class SolicitudDatoResponse(BaseModel):
 
 
 # =========================================================
-# FACTURAS DE REQUISITOS ECONOMICOS
+# FACTURA
 # =========================================================
 
 
@@ -72,52 +86,68 @@ class SolicitudFacturaGuardarRequest(BaseModel):
         max_length=150,
     )
 
-    @field_validator("numero_factura")
+    @field_validator(
+        "numero_factura"
+    )
     @classmethod
     def normalizar_numero_factura(
         cls,
         valor: str,
     ) -> str:
-        valor_normalizado = valor.strip()
+        valor_normalizado = (
+            valor.strip()
+        )
 
         if not valor_normalizado:
             raise ValueError(
-                "El número de factura no puede estar vacío."
+                "El número de factura "
+                "no puede estar vacío."
             )
 
         return valor_normalizado
 
 
+# =========================================================
+# ENVÍO
+# =========================================================
+
+
 class SolicitudEnviarRequest(BaseModel):
-    facturas: list[SolicitudFacturaGuardarRequest] = Field(
-        default_factory=list,
+    """
+    El envío formal ya no recibe pago ni documentación.
+
+    El body vacío se conserva para compatibilidad con
+    el cliente HTTP actual.
+    """
+
+    model_config = ConfigDict(
+        extra="ignore",
     )
-
-    @model_validator(mode="after")
-    def validar_requisitos_sin_repetir(
-        self,
-    ) -> "SolicitudEnviarRequest":
-        ids_requisitos = [
-            factura.id_requisito
-            for factura in self.facturas
-        ]
-
-        if len(ids_requisitos) != len(set(ids_requisitos)):
-            raise ValueError(
-                "No puede registrarse más de una factura "
-                "para el mismo requisito."
-            )
-
-        return self
 
 
 # =========================================================
-# REQUISITOS COPIADOS AL ENVIAR LA SOLICITUD
+# REQUISITOS COPIADOS
 # =========================================================
 
 
 class SolicitudRequisitoResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    id_solicitud_etapa: int | None
+
+    requiere_presentacion_fisica: bool
+
+    presentado: bool
+    fecha_presentacion: datetime | None
+
+    estado_verificacion: str
+    detalle_verificacion: str | None
+
+    puede_registrar_factura: bool = False
+    puede_declarar_entrega: bool = False
+    entrega_declarada: bool = False
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
     id_solicitud_requisito: int
     id_solicitud: int
@@ -126,6 +156,7 @@ class SolicitudRequisitoResponse(BaseModel):
 
     nombre: str
     descripcion: str | None
+
     obligatorio: bool
     orden: int
 
@@ -135,6 +166,7 @@ class SolicitudRequisitoResponse(BaseModel):
     monto_economico: Decimal | None
     moneda: str | None
     gestion: int | None
+
     codigo_concepto_externo: str | None
 
     numero_factura: str | None
@@ -143,34 +175,154 @@ class SolicitudRequisitoResponse(BaseModel):
     fecha_actualizacion: datetime
 
     @property
-    def es_economico(self) -> bool:
-        return self.concepto_economico is not None
+    def es_economico(
+        self,
+    ) -> bool:
+        return (
+            self.concepto_economico
+            is not None
+        )
 
 
 # =========================================================
-# INFORMACION BASICA DEL TRAMITE DENTRO DE UNA SOLICITUD
+# TRÁMITE
 # =========================================================
 
 
 class TramiteSolicitudResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
     id_tramite: int
+
     nombre: str
     descripcion: str | None
 
 
 # =========================================================
-# CREACION Y ACTUALIZACION DE BORRADOR
+# CREACIÓN
 # =========================================================
 
 
 class SolicitudCrearRequest(BaseModel):
-    id_tramite: int = Field(gt=0)
+    id_tramite: int = Field(
+        gt=0
+    )
+
+
+# =========================================================
+# ACTUALIZACIÓN DE BORRADOR
+# =========================================================
 
 
 class SolicitudActualizarRequest(BaseModel):
-    datos: list[SolicitudDatoGuardarRequest] | None = None
+    """
+    Permite actualizar, mientras siga en borrador:
+
+    - datos dinámicos del trámite;
+    - nombre de contacto;
+    - teléfono de contacto;
+    - correo de contacto.
+
+    Los datos de contacto pertenecen a esta solicitud y
+    no modifican la cuenta del usuario.
+    """
+
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        extra="forbid",
+    )
+
+    datos: (
+        list[
+            SolicitudDatoGuardarRequest
+        ]
+        | None
+    ) = None
+
+    nombre_contacto: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=200,
+    )
+
+    telefono_contacto: str | None = Field(
+        default=None,
+        min_length=7,
+        max_length=30,
+    )
+
+    correo_contacto: EmailStr | None = (
+        None
+    )
+
+    @field_validator(
+        "nombre_contacto"
+    )
+    @classmethod
+    def normalizar_nombre_contacto(
+        cls,
+        valor: str | None,
+    ) -> str | None:
+        if valor is None:
+            return None
+
+        valor = " ".join(
+            valor.split()
+        )
+
+        if not any(
+            caracter.isalpha()
+            for caracter in valor
+        ):
+            raise ValueError(
+                "El nombre de contacto debe "
+                "contener al menos una letra."
+            )
+
+        return valor
+
+    @field_validator(
+        "telefono_contacto"
+    )
+    @classmethod
+    def validar_telefono_contacto(
+        cls,
+        valor: str | None,
+    ) -> str | None:
+        if valor is None:
+            return None
+
+        valor = valor.strip()
+
+        if not re.fullmatch(
+            r"[0-9+\-().\s]+",
+            valor,
+        ):
+            raise ValueError(
+                "El teléfono contiene "
+                "caracteres no permitidos."
+            )
+
+        cantidad_digitos = len(
+            re.sub(
+                r"\D",
+                "",
+                valor,
+            )
+        )
+
+        if (
+            cantidad_digitos < 7
+            or cantidad_digitos > 15
+        ):
+            raise ValueError(
+                "El teléfono debe contener "
+                "entre 7 y 15 dígitos."
+            )
+
+        return valor
 
 
 # =========================================================
@@ -179,7 +331,11 @@ class SolicitudActualizarRequest(BaseModel):
 
 
 class SolicitudResumenResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    nombre_tramite_snapshot: str | None
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
     id_solicitud: int
 
@@ -194,7 +350,18 @@ class SolicitudResumenResponse(BaseModel):
 
 
 class SolicitudResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    documento_identidad_pago: str | None = None
+
+    nombre_tramite_snapshot: str | None
+    tipo_finalizacion: str | None
+
+    nombre_contacto: str | None = None
+    telefono_contacto: str | None = None
+    correo_contacto: str | None = None
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
 
     id_solicitud: int
     id_solicitante: int
@@ -208,17 +375,23 @@ class SolicitudResponse(BaseModel):
 
     tramite: TramiteSolicitudResponse
 
-    datos: list[SolicitudDatoResponse] = Field(
+    datos: list[
+        SolicitudDatoResponse
+    ] = Field(
         default_factory=list
     )
 
-    requisitos: list[SolicitudRequisitoResponse] = Field(
+    requisitos: list[
+        SolicitudRequisitoResponse
+    ] = Field(
         default_factory=list
     )
 
 
 class ListaSolicitudesResponse(BaseModel):
-    items: list[SolicitudResumenResponse]
+    items: list[
+        SolicitudResumenResponse
+    ]
 
     total: int = Field(
         ge=0,

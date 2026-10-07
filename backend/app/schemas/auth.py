@@ -11,6 +11,10 @@ from pydantic import (
 )
 
 
+# ============================================================
+# REGISTRO
+# ============================================================
+
 class RegistroRequest(BaseModel):
     """
     Datos requeridos para crear una cuenta.
@@ -50,20 +54,35 @@ class RegistroRequest(BaseModel):
         max_length=128,
     )
 
-    @field_validator("nombres", "apellidos")
+    @field_validator(
+        "nombres",
+        "apellidos",
+    )
     @classmethod
-    def validar_texto_nombre(cls, value: str) -> str:
-        value = " ".join(value.split())
+    def validar_texto_nombre(
+        cls,
+        value: str,
+    ) -> str:
+        value = " ".join(
+            value.split()
+        )
 
-        if not any(character.isalpha() for character in value):
+        if not any(
+            character.isalpha()
+            for character in value
+        ):
             raise ValueError(
                 "El campo debe contener al menos una letra."
             )
 
         return value
 
-    @model_validator(mode="after")
-    def validar_contrasenas(self) -> "RegistroRequest":
+    @model_validator(
+        mode="after"
+    )
+    def validar_contrasenas(
+        self,
+    ) -> "RegistroRequest":
         if (
             self.contrasena.get_secret_value()
             != self.confirmar_contrasena.get_secret_value()
@@ -74,6 +93,10 @@ class RegistroRequest(BaseModel):
 
         return self
 
+
+# ============================================================
+# LOGIN TRADICIONAL
+# ============================================================
 
 class LoginRequest(BaseModel):
     """
@@ -89,11 +112,42 @@ class LoginRequest(BaseModel):
     )
 
     correo: EmailStr
+
     contrasena: SecretStr = Field(
         min_length=1,
         max_length=128,
     )
 
+
+# ============================================================
+# LOGIN CON GOOGLE
+# ============================================================
+
+class GoogleLoginRequest(BaseModel):
+    """
+    Credencial de identidad emitida por Google Identity Services.
+
+    El frontend no envía nombre, correo ni identificador del
+    usuario por separado.
+
+    Todos esos datos serán obtenidos por el backend únicamente
+    después de verificar criptográficamente la credencial.
+    """
+
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        extra="forbid",
+    )
+
+    credential: str = Field(
+        min_length=20,
+        max_length=10000,
+    )
+
+
+# ============================================================
+# REFRESH TOKEN
+# ============================================================
 
 class RefreshTokenRequest(BaseModel):
     """
@@ -115,6 +169,11 @@ class RefreshTokenRequest(BaseModel):
         max_length=512,
     )
 
+
+# ============================================================
+# LOGOUT
+# ============================================================
+
 class LogoutRequest(BaseModel):
     """
     Permite cerrar una sesión específica.
@@ -129,6 +188,10 @@ class LogoutRequest(BaseModel):
 
     cerrar_todas_las_sesiones: bool = False
 
+
+# ============================================================
+# CAMBIO DE CONTRASEÑA
+# ============================================================
 
 class CambioContrasenaRequest(BaseModel):
     """
@@ -154,14 +217,25 @@ class CambioContrasenaRequest(BaseModel):
         max_length=128,
     )
 
-    @model_validator(mode="after")
+    @model_validator(
+        mode="after"
+    )
     def validar_cambio_contrasena(
         self,
     ) -> "CambioContrasenaRequest":
-        actual = self.contrasena_actual.get_secret_value()
-        nueva = self.nueva_contrasena.get_secret_value()
+        actual = (
+            self.contrasena_actual
+            .get_secret_value()
+        )
+
+        nueva = (
+            self.nueva_contrasena
+            .get_secret_value()
+        )
+
         confirmacion = (
-            self.confirmar_nueva_contrasena.get_secret_value()
+            self.confirmar_nueva_contrasena
+            .get_secret_value()
         )
 
         if nueva != confirmacion:
@@ -177,6 +251,10 @@ class CambioContrasenaRequest(BaseModel):
 
         return self
 
+
+# ============================================================
+# RECUPERACIÓN DE CONTRASEÑA
+# ============================================================
 
 class SolicitudRecuperacionRequest(BaseModel):
     """
@@ -219,7 +297,9 @@ class RestablecerContrasenaRequest(BaseModel):
         max_length=128,
     )
 
-    @model_validator(mode="after")
+    @model_validator(
+        mode="after"
+    )
     def validar_nuevas_contrasenas(
         self,
     ) -> "RestablecerContrasenaRequest":
@@ -233,6 +313,10 @@ class RestablecerContrasenaRequest(BaseModel):
 
         return self
 
+
+# ============================================================
+# RESPUESTAS
+# ============================================================
 
 class MensajeResponse(BaseModel):
     """
@@ -278,9 +362,12 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     refresh_token: str | None = None
+
     usuario: "UsuarioAutenticadoResponse"
 
 
-from app.schemas.usuario import UsuarioAutenticadoResponse
+from app.schemas.usuario import (
+    UsuarioAutenticadoResponse,
+)
 
 LoginResponse.model_rebuild()

@@ -1,59 +1,242 @@
-<section>
-  <h1>Iniciar sesión</h1>
+<app-auth-layout variant="login">
+
+  <header class="auth-heading">
+
+    <div class="auth-emblem">
+      <app-auth-icon
+        name="heroUser"
+      />
+    </div>
+
+    <h1 id="auth-title">
+      Iniciar sesión
+    </h1>
+
+    <p>
+      Ingresa tus credenciales para continuar
+    </p>
+
+  </header>
+
 
   <form
     [formGroup]="formulario"
     (ngSubmit)="iniciarSesion()"
+    [attr.aria-busy]="cargando"
   >
-    <div>
-      <label for="correo">Correo</label>
-      <input
-        id="correo"
-        type="email"
-        formControlName="correo"
-        autocomplete="email"
-      />
 
-      @if (
-        formulario.controls.correo.touched &&
-        formulario.controls.correo.invalid
-      ) {
-        <small>Ingresa un correo válido.</small>
-      }
+    <div class="auth-field">
+
+      <label for="correo">
+        Correo electrónico
+      </label>
+
+      <div class="auth-input">
+
+        <app-auth-icon
+          name="heroEnvelope"
+        />
+
+        <input
+          id="correo"
+          type="email"
+          formControlName="correo"
+          autocomplete="email"
+          placeholder="Ingresa tu correo institucional o personal"
+          aria-describedby="correo-help"
+        />
+
+      </div>
+
+      <small
+        class="auth-help"
+        id="correo-help"
+      >
+        Puedes usar tu correo institucional
+        (@ucb.edu.bo) o personal.
+      </small>
+
     </div>
 
-    <div>
-      <label for="contrasena">Contraseña</label>
-      <input
-        id="contrasena"
-        type="password"
-        formControlName="contrasena"
-        autocomplete="current-password"
-      />
-    </div>
 
-    @if (error) {
-      <p>{{ error }}</p>
+    @if (
+      formulario.controls.correo.touched
+      && formulario.controls.correo.invalid
+    ) {
+
+      <small class="auth-validation">
+        Ingresa un correo válido.
+      </small>
+
     }
 
+
+    <div class="auth-field">
+
+      <label for="contrasena">
+        Contraseña
+      </label>
+
+      <div class="auth-input">
+
+        <app-auth-icon
+          name="heroLockClosed"
+        />
+
+        <input
+          id="contrasena"
+          [type]="
+            mostrarContrasena
+              ? 'text'
+              : 'password'
+          "
+          formControlName="contrasena"
+          autocomplete="current-password"
+          placeholder="Ingresa tu contraseña"
+        />
+
+        <button
+          class="auth-eye"
+          type="button"
+          (click)="
+            mostrarContrasena =
+              !mostrarContrasena
+          "
+          [attr.aria-label]="
+            mostrarContrasena
+              ? 'Ocultar contraseña'
+              : 'Mostrar contraseña'
+          "
+          [attr.aria-pressed]="
+            mostrarContrasena
+          "
+          aria-controls="contrasena"
+        >
+
+          <app-auth-icon
+            [name]="
+              mostrarContrasena
+                ? 'heroEyeSlash'
+                : 'heroEye'
+            "
+          />
+
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div class="auth-options">
+
+      <a
+        routerLink="/recuperar-contrasena"
+      >
+        ¿Olvidaste tu contraseña?
+      </a>
+
+    </div>
+
+
+    @if (error) {
+
+      <p
+        class="auth-message auth-message--error"
+        role="alert"
+      >
+        {{ error }}
+      </p>
+
+    }
+
+
     <button
+      class="auth-primary"
       type="submit"
-      [disabled]="cargando"
+      [disabled]="
+        cargando
+        || cargandoGoogle
+      "
     >
-      {{ cargando ? 'Ingresando...' : 'Iniciar sesión' }}
+
+      <app-auth-icon
+        name="heroArrowRightOnRectangle"
+      />
+
+      <span>
+        {{
+          cargando
+            ? 'Ingresando...'
+            : 'Iniciar sesión'
+        }}
+      </span>
+
     </button>
+
   </form>
 
-  <p>
-    <a routerLink="/recuperar-contrasena">
-      ¿Olvidaste tu contraseña?
-    </a>
-  </p>
 
-  <p>
-    ¿No tienes una cuenta?
+  <div class="auth-divider">
+    o continúa con
+  </div>
+
+
+  @if (googleDisponible) {
+
+    <div
+      #googleButton
+      class="auth-google-container"
+      [attr.aria-busy]="
+        cargandoGoogle
+      "
+    ></div>
+
+  } @else {
+
+    <p
+      class="auth-message auth-message--error"
+      role="status"
+    >
+      El acceso con Google no está
+      disponible en este momento.
+    </p>
+
+  }
+
+
+  <div class="auth-switch">
+
+    ¿No tienes cuenta?
+
     <a routerLink="/registro">
-      Registrarse
+      Crear cuenta
+      <app-auth-icon
+        name="heroUserPlus"
+      />
     </a>
-  </p>
-</section>
+
+    <small>
+      Regístrate para acceder a la plataforma
+      <br />
+      y gestionar tus trámites académicos.
+    </small>
+
+  </div>
+
+
+  <div class="auth-note auth-note--login">
+
+    <app-auth-icon
+      name="heroShieldCheck"
+    />
+
+    <p>
+      Este sistema es de uso exclusivo de la
+      <br class="auth-desktop-break" />
+      Universidad Católica Boliviana.
+    </p>
+
+  </div>
+
+</app-auth-layout>

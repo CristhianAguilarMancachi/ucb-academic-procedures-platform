@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import (
     APIRouter,
     HTTPException,
@@ -50,7 +52,9 @@ from app.services.gestion_seguimiento.solicitud_administrativa_service import (
 
 router = APIRouter(
     prefix="/admin/solicitudes",
-    tags=["Administración de solicitudes"],
+    tags=[
+        "Administración de solicitudes"
+    ],
 )
 
 
@@ -76,8 +80,12 @@ def _error_administrativo(
         ),
     ):
         return HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=str(
+                exc
+            ),
         )
 
     if isinstance(
@@ -92,8 +100,12 @@ def _error_administrativo(
         ),
     ):
         return HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=str(
+                exc
+            ),
         )
 
     if isinstance(
@@ -106,8 +118,12 @@ def _error_administrativo(
         ),
     ):
         return HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(
+                exc
+            ),
         )
 
     if isinstance(
@@ -115,12 +131,20 @@ def _error_administrativo(
         PagoApiNoDisponibleError,
     ):
         return HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(exc),
+            status_code=(
+                status
+                .HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=str(
+                exc
+            ),
         )
 
     return HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        status_code=(
+            status
+            .HTTP_500_INTERNAL_SERVER_ERROR
+        ),
         detail=(
             "Ocurrió un error inesperado durante "
             "la gestión administrativa."
@@ -135,27 +159,70 @@ def _error_administrativo(
 
 @router.get(
     "",
-    response_model=ListaSolicitudesAdministrativasResponse,
-    status_code=status.HTTP_200_OK,
+    response_model=(
+        ListaSolicitudesAdministrativasResponse
+    ),
+    status_code=(
+        status.HTTP_200_OK
+    ),
 )
 def consultar_bandeja_solicitudes(
     db: DatabaseSession,
     usuario: PersonalAdministrativoActual,
-    estado: EstadoSolicitudAdministrativa | None = Query(
+
+    estado: (
+        EstadoSolicitudAdministrativa
+        | None
+    ) = Query(
         default=None,
     ),
-    id_tramite: int | None = Query(
+
+    id_tramite: (
+        int | None
+    ) = Query(
         default=None,
         gt=0,
     ),
-    id_solicitud: int | None = Query(
+
+    id_solicitud: (
+        int | None
+    ) = Query(
         default=None,
         gt=0,
     ),
+
+    fecha_desde: (
+        date | None
+    ) = Query(
+        default=None,
+    ),
+
+    fecha_hasta: (
+        date | None
+    ) = Query(
+        default=None,
+    ),
+
+    id_solicitante: (
+        int | None
+    ) = Query(
+        default=None,
+        gt=0,
+    ),
+
+    busqueda: (
+        str | None
+    ) = Query(
+        default=None,
+        min_length=1,
+        max_length=200,
+    ),
+
     pagina: int = Query(
         default=1,
         ge=1,
     ),
+
     limite: int = Query(
         default=20,
         ge=1,
@@ -163,25 +230,96 @@ def consultar_bandeja_solicitudes(
     ),
 ) -> ListaSolicitudesAdministrativasResponse:
     """
-    Lista solicitudes pendientes de recepción
-    o actualmente en revisión.
+    Lista solicitudes enviadas.
 
-    En Fase 3 la bandeja NO se filtra por unidad.
+    La búsqueda general admite:
+    - número de solicitud;
+    - nombre o apellido;
+    - documento de identidad / CI;
+    - nombre del trámite.
     """
-    return listar_bandeja_administrativa(
-        db,
-        estado=estado,
-        id_tramite=id_tramite,
-        id_solicitud=id_solicitud,
-        pagina=pagina,
-        limite=limite,
+    if (
+        fecha_desde
+        and fecha_hasta
+        and fecha_desde
+        > fecha_hasta
+    ):
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=(
+                "El rango de fechas "
+                "no es válido."
+            ),
+        )
+
+    busqueda_normalizada = (
+        busqueda.strip()
+        if busqueda
+        else None
     )
+
+    if (
+        busqueda_normalizada
+        == ""
+    ):
+        busqueda_normalizada = None
+
+    return (
+        listar_bandeja_administrativa(
+            db,
+
+            estado=estado,
+
+            id_tramite=(
+                id_tramite
+            ),
+
+            id_solicitud=(
+                id_solicitud
+            ),
+
+            fecha_desde=(
+                fecha_desde
+            ),
+
+            fecha_hasta=(
+                fecha_hasta
+            ),
+
+            id_solicitante=(
+                id_solicitante
+            ),
+
+            busqueda=(
+                busqueda_normalizada
+            ),
+
+            pagina=(
+                pagina
+            ),
+
+            limite=(
+                limite
+            ),
+        )
+    )
+
+
+# ============================================================
+# DETALLE ADMINISTRATIVO
+# ============================================================
 
 
 @router.get(
     "/{id_solicitud}",
-    response_model=SolicitudAdministrativaDetalleResponse,
-    status_code=status.HTTP_200_OK,
+    response_model=(
+        SolicitudAdministrativaDetalleResponse
+    ),
+    status_code=(
+        status.HTTP_200_OK
+    ),
 )
 def consultar_detalle_solicitud_administrativa(
     id_solicitud: int,
@@ -193,14 +331,22 @@ def consultar_detalle_solicitud_administrativa(
     desde la perspectiva administrativa.
     """
     try:
-        return obtener_detalle_administrativo(
-            db,
-            id_solicitud=id_solicitud,
+        return (
+            obtener_detalle_administrativo(
+                db,
+                id_solicitud=(
+                    id_solicitud
+                ),
+            )
         )
 
-    except SolicitudAdministrativaNoEncontradaError as exc:
-        raise _error_administrativo(
-            exc
+    except (
+        SolicitudAdministrativaNoEncontradaError
+    ) as exc:
+        raise (
+            _error_administrativo(
+                exc
+            )
         ) from exc
 
 
@@ -211,8 +357,12 @@ def consultar_detalle_solicitud_administrativa(
 
 @router.post(
     "/{id_solicitud}/recibir",
-    response_model=SolicitudAdministrativaDetalleResponse,
-    status_code=status.HTTP_200_OK,
+    response_model=(
+        SolicitudAdministrativaDetalleResponse
+    ),
+    status_code=(
+        status.HTTP_200_OK
+    ),
 )
 def recibir_solicitud_administrativa(
     id_solicitud: int,
@@ -232,16 +382,30 @@ def recibir_solicitud_administrativa(
     No asigna unidad ni ejecuta etapas.
     """
     try:
-        return recibir_solicitud(
-            db,
-            id_solicitud=id_solicitud,
-            id_usuario_receptor=usuario.id_usuario,
-            direccion_ip=_obtener_direccion_ip(
-                request
-            ),
-            user_agent=request.headers.get(
-                "user-agent"
-            ),
+        return (
+            recibir_solicitud(
+                db,
+
+                id_solicitud=(
+                    id_solicitud
+                ),
+
+                id_usuario_receptor=(
+                    usuario.id_usuario
+                ),
+
+                direccion_ip=(
+                    _obtener_direccion_ip(
+                        request
+                    )
+                ),
+
+                user_agent=(
+                    request.headers.get(
+                        "user-agent"
+                    )
+                ),
+            )
         )
 
     except (
@@ -249,8 +413,10 @@ def recibir_solicitud_administrativa(
         SolicitudYaRecibidaError,
         SolicitudNoPendienteRecepcionError,
     ) as exc:
-        raise _error_administrativo(
-            exc
+        raise (
+            _error_administrativo(
+                exc
+            )
         ) from exc
 
 
@@ -260,9 +426,18 @@ def recibir_solicitud_administrativa(
 
 
 @router.post(
-    "/{id_solicitud}/requisitos/{id_solicitud_requisito}/verificar",
-    response_model=RequisitoVerificacionResponse,
-    status_code=status.HTTP_200_OK,
+    (
+        "/{id_solicitud}"
+        "/requisitos"
+        "/{id_solicitud_requisito}"
+        "/verificar"
+    ),
+    response_model=(
+        RequisitoVerificacionResponse
+    ),
+    status_code=(
+        status.HTTP_200_OK
+    ),
 )
 def verificar_requisito_administrativamente(
     id_solicitud: int,
@@ -275,26 +450,42 @@ def verificar_requisito_administrativamente(
     """
     Revisión manual de un requisito no económico.
 
-    Un requisito económico no puede aprobarse desde
-    este endpoint.
+    Un requisito económico no puede aprobarse
+    desde este endpoint.
     """
     try:
-        return verificar_requisito_manual(
-            db,
-            id_solicitud=id_solicitud,
-            id_solicitud_requisito=(
-                id_solicitud_requisito
-            ),
-            id_usuario_verificador=(
-                usuario.id_usuario
-            ),
-            datos=datos,
-            direccion_ip=_obtener_direccion_ip(
-                request
-            ),
-            user_agent=request.headers.get(
-                "user-agent"
-            ),
+        return (
+            verificar_requisito_manual(
+                db,
+
+                id_solicitud=(
+                    id_solicitud
+                ),
+
+                id_solicitud_requisito=(
+                    id_solicitud_requisito
+                ),
+
+                id_usuario_verificador=(
+                    usuario.id_usuario
+                ),
+
+                datos=(
+                    datos
+                ),
+
+                direccion_ip=(
+                    _obtener_direccion_ip(
+                        request
+                    )
+                ),
+
+                user_agent=(
+                    request.headers.get(
+                        "user-agent"
+                    )
+                ),
+            )
         )
 
     except (
@@ -304,8 +495,10 @@ def verificar_requisito_administrativamente(
         RequisitoNoPerteneceSolicitudError,
         RequisitoEconomicoRequiereApiError,
     ) as exc:
-        raise _error_administrativo(
-            exc
+        raise (
+            _error_administrativo(
+                exc
+            )
         ) from exc
 
 
@@ -315,9 +508,18 @@ def verificar_requisito_administrativamente(
 
 
 @router.post(
-    "/{id_solicitud}/requisitos/{id_solicitud_requisito}/verificar-pago",
-    response_model=PagoVerificacionResultadoResponse,
-    status_code=status.HTTP_200_OK,
+    (
+        "/{id_solicitud}"
+        "/requisitos"
+        "/{id_solicitud_requisito}"
+        "/verificar-pago"
+    ),
+    response_model=(
+        PagoVerificacionResultadoResponse
+    ),
+    status_code=(
+        status.HTTP_200_OK
+    ),
 )
 def verificar_pago_solicitud(
     id_solicitud: int,
@@ -336,21 +538,34 @@ def verificar_pago_solicitud(
     Esos valores provienen del snapshot de la solicitud.
     """
     try:
-        return verificar_pago_requisito(
-            db,
-            id_solicitud=id_solicitud,
-            id_solicitud_requisito=(
-                id_solicitud_requisito
-            ),
-            id_usuario_verificador=(
-                usuario.id_usuario
-            ),
-            direccion_ip=_obtener_direccion_ip(
-                request
-            ),
-            user_agent=request.headers.get(
-                "user-agent"
-            ),
+        return (
+            verificar_pago_requisito(
+                db,
+
+                id_solicitud=(
+                    id_solicitud
+                ),
+
+                id_solicitud_requisito=(
+                    id_solicitud_requisito
+                ),
+
+                id_usuario_verificador=(
+                    usuario.id_usuario
+                ),
+
+                direccion_ip=(
+                    _obtener_direccion_ip(
+                        request
+                    )
+                ),
+
+                user_agent=(
+                    request.headers.get(
+                        "user-agent"
+                    )
+                ),
+            )
         )
 
     except (
@@ -363,6 +578,8 @@ def verificar_pago_solicitud(
         FacturaYaUtilizadaError,
         PagoApiNoDisponibleError,
     ) as exc:
-        raise _error_administrativo(
-            exc
+        raise (
+            _error_administrativo(
+                exc
+            )
         ) from exc

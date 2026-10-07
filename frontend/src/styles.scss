@@ -1,22 +1,59 @@
+@use './styles/ucb-theme';
+
+@use './app/features/gestion-seguimiento/styles/gestion-seguimiento'
+  as gestion;
+
+
 html,
 body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
+  height:
+    100%;
+
+  margin:
+    0;
+
+  padding:
+    0;
 }
+
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
-  background: #051225;
-  color: #ffffff;
-  overflow: hidden;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  background:
+    var(--ucb-bg);
+
+  color:
+    var(--ucb-text-strong);
+
+  overflow:
+    hidden;
 }
+
 
 * {
-  box-sizing: border-box;
+  box-sizing:
+    border-box;
 }
 
+
 app-root {
-  display: block;
-  height: 100%;
+  display:
+    block;
+
+  height:
+    100%;
+}
+
+
+/*
+ * Shared presentation is scoped
+ * to M03 hosts and emitted only once.
+ */
+.m03-view {
+  @include
+    gestion.superficie;
 }

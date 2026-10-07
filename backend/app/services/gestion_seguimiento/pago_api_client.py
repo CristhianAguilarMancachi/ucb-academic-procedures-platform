@@ -70,6 +70,7 @@ def validar_factura(
 
         codigo
         numero_factura
+        documento_identidad
 
     El service de negocio no conoce HTTP, URLs,
     autenticación ni formato externo.
@@ -125,9 +126,13 @@ def validar_factura(
         ) from exc
 
     try:
-        return PagoApiRespuesta.model_validate(
-            contenido
-        )
+        respuesta = PagoApiRespuesta.model_validate(contenido)
+        if respuesta.encontrada and (
+            not respuesta.documento_identidad or not respuesta.documento_identidad.strip()
+            or respuesta.utilizada is None
+        ):
+            raise PagoApiRespuestaInvalidaError("La API no informó identidad o disponibilidad de la factura.")
+        return respuesta
 
     except ValidationError as exc:
         raise PagoApiRespuestaInvalidaError(

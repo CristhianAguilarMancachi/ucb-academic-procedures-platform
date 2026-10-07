@@ -1,0 +1,68 @@
+<div class="auth-shell" [class]="'auth-shell auth-shell--' + variant">
+  <img
+    class="auth-campus-background"
+    src="assets/images/background.png"
+    alt=""
+    aria-hidden="true"
+  />
+
+  <main class="auth-main">
+    <aside class="auth-brand" aria-label="Universidad Católica Boliviana">
+      <div class="auth-wordmark">
+        <img
+          src="assets/images/logo-ucb.png"
+          alt="Escudo de la Universidad Católica Boliviana"
+          width="196"
+          height="196"
+        />
+        <div class="auth-university" aria-hidden="true">
+          <span>UNIVERSIDAD</span>
+          <strong>CATÓLICA</strong>
+          <span>BOLIVIANA</span>
+        </div>
+      </div>
+
+      <div class="auth-brand-copy">
+        <h2>UCB <span>Trámites Académicos</span></h2>
+        <p>
+          Plataforma digital para la gestión y seguimiento<br class="auth-desktop-break" />
+          de trámites académicos de estudiantes.
+        </p>
+      </div>
+
+      <div class="auth-security-card">
+        <app-auth-icon name="heroShieldCheck" />
+        <div>
+          <strong>Acceso seguro y autorizado</strong>
+          <p>
+            Solo personal y estudiantes autorizados<br class="auth-desktop-break" />
+            pueden acceder al sistema.
+          </p>
+        </div>
+      </div>
+    </aside>
+
+    <section
+      class="auth-panel"
+      [class]="'auth-panel auth-panel--' + variant"
+      aria-labelledby="auth-title"
+    >
+      <ng-content />
+    </section>
+  </main>
+
+  <footer class="auth-footer">
+    <div>
+      <app-auth-icon name="heroLockClosed" />
+      <span>Tus datos están protegidos.</span>
+      <span class="auth-footer-separator" aria-hidden="true">|</span>
+      <span>Uso exclusivo de la comunidad UCB.</span>
+    </div>
+
+    <div>
+      <span>© {{ year }} Universidad Católica Boliviana</span>
+      <span class="auth-footer-separator" aria-hidden="true">|</span>
+      <span>Todos los derechos reservados.</span>
+    </div>
+  </footer>
+</div>

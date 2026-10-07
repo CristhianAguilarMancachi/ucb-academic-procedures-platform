@@ -1,55 +1,75 @@
-import requests
+from __future__ import annotations
 
-from app.core.config import OLLAMA_BASE_URL, OLLAMA_MODEL
+from app.services.rag.grounding_validator import (
+    validate_grounded_answer,
+)
+from app.services.rag.llm_client import (
+    complete_text,
+)
+from app.services.rag.prompt_builder import (
+    build_rag_prompt,
+)
 
 
-def generate_answer(question: str, context_chunks: list[str], query_type: str = "general") -> str:
-    context = "\n\n".join(context_chunks)
+GENERATION_TOKEN_BUDGETS = {
+    "comparison": 1600,
+    "procedure": 1600,
+    "consequence": 1400,
+    "eligibility": 1400,
+}
 
-    prompt = f"""
-Eres un asistente académico de la Universidad Católica Boliviana “San Pablo”.
+DEFAULT_GENERATION_TOKEN_BUDGET = 900
 
-Debes responder únicamente con base en la información proporcionada en el contexto.
-No inventes información.
-No agregues suposiciones.
-No contradigas el contexto.
 
-Tipo de consulta:
-{query_type}
+REASONING_BY_QUERY_TYPE = {
+    "comparison": "medium",
+    "procedure": "medium",
+    "consequence": "medium",
+    "eligibility": "medium",
+}
 
-Reglas de respuesta:
-1. Si el contexto contiene una respuesta directa y explícita, respóndela de forma directa.
-2. Si el contexto contiene un dato puntual (por ejemplo: número, fecha, nota mínima, cantidad, requisito, correo, plazo), responde ese dato sin decir que falta información.
-3. Si la consulta está en primera persona, responde de forma objetiva e institucional, sin perder el sentido.
-4. Si la pregunta parece subjetiva ("piensas que...", "crees que..."), interprétala como una consulta normativa o académica objetiva.
-5. No cites artículos, páginas, capítulos ni numeraciones normativas dentro del texto de respuesta, porque las fuentes se mostrarán aparte.
-6. No empieces respuestas con frases como "Según el artículo", "De acuerdo con el artículo", "Conforme al reglamento" o similares.
-7. Responde en español claro, breve, preciso y natural.
-8. Si el contexto contiene una definición, devuelve la definición directamente.
-9. Si el contexto permite inferir la intención con suficiente seguridad, responde normalmente aunque la pregunta esté mal redactada.
-10. Solo di "No se encontró información suficiente en los documentos cargados." si el contexto realmente no permite responder.
-11. Si la consulta es demasiado ambigua incluso con el contexto, responde: "No se pudo identificar con claridad a qué trámite o situación te refieres. Intenta mencionar el trámite, modalidad o tema."
+DEFAULT_REASONING_EFFORT = "low"
 
-Pregunta:
-{question}
 
-Contexto:
-{context}
-"""
-
-    response = requests.post(
-        f"{OLLAMA_BASE_URL}/api/generate",
-        json={
-            "model": OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": 0.0
-            }
-        },
-        timeout=120
+def generate_answer(
+    question: str,
+    documents: list[str],
+    metadatas: list[dict],
+    query_type: str = "general",
+) -> str:
+    prompt = build_rag_prompt(
+        question=question,
+        documents=documents,
+        metadatas=metadatas,
+        query_type=query_type,
     )
 
-    response.raise_for_status()
-    data = response.json()
-    return data.get("response", "").strip()
+    reasoning_effort = (
+        REASONING_BY_QUERY_TYPE.get(
+            query_type,
+            DEFAULT_REASONING_EFFORT,
+        )
+    )
+
+    max_tokens = (
+        GENERATION_TOKEN_BUDGETS.get(
+            query_type,
+            DEFAULT_GENERATION_TOKEN_BUDGET,
+        )
+    )
+
+    generated_answer = complete_text(
+        prompt,
+        temperature=0.0,
+        max_completion_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
+        task="generation",
+    )
+
+    validated_answer = validate_grounded_answer(
+        question=question,
+        answer=generated_answer,
+        documents=documents,
+    )
+
+    return validated_answer

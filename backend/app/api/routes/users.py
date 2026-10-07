@@ -12,15 +12,18 @@ from app.api.routes.auth import (
     obtener_direccion_ip,
     obtener_user_agent,
 )
+
 from app.core.dependencies import (
     AccessToken,
     DatabaseSession,
     UsuarioActivo,
 )
+
 from app.core.security import (
     TokenSecurityError,
     decodificar_access_token,
 )
+
 from app.schemas.sesion import (
     CerrarTodasSesionesRequest,
     CerrarTodasSesionesResponse,
@@ -28,10 +31,12 @@ from app.schemas.sesion import (
     SesionRevocarRequest,
     SesionRevocarResponse,
 )
+
 from app.schemas.usuario import (
     UsuarioActualizarRequest,
     UsuarioAutenticadoResponse,
 )
+
 from app.services.auth.session_service import (
     SesionNoEncontradaError,
     SesionYaRevocadaError,
@@ -39,6 +44,7 @@ from app.services.auth.session_service import (
     cerrar_todas_las_sesiones,
     obtener_sesiones_usuario,
 )
+
 from app.services.auth.user_service import (
     ActualizacionUsuarioVaciaError,
     UsuarioNoEncontradoError,
@@ -49,13 +55,16 @@ from app.services.auth.user_service import (
 
 router = APIRouter(
     prefix="/users",
-    tags=["Usuarios"],
+    tags=[
+        "Usuarios",
+    ],
 )
 
 
 # ============================================================
 # PERFIL
 # ============================================================
+
 
 @router.get(
     "/me",
@@ -67,19 +76,25 @@ def consultar_perfil(
     db: DatabaseSession,
 ) -> UsuarioAutenticadoResponse:
     """
-    Devuelve el perfil del usuario autenticado junto con sus
-    correos y roles activos.
+    Devuelve los datos personales del usuario autenticado,
+    su correo y sus roles activos.
     """
     try:
         return obtener_perfil_usuario(
             db,
-            id_usuario=usuario.id_usuario,
+            id_usuario=(
+                usuario.id_usuario
+            ),
         )
 
     except UsuarioNoEncontradoError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=str(
+                exc
+            ),
         ) from exc
 
 
@@ -95,7 +110,16 @@ def actualizar_perfil(
     db: DatabaseSession,
 ) -> UsuarioAutenticadoResponse:
     """
-    Actualiza los nombres o apellidos del usuario autenticado.
+    Actualiza los datos personales básicos del usuario:
+
+        - nombres;
+        - apellidos;
+        - teléfono.
+
+    El correo, contraseña, roles y estado no se modifican
+    mediante este endpoint.
+
+    El CI continúa administrándose desde perfil_academico.
     """
     try:
         return actualizar_perfil_usuario(
@@ -103,26 +127,56 @@ def actualizar_perfil(
             usuario=usuario,
             nombres=datos.nombres,
             apellidos=datos.apellidos,
-            direccion_ip=obtener_direccion_ip(request),
-            user_agent=obtener_user_agent(request),
+            telefono=datos.telefono,
+
+            # Permite distinguir:
+            #
+            # campo omitido -> no modificar
+            # telefono=null -> eliminar
+            # telefono=valor -> actualizar
+            actualizar_telefono=(
+                "telefono"
+                in datos.model_fields_set
+            ),
+
+            direccion_ip=(
+                obtener_direccion_ip(
+                    request
+                )
+            ),
+
+            user_agent=(
+                obtener_user_agent(
+                    request
+                )
+            ),
         )
 
     except ActualizacionUsuarioVaciaError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(
+                exc
+            ),
         ) from exc
 
     except UsuarioNoEncontradoError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=str(
+                exc
+            ),
         ) from exc
 
 
 # ============================================================
 # SESIONES
 # ============================================================
+
 
 @router.get(
     "/me/sessions",
@@ -139,8 +193,12 @@ def consultar_sesiones(
     """
     return obtener_sesiones_usuario(
         db,
-        id_usuario=usuario.id_usuario,
-        solo_vigentes=solo_vigentes,
+        id_usuario=(
+            usuario.id_usuario
+        ),
+        solo_vigentes=(
+            solo_vigentes
+        ),
     )
 
 
@@ -167,33 +225,53 @@ def cerrar_sesion_especifica(
     try:
         return cerrar_sesion_por_id(
             db,
-            id_usuario=usuario.id_usuario,
+            id_usuario=(
+                usuario.id_usuario
+            ),
             id_sesion=id_sesion,
             motivo=(
                 datos.motivo
                 if datos is not None
                 else None
             ),
-            direccion_ip=obtener_direccion_ip(request),
-            user_agent=obtener_user_agent(request),
+            direccion_ip=(
+                obtener_direccion_ip(
+                    request
+                )
+            ),
+            user_agent=(
+                obtener_user_agent(
+                    request
+                )
+            ),
         )
 
     except SesionNoEncontradaError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=str(
+                exc
+            ),
         ) from exc
 
     except SesionYaRevocadaError as exc:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=str(
+                exc
+            ),
         ) from exc
 
 
 @router.delete(
     "/me/sessions",
-    response_model=CerrarTodasSesionesResponse,
+    response_model=(
+        CerrarTodasSesionesResponse
+    ),
     status_code=status.HTTP_200_OK,
 )
 def cerrar_sesiones_usuario(
@@ -201,7 +279,10 @@ def cerrar_sesiones_usuario(
     usuario: UsuarioActivo,
     token: AccessToken,
     db: DatabaseSession,
-    datos: CerrarTodasSesionesRequest | None = Body(
+    datos: (
+        CerrarTodasSesionesRequest
+        | None
+    ) = Body(
         default=None,
     ),
 ) -> CerrarTodasSesionesResponse:
@@ -221,25 +302,48 @@ def cerrar_sesiones_usuario(
 
     if conservar_actual:
         try:
-            payload = decodificar_access_token(token)
-            identificador_actual = payload.session_id
+            payload = (
+                decodificar_access_token(
+                    token
+                )
+            )
+
+            identificador_actual = (
+                payload.session_id
+            )
 
         except TokenSecurityError as exc:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=(
+                    status.HTTP_401_UNAUTHORIZED
+                ),
                 detail=(
-                    "No fue posible identificar la sesión "
-                    "actual."
+                    "No fue posible identificar "
+                    "la sesión actual."
                 ),
                 headers={
-                    "WWW-Authenticate": "Bearer",
+                    "WWW-Authenticate": (
+                        "Bearer"
+                    ),
                 },
             ) from exc
 
     return cerrar_todas_las_sesiones(
         db,
-        id_usuario=usuario.id_usuario,
-        conservar_identificador=identificador_actual,
-        direccion_ip=obtener_direccion_ip(request),
-        user_agent=obtener_user_agent(request),
+        id_usuario=(
+            usuario.id_usuario
+        ),
+        conservar_identificador=(
+            identificador_actual
+        ),
+        direccion_ip=(
+            obtener_direccion_ip(
+                request
+            )
+        ),
+        user_agent=(
+            obtener_user_agent(
+                request
+            )
+        ),
     )

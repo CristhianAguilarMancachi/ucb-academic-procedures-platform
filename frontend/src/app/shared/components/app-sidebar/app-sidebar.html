@@ -1,87 +1,269 @@
 <div class="sidebar-wrap">
 
   <div class="brand">
+
     <img
       src="/assets/images/logo_ucb_original.png"
       alt="Logo UCB"
       class="brand-logo"
     />
+
   </div>
 
 
-  <ng-container
-    *ngFor="let section of groupedMenu | keyvalue"
-  >
+  <div class="sidebar-navigation">
 
-    <div class="menu-section">
+    <ng-container
+      *ngFor="
+        let section
+        of menuSections()
+      "
+    >
 
-      <div class="section-title">
-        {{ section.key }}
-      </div>
+      <div class="menu-section">
 
-
-      <a
-        *ngFor="let item of section.value"
-        [routerLink]="item.route"
-        routerLinkActive="active"
-        [routerLinkActiveOptions]="{ exact: true }"
-        class="menu-link"
-      >
-
-        <span class="menu-left">
-
-          <ng-container
-            [ngSwitch]="item.icon"
-          >
-
-            <ng-icon
-              *ngSwitchCase="'plus'"
-              name="heroPlusCircle"
-              class="menu-icon">
-            </ng-icon>
+        <div class="section-title">
+          {{ section.nombre }}
+        </div>
 
 
-            <ng-icon
-              *ngSwitchCase="'folder'"
-              name="heroFolderOpen"
-              class="menu-icon">
-            </ng-icon>
+        <a
+          *ngFor="
+            let item
+            of section.items
+          "
+          [routerLink]="item.route"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="
+            exactRouteOptions
+          "
+          class="menu-link"
+        >
+
+          <span class="menu-left">
+
+            <ng-container
+              [ngSwitch]="item.icon"
+            >
+
+              <ng-icon
+                *ngSwitchCase="'plus'"
+                name="heroPlusCircle"
+                class="menu-icon"
+              >
+              </ng-icon>
 
 
-            <ng-icon
-              *ngSwitchCase="'alert'"
-              name="heroExclamationCircle"
-              class="menu-icon">
-            </ng-icon>
+              <ng-icon
+                *ngSwitchCase="'folder'"
+                name="heroFolderOpen"
+                class="menu-icon"
+              >
+              </ng-icon>
 
 
-            <ng-icon
-              *ngSwitchCase="'sparkles'"
-              name="heroSparkles"
-              class="menu-icon">
-            </ng-icon>
+              <ng-icon
+                *ngSwitchCase="'sparkles'"
+                name="heroSparkles"
+                class="menu-icon"
+              >
+              </ng-icon>
 
-          </ng-container>
+            </ng-container>
 
 
-          <span>
-            {{ item.label }}
+            <span>
+              {{ item.label }}
+            </span>
+
           </span>
 
-        </span>
 
+          <span
+            *ngIf="item.badge"
+            class="badge"
+          >
+            {{ item.badge }}
+          </span>
+
+        </a>
+
+      </div>
+
+    </ng-container>
+
+  </div>
+
+
+  <div class="sidebar-account">
+
+    @if (
+      authService.sesionInicializada()
+      && !authService.autenticado()
+    ) {
+
+      <button
+        type="button"
+        class="account-login"
+        (click)="irAIniciarSesion()"
+      >
 
         <span
-          *ngIf="item.badge"
-          class="badge"
+          class="account-avatar
+                 account-avatar--guest"
         >
-          {{ item.badge }}
+
+          <ng-icon
+            name="heroUserCircle"
+          >
+          </ng-icon>
+
         </span>
 
-      </a>
 
-    </div>
+        <span class="account-login-text">
+          Iniciar sesión
+        </span>
 
-  </ng-container>
+      </button>
+
+    }
+
+
+    @if (
+      authService.autenticado()
+    ) {
+
+      <div class="account-menu-wrap">
+
+        @if (
+          menuCuentaAbierto()
+        ) {
+
+          <div class="account-popover">
+
+            <button
+              type="button"
+              class="account-popover-item"
+              (click)="irAPerfil()"
+            >
+
+              <ng-icon
+                name="heroUserCircle"
+              >
+              </ng-icon>
+
+              <span>
+                Mi perfil
+              </span>
+
+            </button>
+
+
+            <button
+              type="button"
+              class="account-popover-item"
+              (click)="irASeguridad()"
+            >
+
+              <ng-icon
+                name="heroLockClosed"
+              >
+              </ng-icon>
+
+              <span>
+                Seguridad de cuenta
+              </span>
+
+            </button>
+
+
+            <div
+              class="account-popover-separator"
+            >
+            </div>
+
+
+            <button
+              type="button"
+              class="
+                account-popover-item
+                account-popover-item--danger
+              "
+              [disabled]="
+                cerrandoSesion()
+              "
+              (click)="cerrarSesion()"
+            >
+
+              <ng-icon
+                name="
+                  heroArrowRightOnRectangle
+                "
+              >
+              </ng-icon>
+
+              <span>
+
+                {{
+                  cerrandoSesion()
+                    ? 'Cerrando...'
+                    : 'Cerrar sesión'
+                }}
+
+              </span>
+
+            </button>
+
+          </div>
+
+        }
+
+
+        <button
+          type="button"
+          class="account-trigger"
+          [attr.aria-expanded]="
+            menuCuentaAbierto()
+          "
+          (click)="alternarMenuCuenta()"
+        >
+
+          <span class="account-avatar">
+
+            {{ inicialUsuario() }}
+
+          </span>
+
+
+          <span class="account-identity">
+
+            <span class="account-name">
+              {{ nombreUsuario() }}
+            </span>
+
+            <span class="account-role">
+              {{ rolUsuario() }}
+            </span>
+
+          </span>
+
+
+          <ng-icon
+            name="heroChevronUp"
+            class="account-chevron"
+            [class.account-chevron--open]="
+              menuCuentaAbierto()
+            "
+          >
+          </ng-icon>
+
+        </button>
+
+      </div>
+
+    }
+
+  </div>
 
 </div>

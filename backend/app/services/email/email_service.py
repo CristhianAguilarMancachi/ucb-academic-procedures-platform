@@ -1,19 +1,13 @@
 from __future__ import annotations
 
-import smtplib
-
-from email.message import EmailMessage
-from email.utils import formataddr
+import requests
 
 from app.core.config import (
+    BREVO_API_BASE_URL,
+    BREVO_API_KEY,
+    BREVO_API_TIMEOUT,
     EMAIL_FROM_ADDRESS,
     EMAIL_FROM_NAME,
-    SMTP_HOST,
-    SMTP_PASSWORD,
-    SMTP_PORT,
-    SMTP_USERNAME,
-    SMTP_USE_SSL,
-    SMTP_USE_TLS,
 )
 
 
@@ -27,13 +21,13 @@ def validar_configuracion_email() -> None:
     """
     Verifica que existan los datos mínimos para enviar correo.
     """
-    faltantes = []
+    faltantes: list[str] = []
 
-    if not SMTP_HOST:
-        faltantes.append("SMTP_HOST")
+    if not BREVO_API_KEY:
+        faltantes.append("BREVO_API_KEY")
 
     if not EMAIL_FROM_ADDRESS:
-        faltantes.append("EMAIL_FROM_ADDRESS")
+        faltantes.append("EMAIL_FROM")
 
     if faltantes:
         raise EmailServiceError(
@@ -42,38 +36,36 @@ def validar_configuracion_email() -> None:
         )
 
 
-def construir_mensaje(
+def _construir_payload(
     *,
     destinatario: str,
     asunto: str,
     contenido_texto: str,
     contenido_html: str | None = None,
-) -> EmailMessage:
+) -> dict:
     """
-    Construye un correo multipart con versión de texto y HTML.
+    Construye el cuerpo requerido por la API transaccional
+    de Brevo.
     """
-    mensaje = EmailMessage()
-
-    mensaje["From"] = formataddr(
-        (
-            EMAIL_FROM_NAME,
-            EMAIL_FROM_ADDRESS,
-        )
-    )
-    mensaje["To"] = destinatario
-    mensaje["Subject"] = asunto
-
-    mensaje.set_content(
-        contenido_texto,
-    )
+    payload: dict = {
+        "sender": {
+            "name": EMAIL_FROM_NAME,
+            "email": EMAIL_FROM_ADDRESS,
+        },
+        "to": [
+            {
+                "email": destinatario,
+            }
+        ],
+        "subject": asunto,
+    }
 
     if contenido_html:
-        mensaje.add_alternative(
-            contenido_html,
-            subtype="html",
-        )
+        payload["htmlContent"] = contenido_html
+    else:
+        payload["textContent"] = contenido_texto
 
-    return mensaje
+    return payload
 
 
 def enviar_correo(
@@ -84,11 +76,25 @@ def enviar_correo(
     contenido_html: str | None = None,
 ) -> None:
     """
-    Envía un correo mediante el servidor SMTP configurado.
+    Envía un correo transaccional mediante la API de Brevo.
+
+    Mantiene la misma interfaz utilizada actualmente por los
+    servicios de verificación de correo y recuperación de
+    contraseña.
     """
     validar_configuracion_email()
 
-    mensaje = construir_mensaje(
+    url = (
+        f"{BREVO_API_BASE_URL}/smtp/email"
+    )
+
+    headers = {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json",
+    }
+
+    payload = _construir_payload(
         destinatario=destinatario,
         asunto=asunto,
         contenido_texto=contenido_texto,
@@ -96,45 +102,21 @@ def enviar_correo(
     )
 
     try:
-        if SMTP_USE_SSL:
-            with smtplib.SMTP_SSL(
-                SMTP_HOST,
-                SMTP_PORT,
-                timeout=20,
-            ) as servidor:
-                if SMTP_USERNAME:
-                    servidor.login(
-                        SMTP_USERNAME,
-                        SMTP_PASSWORD,
-                    )
+        respuesta = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=BREVO_API_TIMEOUT,
+        )
 
-                servidor.send_message(mensaje)
-
-            return
-
-        with smtplib.SMTP(
-            SMTP_HOST,
-            SMTP_PORT,
-            timeout=20,
-        ) as servidor:
-            servidor.ehlo()
-
-            if SMTP_USE_TLS:
-                servidor.starttls()
-                servidor.ehlo()
-
-            if SMTP_USERNAME:
-                servidor.login(
-                    SMTP_USERNAME,
-                    SMTP_PASSWORD,
-                )
-
-            servidor.send_message(mensaje)
-
-    except (
-        smtplib.SMTPException,
-        OSError,
-    ) as exc:
+    except requests.RequestException as exc:
         raise EmailServiceError(
-            "No fue posible enviar el correo electrónico."
+            "No fue posible comunicarse con el "
+            "servicio de correo electrónico."
         ) from exc
+
+    if not 200 <= respuesta.status_code < 300:
+        raise EmailServiceError(
+            "El servicio de correo rechazó el envío "
+            f"(HTTP {respuesta.status_code})."
+        )

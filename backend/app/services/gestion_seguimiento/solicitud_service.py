@@ -1,12 +1,20 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import (
+    date,
+    datetime,
+    timezone,
+)
 from math import isfinite
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
+from app.models.gestion_seguimiento import (
+    SolicitudEtapa,
+)
 from app.models.gestion_seguimiento.solicitud import (
     Solicitud,
 )
@@ -20,93 +28,193 @@ from app.repositories.gestion_seguimiento import (
     solicitud_repository,
     tramite_repository,
 )
+from app.repositories.gestion_seguimiento import (
+    seguimiento_repository
+    as seguimiento_repo,
+)
 from app.schemas.gestion_seguimiento.solicitud import (
     ListaSolicitudesResponse,
     SolicitudActualizarRequest,
     SolicitudCrearRequest,
-    SolicitudEnviarRequest,
     SolicitudResponse,
     SolicitudResumenResponse,
 )
 from app.services.auth.audit_service import (
     registrar_accion_simple,
 )
+from app.services.gestion_seguimiento.configuracion_flujo_service import (
+    requisitos_aplicables,
+    validar_flujo_envio,
+)
+from app.services.gestion_seguimiento.datos_pago_service import (
+    obtener_documento_pago,
+)
+
+
+# ============================================================
+# ERRORES
+# ============================================================
 
 
 class SolicitudServiceError(Exception):
-    """Error base del servicio de solicitudes."""
+    """Error base del servicio."""
 
 
 class SolicitudNoEncontradaError(
     SolicitudServiceError
 ):
-    """La solicitud no existe o no pertenece al usuario."""
+    """Solicitud inexistente o ajena."""
 
 
 class TramiteSolicitudNoEncontradoError(
     SolicitudServiceError
 ):
-    """El trámite solicitado no existe."""
+    """Trámite inexistente."""
 
 
 class TramiteNoDisponibleParaSolicitudError(
     SolicitudServiceError
 ):
-    """El trámite no está habilitado para solicitudes."""
+    """Trámite no habilitado."""
 
 
 class SolicitudNoEsBorradorError(
     SolicitudServiceError
 ):
-    """La operación solamente está permitida en borradores."""
+    """La operación requiere un borrador."""
 
 
 class ActualizacionSolicitudVaciaError(
     SolicitudServiceError
 ):
-    """No existen datos para actualizar."""
+    """No existen cambios que aplicar."""
 
 
 class CampoSolicitudInvalidoError(
     SolicitudServiceError
 ):
-    """Un campo no pertenece al trámite o no está activo."""
+    """Campo inválido."""
 
 
 class ValorCampoInvalidoError(
     SolicitudServiceError
 ):
-    """El valor enviado no corresponde al tipo del campo."""
+    """Valor incompatible con el campo."""
 
 
 class ConfiguracionCampoInvalidaError(
     SolicitudServiceError
 ):
-    """La configuración del campo no permite validarlo."""
+    """Configuración inválida."""
 
 
 class CamposObligatoriosFaltantesError(
     SolicitudServiceError
 ):
-    """La solicitud tiene campos obligatorios sin completar."""
+    """Faltan datos obligatorios."""
 
 
 class ConfiguracionEconomicaIncompletaError(
     SolicitudServiceError
 ):
-    """Un requisito económico no tiene configuración vigente."""
+    """Configuración económica incompleta."""
 
 
 class FacturaSolicitudInvalidaError(
     SolicitudServiceError
 ):
-    """La información de facturación indicada no es válida."""
+    """
+    Conservado para compatibilidad con otras operaciones
+    relacionadas con facturación.
+    """
 
 
 class SolicitudInconsistenteError(
     SolicitudServiceError
 ):
-    """La solicitud presenta una condición interna inesperada."""
+    """Condición interna inesperada."""
+
+
+# ============================================================
+# PREPARACIÓN
+# ============================================================
+
+
+def consultar_preparacion(
+    db: Session,
+    id_solicitud: int,
+    id_solicitante: int,
+):
+    """
+    Devuelve los requisitos aplicables.
+
+    Consultar requisitos no genera snapshots ni cambia
+    el estado de la solicitud.
+    """
+    from app.services.gestion_seguimiento.tramite_service import (
+        obtener_tramite_catalogo_publico,
+    )
+
+    solicitud = _obtener_solicitud_del_usuario(
+        db,
+        id_solicitud=id_solicitud,
+        id_solicitante=id_solicitante,
+        completa=True,
+    )
+
+    _validar_solicitud_borrador(
+        solicitud
+    )
+
+    catalogo = (
+        obtener_tramite_catalogo_publico(
+            db,
+            id_tramite=(
+                solicitud.id_tramite
+            ),
+        )
+    )
+
+    campos = (
+        tramite_repository
+        .listar_campos_tramite(
+            db,
+            solicitud.id_tramite,
+            solo_activos=True,
+        )
+    )
+
+    requisitos = (
+        tramite_repository
+        .listar_requisitos_tramite(
+            db,
+            solicitud.id_tramite,
+            solo_activos=True,
+        )
+    )
+
+    aplicables = requisitos_aplicables(
+        db,
+        solicitud,
+        requisitos,
+        campos,
+        solicitud.datos,
+    )
+
+    ids_aplicables = {
+        requisito.id_requisito
+        for requisito in aplicables
+    }
+
+    catalogo.requisitos = [
+        requisito
+        for requisito
+        in catalogo.requisitos
+        if requisito.id_requisito
+        in ids_aplicables
+    ]
+
+    return catalogo
 
 
 # ============================================================
@@ -120,7 +228,14 @@ def _obtener_solicitud_del_usuario(
     id_solicitud: int,
     id_solicitante: int,
     completa: bool = False,
+    bloquear: bool = False,
 ) -> Solicitud:
+    if bloquear:
+        seguimiento_repo.bloquear_solicitud(
+            db,
+            id_solicitud,
+        )
+
     solicitud = (
         solicitud_repository
         .obtener_solicitud_usuario_por_id(
@@ -162,7 +277,8 @@ def _obtener_tramite_habilitado(
         or not tramite.permite_solicitudes
     ):
         raise TramiteNoDisponibleParaSolicitudError(
-            "El trámite no está habilitado para recibir solicitudes."
+            "El trámite no está habilitado "
+            "para recibir solicitudes."
         )
 
     return tramite
@@ -182,11 +298,6 @@ def _validar_valor_campo(
     campo: TramiteCampo,
     valor: Any,
 ) -> Any:
-    """
-    Valida un valor utilizando tipo_dato de tramite_campo.
-
-    Retorna el valor normalizado que debe almacenarse.
-    """
     tipo = campo.tipo_dato
 
     if tipo in {
@@ -198,14 +309,16 @@ def _validar_valor_campo(
             str,
         ):
             raise ValorCampoInvalidoError(
-                f'El campo "{campo.etiqueta}" debe contener texto.'
+                f'El campo "{campo.etiqueta}" '
+                "debe contener texto."
             )
 
         valor_limpio = valor.strip()
 
         if not valor_limpio:
             raise ValorCampoInvalidoError(
-                f'El campo "{campo.etiqueta}" no puede estar vacío.'
+                f'El campo "{campo.etiqueta}" '
+                "no puede estar vacío."
             )
 
         return valor_limpio
@@ -222,7 +335,8 @@ def _validar_valor_campo(
             )
         ):
             raise ValorCampoInvalidoError(
-                f'El campo "{campo.etiqueta}" debe contener un número entero.'
+                f'El campo "{campo.etiqueta}" '
+                "debe contener un número entero."
             )
 
         return valor
@@ -239,7 +353,8 @@ def _validar_valor_campo(
             )
         ):
             raise ValorCampoInvalidoError(
-                f'El campo "{campo.etiqueta}" debe contener un número.'
+                f'El campo "{campo.etiqueta}" '
+                "debe contener un número."
             )
 
         if (
@@ -247,10 +362,13 @@ def _validar_valor_campo(
                 valor,
                 float,
             )
-            and not isfinite(valor)
+            and not isfinite(
+                valor
+            )
         ):
             raise ValorCampoInvalidoError(
-                f'El campo "{campo.etiqueta}" contiene un número inválido.'
+                f'El campo "{campo.etiqueta}" '
+                "contiene un número inválido."
             )
 
         return valor
@@ -261,7 +379,8 @@ def _validar_valor_campo(
             str,
         ):
             raise ValorCampoInvalidoError(
-                f'El campo "{campo.etiqueta}" debe contener una fecha.'
+                f'El campo "{campo.etiqueta}" '
+                "debe contener una fecha."
             )
 
         valor_limpio = valor.strip()
@@ -270,10 +389,11 @@ def _validar_valor_campo(
             fecha = date.fromisoformat(
                 valor_limpio
             )
+
         except ValueError as exc:
             raise ValorCampoInvalidoError(
-                f'El campo "{campo.etiqueta}" debe utilizar '
-                "el formato YYYY-MM-DD."
+                f'El campo "{campo.etiqueta}" '
+                "debe utilizar el formato YYYY-MM-DD."
             ) from exc
 
         return fecha.isoformat()
@@ -284,7 +404,8 @@ def _validar_valor_campo(
             bool,
         ):
             raise ValorCampoInvalidoError(
-                f'El campo "{campo.etiqueta}" debe ser verdadero o falso.'
+                f'El campo "{campo.etiqueta}" '
+                "debe ser verdadero o falso."
             )
 
         return valor
@@ -295,15 +416,16 @@ def _validar_valor_campo(
             str,
         ):
             raise ValorCampoInvalidoError(
-                f'El campo "{campo.etiqueta}" debe contener '
-                "una opción válida."
+                f'El campo "{campo.etiqueta}" '
+                "debe contener una opción válida."
             )
 
         valor_limpio = valor.strip()
 
         if not valor_limpio:
             raise ValorCampoInvalidoError(
-                f'El campo "{campo.etiqueta}" no puede estar vacío.'
+                f'El campo "{campo.etiqueta}" '
+                "no puede estar vacío."
             )
 
         configuracion = (
@@ -327,11 +449,13 @@ def _validar_valor_campo(
             or not opciones
         ):
             raise ConfiguracionCampoInvalidaError(
-                f'El campo "{campo.etiqueta}" no tiene '
-                "opciones configuradas correctamente."
+                f'El campo "{campo.etiqueta}" '
+                "no tiene opciones configuradas correctamente."
             )
 
-        valores_permitidos: list[str] = []
+        valores_permitidos: list[
+            str
+        ] = []
 
         for opcion in opciones:
             if isinstance(
@@ -341,14 +465,17 @@ def _validar_valor_campo(
                 valores_permitidos.append(
                     opcion
                 )
+
                 continue
 
             if isinstance(
                 opcion,
                 dict,
             ):
-                valor_opcion = opcion.get(
-                    "valor"
+                valor_opcion = (
+                    opcion.get(
+                        "valor"
+                    )
                 )
 
                 if isinstance(
@@ -358,14 +485,18 @@ def _validar_valor_campo(
                     valores_permitidos.append(
                         valor_opcion
                     )
+
                     continue
 
             raise ConfiguracionCampoInvalidaError(
-                f'El campo "{campo.etiqueta}" tiene '
-                "una configuración de opciones inválida."
+                f'El campo "{campo.etiqueta}" '
+                "tiene una configuración de opciones inválida."
             )
 
-        if valor_limpio not in valores_permitidos:
+        if (
+            valor_limpio
+            not in valores_permitidos
+        ):
             raise ValorCampoInvalidoError(
                 f'El valor indicado para "{campo.etiqueta}" '
                 "no corresponde a una opción permitida."
@@ -374,8 +505,8 @@ def _validar_valor_campo(
         return valor_limpio
 
     raise ConfiguracionCampoInvalidaError(
-        f'El campo "{campo.etiqueta}" tiene '
-        f'un tipo de dato no soportado: "{tipo}".'
+        f'El campo "{campo.etiqueta}" '
+        f'tiene un tipo no soportado: "{tipo}".'
     )
 
 
@@ -385,12 +516,6 @@ def _normalizar_datos_borrador(
     id_tramite: int,
     datos,
 ) -> dict[int, Any]:
-    """
-    Valida todos los valores antes de modificar la base.
-
-    Esto evita guardar una actualización parcial si uno de
-    los campos del request es inválido.
-    """
     campos = (
         tramite_repository
         .listar_campos_tramite(
@@ -405,10 +530,16 @@ def _normalizar_datos_borrador(
         for campo in campos
     }
 
-    resultado: dict[int, Any] = {}
+    resultado: dict[
+        int,
+        Any,
+    ] = {}
 
     for dato in datos:
-        if dato.id_campo in resultado:
+        if (
+            dato.id_campo
+            in resultado
+        ):
             raise CampoSolicitudInvalidoError(
                 "No puede enviarse el mismo campo "
                 "más de una vez."
@@ -434,45 +565,109 @@ def _normalizar_datos_borrador(
     return resultado
 
 
-def _normalizar_facturas_envio(
-    datos: SolicitudEnviarRequest,
-) -> dict[int, str]:
+def _obtener_perfil_minimo(
+    db: Session,
+    id_usuario: int,
+) -> dict[str, Any] | None:
     """
-    Convierte la lista de facturas a un diccionario por
-    requisito y valida defensivamente duplicados.
+    Obtiene únicamente los dos datos de perfil que son
+    obligatorios para registrar una solicitud.
 
-    El schema ya realiza parte de esta validación, pero
-    el service mantiene la regla de negocio.
+    Se utiliza un SELECT de solo lectura para no acoplar este
+    servicio a la lógica de actualización del perfil.
     """
-    resultado: dict[int, str] = {}
-    numeros_utilizados: set[str] = set()
+    resultado = db.execute(
+        sql_text(
+            """
+            SELECT
+                carrera_programa,
+                documento_identidad
+            FROM perfil_academico
+            WHERE id_usuario = :id_usuario
+            """
+        ),
+        {
+            "id_usuario":
+                id_usuario,
+        },
+    ).mappings().one_or_none()
 
-    for factura in datos.facturas:
-        if factura.id_requisito in resultado:
-            raise FacturaSolicitudInvalidaError(
-                "No puede registrarse más de una factura "
-                "para el mismo requisito."
-            )
+    if resultado is None:
+        return None
 
-        numero_factura = (
-            factura.numero_factura.strip()
+    return dict(
+        resultado
+    )
+
+
+def _completar_estado_requisitos_respuesta(
+    db: Session,
+    solicitud: Solicitud,
+    respuesta: SolicitudResponse,
+) -> SolicitudResponse:
+    respuesta.documento_identidad_pago = (
+        obtener_documento_pago(
+            db,
+            solicitud,
+        )
+    )
+
+    declarados = {
+        historial.id_solicitud_requisito
+        for historial
+        in seguimiento_repo.listar_historial(
+            db,
+            solicitud.id_solicitud,
+        )
+        if (
+            historial.evento
+            == "entrega_fisica_declarada"
+        )
+    }
+
+    for requisito in respuesta.requisitos:
+        requisito.entrega_declarada = (
+            requisito.id_solicitud_requisito
+            in declarados
         )
 
-        if numero_factura in numeros_utilizados:
-            raise FacturaSolicitudInvalidaError(
-                "El mismo número de factura no puede "
-                "asignarse a más de un requisito."
+        etapa_disponible = (
+            requisito.id_solicitud_etapa
+            is None
+            or (
+                solicitud.estado
+                == "en_proceso"
+                and requisito.id_solicitud_etapa
+                == solicitud.id_etapa_actual
             )
-
-        resultado[
-            factura.id_requisito
-        ] = numero_factura
-
-        numeros_utilizados.add(
-            numero_factura
         )
 
-    return resultado
+        solicitud_activa = (
+            solicitud.estado
+            in {
+                "pendiente_recepcion",
+                "en_revision",
+                "en_proceso",
+            }
+        )
+
+        requisito.puede_declarar_entrega = bool(
+            requisito.requiere_presentacion_fisica
+            and not requisito.presentado
+            and not requisito.entrega_declarada
+            and solicitud_activa
+            and etapa_disponible
+        )
+
+        requisito.puede_registrar_factura = bool(
+            requisito.es_economico
+            and requisito.estado_verificacion
+            != "cumple"
+            and solicitud_activa
+            and etapa_disponible
+        )
+
+    return respuesta
 
 
 def _obtener_respuesta_completa(
@@ -492,8 +687,19 @@ def _obtener_respuesta_completa(
             "La solicitud no existe."
         )
 
-    return SolicitudResponse.model_validate(
-        solicitud
+    respuesta = (
+        SolicitudResponse
+        .model_validate(
+            solicitud
+        )
+    )
+
+    return (
+        _completar_estado_requisitos_respuesta(
+            db,
+            solicitud,
+            respuesta,
+        )
     )
 
 
@@ -510,11 +716,6 @@ def crear_solicitud(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> SolicitudResponse:
-    """
-    Crea un nuevo borrador.
-
-    No se generan requisitos ni estados administrativos.
-    """
     _obtener_tramite_habilitado(
         db,
         datos.id_tramite,
@@ -525,27 +726,52 @@ def crear_solicitud(
             solicitud_repository
             .crear_solicitud(
                 db,
-                id_solicitante=id_solicitante,
-                id_tramite=datos.id_tramite,
+                id_solicitante=(
+                    id_solicitante
+                ),
+                id_tramite=(
+                    datos.id_tramite
+                ),
             )
         )
 
         registrar_accion_simple(
             db,
-            accion="crear_solicitud_borrador",
-            modulo="gestion_seguimiento",
-            id_usuario_actor=id_solicitante,
+            accion=(
+                "crear_solicitud_borrador"
+            ),
+            modulo=(
+                "gestion_seguimiento"
+            ),
+            id_usuario_actor=(
+                id_solicitante
+            ),
             entidad="solicitud",
             id_entidad=str(
                 solicitud.id_solicitud
             ),
             exitoso=True,
             detalle={
-                "id_tramite": datos.id_tramite,
-                "estado": "borrador",
+                "id_tramite":
+                    datos.id_tramite,
+
+                "estado":
+                    "borrador",
             },
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
+            direccion_ip=(
+                direccion_ip
+            ),
+            user_agent=(
+                user_agent
+            ),
+        )
+
+        seguimiento_repo.registrar_historial(
+            db,
+            solicitud.id_solicitud,
+            id_solicitante,
+            "solicitud_creada",
+            "Solicitud creada en borrador.",
         )
 
         id_solicitud = (
@@ -554,13 +780,16 @@ def crear_solicitud(
 
         db.commit()
 
-        return _obtener_respuesta_completa(
-            db,
-            id_solicitud,
+        return (
+            _obtener_respuesta_completa(
+                db,
+                id_solicitud,
+            )
         )
 
     except Exception:
         db.rollback()
+
         raise
 
 
@@ -575,18 +804,28 @@ def obtener_solicitud(
     id_solicitud: int,
     id_solicitante: int,
 ) -> SolicitudResponse:
-    """
-    Obtiene el detalle de una solicitud propia.
-    """
-    solicitud = _obtener_solicitud_del_usuario(
-        db,
-        id_solicitud=id_solicitud,
-        id_solicitante=id_solicitante,
-        completa=True,
+    solicitud = (
+        _obtener_solicitud_del_usuario(
+            db,
+            id_solicitud=id_solicitud,
+            id_solicitante=id_solicitante,
+            completa=True,
+        )
     )
 
-    return SolicitudResponse.model_validate(
-        solicitud
+    respuesta = (
+        SolicitudResponse
+        .model_validate(
+            solicitud
+        )
+    )
+
+    return (
+        _completar_estado_requisitos_respuesta(
+            db,
+            solicitud,
+            respuesta,
+        )
     )
 
 
@@ -598,9 +837,6 @@ def listar_mis_solicitudes(
     pagina: int = 1,
     por_pagina: int = 20,
 ) -> ListaSolicitudesResponse:
-    """
-    Lista las solicitudes pertenecientes al usuario.
-    """
     solicitudes, total = (
         solicitud_repository
         .listar_solicitudes_usuario(
@@ -614,16 +850,21 @@ def listar_mis_solicitudes(
 
     return ListaSolicitudesResponse(
         items=[
-            SolicitudResumenResponse.model_validate(
+            SolicitudResumenResponse
+            .model_validate(
                 solicitud
             )
-            for solicitud in solicitudes
+            for solicitud
+            in solicitudes
         ],
+
         total=total,
+
         pagina=max(
             pagina,
             1,
         ),
+
         por_pagina=min(
             max(
                 por_pagina,
@@ -648,103 +889,189 @@ def actualizar_solicitud(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> SolicitudResponse:
-    """
-    Sustituye el conjunto de datos dinámicos del borrador.
-
-    Si el cliente desea eliminar todos los valores opcionales,
-    puede enviar:
-
-        {"datos": []}
-    """
-    solicitud = _obtener_solicitud_del_usuario(
-        db,
-        id_solicitud=id_solicitud,
-        id_solicitante=id_solicitante,
+    solicitud = (
+        _obtener_solicitud_del_usuario(
+            db,
+            id_solicitud=id_solicitud,
+            id_solicitante=id_solicitante,
+            bloquear=True,
+        )
     )
 
     _validar_solicitud_borrador(
         solicitud
     )
 
+    campos_recibidos = (
+        datos.model_fields_set
+    )
+
+    actualizar_datos = (
+        "datos" in campos_recibidos
+        and datos.datos is not None
+    )
+
+    campos_contacto = {
+        "nombre_contacto",
+        "telefono_contacto",
+        "correo_contacto",
+    }
+
+    contacto_recibido = (
+        campos_contacto
+        & campos_recibidos
+    )
+
     if (
-        "datos"
-        not in datos.model_fields_set
-        or datos.datos is None
+        not actualizar_datos
+        and not contacto_recibido
     ):
         raise ActualizacionSolicitudVaciaError(
-            "Debe proporcionar una lista de datos "
+            "Debe proporcionar información "
             "para actualizar el borrador."
         )
 
-    valores_normalizados = (
-        _normalizar_datos_borrador(
-            db,
-            id_tramite=solicitud.id_tramite,
-            datos=datos.datos,
+    valores_normalizados: dict[
+        int,
+        Any,
+    ] = {}
+
+    if actualizar_datos:
+        valores_normalizados = (
+            _normalizar_datos_borrador(
+                db,
+                id_tramite=(
+                    solicitud.id_tramite
+                ),
+                datos=datos.datos,
+            )
         )
-    )
 
     try:
-        datos_actuales = (
-            solicitud_repository
-            .listar_datos_solicitud(
-                db,
-                solicitud.id_solicitud,
-            )
-        )
+        # ----------------------------------------------------
+        # DATOS DINÁMICOS
+        # ----------------------------------------------------
 
-        ids_recibidos = set(
-            valores_normalizados.keys()
-        )
-
-        for dato_actual in datos_actuales:
-            if (
-                dato_actual.id_campo
-                not in ids_recibidos
-            ):
-                solicitud_repository.eliminar_dato_solicitud(
+        if actualizar_datos:
+            datos_actuales = (
+                solicitud_repository
+                .listar_datos_solicitud(
                     db,
-                    dato_actual,
+                    solicitud.id_solicitud,
+                )
+            )
+
+            ids_recibidos = set(
+                valores_normalizados.keys()
+            )
+
+            for dato_actual in datos_actuales:
+                if (
+                    dato_actual.id_campo
+                    not in ids_recibidos
+                ):
+                    solicitud_repository.eliminar_dato_solicitud(
+                        db,
+                        dato_actual,
+                    )
+
+            for (
+                id_campo,
+                valor,
+            ) in valores_normalizados.items():
+                solicitud_repository.guardar_dato_solicitud(
+                    db,
+                    id_solicitud=(
+                        solicitud.id_solicitud
+                    ),
+                    id_campo=id_campo,
+                    valor=valor,
                 )
 
-        for id_campo, valor in (
-            valores_normalizados.items()
+        # ----------------------------------------------------
+        # CONTACTO DE LA SOLICITUD
+        # ----------------------------------------------------
+
+        if (
+            "nombre_contacto"
+            in campos_recibidos
         ):
-            solicitud_repository.guardar_dato_solicitud(
-                db,
-                id_solicitud=solicitud.id_solicitud,
-                id_campo=id_campo,
-                valor=valor,
+            solicitud.nombre_contacto = (
+                datos.nombre_contacto
             )
+
+        if (
+            "telefono_contacto"
+            in campos_recibidos
+        ):
+            solicitud.telefono_contacto = (
+                datos.telefono_contacto
+            )
+
+        if (
+            "correo_contacto"
+            in campos_recibidos
+        ):
+            solicitud.correo_contacto = (
+                str(
+                    datos.correo_contacto
+                )
+                if (
+                    datos.correo_contacto
+                    is not None
+                )
+                else None
+            )
+
+        db.flush()
 
         registrar_accion_simple(
             db,
-            accion="actualizar_solicitud_borrador",
-            modulo="gestion_seguimiento",
-            id_usuario_actor=id_solicitante,
+            accion=(
+                "actualizar_solicitud_borrador"
+            ),
+            modulo=(
+                "gestion_seguimiento"
+            ),
+            id_usuario_actor=(
+                id_solicitante
+            ),
             entidad="solicitud",
             id_entidad=str(
                 solicitud.id_solicitud
             ),
             exitoso=True,
             detalle={
-                "campos_guardados": sorted(
-                    ids_recibidos
-                ),
+                "campos_guardados":
+                    sorted(
+                        valores_normalizados.keys()
+                    ),
+
+                "contacto_actualizado":
+                    sorted(
+                        contacto_recibido
+                    ),
             },
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
+            direccion_ip=(
+                direccion_ip
+            ),
+            user_agent=(
+                user_agent
+            ),
         )
 
         db.commit()
 
-        return _obtener_respuesta_completa(
-            db,
-            solicitud.id_solicitud,
+        return (
+            _obtener_respuesta_completa(
+                db,
+                solicitud.id_solicitud,
+            )
         )
 
     except Exception:
         db.rollback()
+
         raise
 
 
@@ -761,20 +1088,22 @@ def eliminar_solicitud(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> None:
-    """
-    Elimina una solicitud únicamente mientras sea borrador.
-    """
-    solicitud = _obtener_solicitud_del_usuario(
-        db,
-        id_solicitud=id_solicitud,
-        id_solicitante=id_solicitante,
+    solicitud = (
+        _obtener_solicitud_del_usuario(
+            db,
+            id_solicitud=id_solicitud,
+            id_solicitante=id_solicitante,
+            bloquear=True,
+        )
     )
 
     _validar_solicitud_borrador(
         solicitud
     )
 
-    id_tramite = solicitud.id_tramite
+    id_tramite = (
+        solicitud.id_tramite
+    )
 
     try:
         solicitud_repository.eliminar_solicitud(
@@ -784,25 +1113,37 @@ def eliminar_solicitud(
 
         registrar_accion_simple(
             db,
-            accion="eliminar_solicitud_borrador",
-            modulo="gestion_seguimiento",
-            id_usuario_actor=id_solicitante,
+            accion=(
+                "eliminar_solicitud_borrador"
+            ),
+            modulo=(
+                "gestion_seguimiento"
+            ),
+            id_usuario_actor=(
+                id_solicitante
+            ),
             entidad="solicitud",
             id_entidad=str(
                 id_solicitud
             ),
             exitoso=True,
             detalle={
-                "id_tramite": id_tramite,
+                "id_tramite":
+                    id_tramite,
             },
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
+            direccion_ip=(
+                direccion_ip
+            ),
+            user_agent=(
+                user_agent
+            ),
         )
 
         db.commit()
 
     except Exception:
         db.rollback()
+
         raise
 
 
@@ -816,42 +1157,109 @@ def enviar_solicitud(
     *,
     id_solicitud: int,
     id_solicitante: int,
-    datos: SolicitudEnviarRequest,
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> SolicitudResponse:
-    """
-    Envía formalmente un borrador.
-
-    La operación:
-    - valida el trámite;
-    - valida campos obligatorios;
-    - valida nuevamente los valores guardados;
-    - valida las facturas declaradas;
-    - genera la fotografía de requisitos;
-    - copia información económica vigente;
-    - conserva el número de factura de requisitos económicos;
-    - cambia el estado a pendiente_recepcion.
-
-    La factura todavía NO se verifica contra la API.
-    Esa operación corresponde a Fase 3.
-
-    Todo se realiza dentro de una sola transacción.
-    """
-    solicitud = _obtener_solicitud_del_usuario(
-        db,
-        id_solicitud=id_solicitud,
-        id_solicitante=id_solicitante,
+    solicitud = (
+        _obtener_solicitud_del_usuario(
+            db,
+            id_solicitud=id_solicitud,
+            id_solicitante=id_solicitante,
+            bloquear=True,
+        )
     )
 
     _validar_solicitud_borrador(
         solicitud
     )
 
-    _obtener_tramite_habilitado(
-        db,
-        solicitud.id_tramite,
+    tramite = (
+        _obtener_tramite_habilitado(
+            db,
+            solicitud.id_tramite,
+        )
     )
+
+    # ========================================================
+    # DATOS BÁSICOS OBLIGATORIOS
+    # ========================================================
+
+    faltantes_basicos: list[
+        str
+    ] = []
+
+    if not (
+        solicitud.nombre_contacto
+        and solicitud.nombre_contacto.strip()
+    ):
+        faltantes_basicos.append(
+            "Nombre de contacto"
+        )
+
+    if not (
+        solicitud.telefono_contacto
+        and solicitud.telefono_contacto.strip()
+    ):
+        faltantes_basicos.append(
+            "Teléfono de contacto"
+        )
+
+    if not (
+        solicitud.correo_contacto
+        and solicitud.correo_contacto.strip()
+    ):
+        faltantes_basicos.append(
+            "Correo de contacto"
+        )
+
+    perfil = _obtener_perfil_minimo(
+        db,
+        id_solicitante,
+    )
+
+    if not (
+        perfil
+        and perfil.get(
+            "carrera_programa"
+        )
+        and str(
+            perfil[
+                "carrera_programa"
+            ]
+        ).strip()
+    ):
+        faltantes_basicos.append(
+            "Carrera o programa"
+        )
+
+    if not (
+        perfil
+        and perfil.get(
+            "documento_identidad"
+        )
+        and str(
+            perfil[
+                "documento_identidad"
+            ]
+        ).strip()
+    ):
+        faltantes_basicos.append(
+            "Documento de identidad (CI)"
+        )
+
+    if faltantes_basicos:
+        raise CamposObligatoriosFaltantesError(
+            "Completa los datos obligatorios "
+            "antes de enviar la solicitud: "
+            + ", ".join(
+                faltantes_basicos
+            )
+            + "."
+        )
+
+    # ========================================================
+    # CAMPOS DINÁMICOS DEL TRÁMITE
+    # ========================================================
 
     campos = (
         tramite_repository
@@ -871,15 +1279,40 @@ def enviar_solicitud(
     )
 
     datos_por_campo = {
-        dato.id_campo: dato
-        for dato in datos_guardados
+        dato.id_campo:
+            dato
+        for dato
+        in datos_guardados
     }
 
-    faltantes: list[str] = []
+    ids_campos_actuales = {
+        campo.id_campo
+        for campo
+        in campos
+    }
+
+    if (
+        set(
+            datos_por_campo
+        )
+        - ids_campos_actuales
+    ):
+        raise ValorCampoInvalidoError(
+            "El formulario cambió. Guarda nuevamente "
+            "el borrador con sus campos actuales "
+            "antes de enviar."
+        )
+
+    faltantes: list[
+        str
+    ] = []
 
     for campo in campos:
-        dato = datos_por_campo.get(
-            campo.id_campo
+        dato = (
+            datos_por_campo
+            .get(
+                campo.id_campo
+            )
         )
 
         if dato is None:
@@ -904,6 +1337,10 @@ def enviar_solicitud(
             + "."
         )
 
+    # ========================================================
+    # EVITAR DOBLE SNAPSHOT
+    # ========================================================
+
     requisitos_generados = (
         solicitud_repository
         .contar_requisitos_solicitud(
@@ -918,6 +1355,10 @@ def enviar_solicitud(
             "de requisitos y no puede enviarse nuevamente."
         )
 
+    # ========================================================
+    # REQUISITOS Y FLUJO
+    # ========================================================
+
     requisitos = (
         tramite_repository
         .listar_requisitos_tramite(
@@ -927,58 +1368,136 @@ def enviar_solicitud(
         )
     )
 
-    facturas_por_requisito = (
-        _normalizar_facturas_envio(
-            datos
-        )
+    etapas = validar_flujo_envio(
+        db,
+        tramite,
     )
 
-    ids_requisitos_activos = {
-        requisito.id_requisito
-        for requisito in requisitos
-    }
-
-    ids_facturas_desconocidos = (
-        set(
-            facturas_por_requisito.keys()
-        )
-        - ids_requisitos_activos
+    requisitos = requisitos_aplicables(
+        db,
+        solicitud,
+        requisitos,
+        campos,
+        datos_guardados,
     )
 
-    if ids_facturas_desconocidos:
-        raise FacturaSolicitudInvalidaError(
-            "Se proporcionó una factura para un requisito "
-            "que no pertenece al trámite o ya no está activo."
-        )
+    gestion_actual = (
+        datetime.now(
+            ZoneInfo(
+                "America/La_Paz"
+            )
+        ).year
+    )
 
-    gestion_actual = datetime.now(
-        ZoneInfo(
-            "America/La_Paz"
+    fecha_envio = (
+        datetime.now(
+            timezone.utc
         )
-    ).year
-
-    fecha_envio = datetime.now(
-        timezone.utc
     )
 
     try:
-        cantidad_facturas = 0
+        # ====================================================
+        # SNAPSHOT DE ETAPAS
+        # ====================================================
+
+        etapas_snapshot: dict[
+            int,
+            int,
+        ] = {}
+
+        for etapa in etapas:
+            copia = SolicitudEtapa(
+                id_solicitud=id_solicitud,
+
+                id_etapa_origen=(
+                    etapa.id_etapa
+                ),
+
+                id_unidad=(
+                    etapa.id_unidad
+                ),
+
+                nombre=(
+                    etapa.nombre
+                ),
+
+                descripcion=(
+                    etapa.descripcion
+                ),
+
+                orden=(
+                    etapa.orden
+                ),
+
+                es_inicial=(
+                    etapa.es_inicial
+                ),
+
+                es_final=(
+                    etapa.es_final
+                ),
+
+                visible_solicitante=(
+                    etapa.visible_solicitante
+                ),
+
+                estado="pendiente",
+            )
+
+            db.add(
+                copia
+            )
+
+            db.flush()
+
+            etapas_snapshot[
+                etapa.id_etapa
+            ] = (
+                copia.id_solicitud_etapa
+            )
+
+        # ====================================================
+        # SNAPSHOT DE SOLICITUD
+        # ====================================================
+
+        solicitud.nombre_tramite_snapshot = (
+            tramite.nombre
+        )
+
+        solicitud.tipo_finalizacion = (
+            tramite.tipo_finalizacion
+        )
+
+        for campo in campos:
+            dato = (
+                datos_por_campo
+                .get(
+                    campo.id_campo
+                )
+            )
+
+            if dato is None:
+                continue
+
+            dato.clave_snapshot = (
+                campo.clave
+            )
+
+            dato.etiqueta_snapshot = (
+                campo.etiqueta
+            )
+
+        # ====================================================
+        # SNAPSHOT DE REQUISITOS
+        # ====================================================
 
         for requisito in requisitos:
-            # Un requisito se considera económico si alguna vez
-            # tuvo configuración económica registrada.
-            #
-            # No miramos solamente configuraciones activas:
-            # si existe configuración histórica pero falta una
-            # vigente, eso debe producir un error de configuración
-            # y no convertir silenciosamente el requisito en uno
-            # no económico.
             es_economico = bool(
-                requisito.configuraciones_economicas
+                requisito
+                .configuraciones_economicas
             )
 
             configuracion_actual = None
-            numero_factura = None
 
             if es_economico:
                 configuracion_actual = (
@@ -988,21 +1507,23 @@ def enviar_solicitud(
                         id_requisito=(
                             requisito.id_requisito
                         ),
-                        gestion=gestion_actual,
+                        gestion=(
+                            gestion_actual
+                        ),
                     )
                 )
 
                 if (
-                    configuracion_actual is None
+                    configuracion_actual
+                    is None
                     or not configuracion_actual.activo
                 ):
-                    raise (
-                        ConfiguracionEconomicaIncompletaError(
-                            "El requisito "
-                            f'"{requisito.nombre}" no tiene '
-                            "configuración económica activa "
-                            f"para la gestión {gestion_actual}."
-                        )
+                    raise ConfiguracionEconomicaIncompletaError(
+                        "El requisito "
+                        f'"{requisito.nombre}" '
+                        "no tiene configuración económica "
+                        f"activa para la gestión "
+                        f"{gestion_actual}."
                     )
 
                 codigo_externo = (
@@ -1011,127 +1532,197 @@ def enviar_solicitud(
                 )
 
                 if (
-                    codigo_externo is None
+                    codigo_externo
+                    is None
                     or not codigo_externo.strip()
                 ):
-                    raise (
-                        ConfiguracionEconomicaIncompletaError(
-                            "El requisito "
-                            f'"{requisito.nombre}" no tiene '
-                            "un código de concepto externo "
-                            "configurado para la validación "
-                            "mediante API."
-                        )
+                    raise ConfiguracionEconomicaIncompletaError(
+                        "El requisito "
+                        f'"{requisito.nombre}" '
+                        "no tiene código de concepto "
+                        "externo configurado."
                     )
 
-                numero_factura = (
-                    facturas_por_requisito.get(
+            copia_requisito = (
+                solicitud_repository
+                .crear_requisito_solicitud(
+                    db,
+
+                    id_solicitud=(
+                        solicitud.id_solicitud
+                    ),
+
+                    id_requisito_origen=(
                         requisito.id_requisito
-                    )
+                    ),
+
+                    nombre=(
+                        requisito.nombre
+                    ),
+
+                    descripcion=(
+                        requisito.descripcion
+                    ),
+
+                    obligatorio=(
+                        requisito.obligatorio
+                    ),
+
+                    orden=(
+                        requisito.orden
+                    ),
+
+                    id_requisito_economico_origen=(
+                        configuracion_actual
+                        .id_requisito_economico
+                        if (
+                            configuracion_actual
+                            is not None
+                        )
+                        else None
+                    ),
+
+                    concepto_economico=(
+                        configuracion_actual
+                        .concepto
+                        if (
+                            configuracion_actual
+                            is not None
+                        )
+                        else None
+                    ),
+
+                    monto_economico=(
+                        configuracion_actual
+                        .monto
+                        if (
+                            configuracion_actual
+                            is not None
+                        )
+                        else None
+                    ),
+
+                    moneda=(
+                        configuracion_actual
+                        .moneda
+                        if (
+                            configuracion_actual
+                            is not None
+                        )
+                        else None
+                    ),
+
+                    gestion=(
+                        configuracion_actual
+                        .gestion
+                        if (
+                            configuracion_actual
+                            is not None
+                        )
+                        else None
+                    ),
+
+                    codigo_concepto_externo=(
+                        configuracion_actual
+                        .codigo_concepto_externo
+                        if (
+                            configuracion_actual
+                            is not None
+                        )
+                        else None
+                    ),
+
+                    numero_factura=None,
                 )
-
-                if (
-                    requisito.obligatorio
-                    and numero_factura is None
-                ):
-                    raise FacturaSolicitudInvalidaError(
-                        "Debe registrar el número de factura "
-                        "correspondiente al requisito económico "
-                        f'"{requisito.nombre}".'
-                    )
-
-                if numero_factura is not None:
-                    cantidad_facturas += 1
-
-            elif (
-                requisito.id_requisito
-                in facturas_por_requisito
-            ):
-                raise FacturaSolicitudInvalidaError(
-                    "Se proporcionó un número de factura para "
-                    f'el requisito "{requisito.nombre}", '
-                    "pero ese requisito no es económico."
-                )
-
-            solicitud_repository.crear_requisito_solicitud(
-                db,
-                id_solicitud=solicitud.id_solicitud,
-                id_requisito_origen=(
-                    requisito.id_requisito
-                ),
-                nombre=requisito.nombre,
-                descripcion=requisito.descripcion,
-                obligatorio=requisito.obligatorio,
-                orden=requisito.orden,
-                id_requisito_economico_origen=(
-                    configuracion_actual.id_requisito_economico
-                    if configuracion_actual is not None
-                    else None
-                ),
-                concepto_economico=(
-                    configuracion_actual.concepto
-                    if configuracion_actual is not None
-                    else None
-                ),
-                monto_economico=(
-                    configuracion_actual.monto
-                    if configuracion_actual is not None
-                    else None
-                ),
-                moneda=(
-                    configuracion_actual.moneda
-                    if configuracion_actual is not None
-                    else None
-                ),
-                gestion=(
-                    configuracion_actual.gestion
-                    if configuracion_actual is not None
-                    else None
-                ),
-                codigo_concepto_externo=(
-                    configuracion_actual.codigo_concepto_externo
-                    if configuracion_actual is not None
-                    else None
-                ),
-                numero_factura=numero_factura,
             )
+
+            copia_requisito.id_solicitud_etapa = (
+                etapas_snapshot.get(
+                    requisito.id_etapa
+                )
+            )
+
+            copia_requisito.requiere_presentacion_fisica = (
+                requisito
+                .requiere_presentacion_fisica
+            )
+
+            copia_requisito.condicion_snapshot = (
+                requisito.condicion
+            )
+
+        # ====================================================
+        # CAMBIO DE ESTADO
+        # ====================================================
 
         solicitud_repository.marcar_solicitud_enviada(
             db,
             solicitud,
-            fecha_envio=fecha_envio,
+            fecha_envio=(
+                fecha_envio
+            ),
         )
 
         registrar_accion_simple(
             db,
-            accion="enviar_solicitud",
-            modulo="gestion_seguimiento",
-            id_usuario_actor=id_solicitante,
+            accion=(
+                "enviar_solicitud"
+            ),
+            modulo=(
+                "gestion_seguimiento"
+            ),
+            id_usuario_actor=(
+                id_solicitante
+            ),
             entidad="solicitud",
             id_entidad=str(
                 solicitud.id_solicitud
             ),
             exitoso=True,
             detalle={
-                "id_tramite": solicitud.id_tramite,
-                "estado": "pendiente_recepcion",
-                "gestion": gestion_actual,
-                "cantidad_requisitos": len(
-                    requisitos
-                ),
-                "cantidad_facturas": cantidad_facturas,
+                "id_tramite":
+                    solicitud.id_tramite,
+
+                "estado":
+                    "pendiente_recepcion",
+
+                "gestion":
+                    gestion_actual,
+
+                "cantidad_requisitos":
+                    len(
+                        requisitos
+                    ),
             },
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
+            direccion_ip=(
+                direccion_ip
+            ),
+            user_agent=(
+                user_agent
+            ),
+        )
+
+        seguimiento_repo.registrar_historial(
+            db,
+            id_solicitud,
+            id_solicitante,
+            "solicitud_enviada",
+            (
+                "Solicitud registrada y enviada "
+                "para recepción."
+            ),
         )
 
         db.commit()
 
-        return _obtener_respuesta_completa(
-            db,
-            solicitud.id_solicitud,
+        return (
+            _obtener_respuesta_completa(
+                db,
+                solicitud.id_solicitud,
+            )
         )
 
     except Exception:
         db.rollback()
+
         raise

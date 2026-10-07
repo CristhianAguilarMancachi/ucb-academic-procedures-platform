@@ -1,90 +1,551 @@
-<section>
-  <h1>Mi perfil</h1>
+<section class="profile-page">
+
+  <!-- ======================================================
+       ENCABEZADO
+       ====================================================== -->
+
+  <header class="profile-heading">
+    <h1>Mi perfil</h1>
+
+    <p>
+      Consulta y gestiona tu información personal y de cuenta.
+    </p>
+  </header>
+
+
+  <!-- ======================================================
+       ESTADOS
+       ====================================================== -->
 
   @if (cargando()) {
-    <p>Cargando perfil...</p>
+    <div class="profile-state">
+      Cargando información del perfil...
+    </div>
   }
 
   @if (error()) {
-    <p>{{ error() }}</p>
+    <div
+      class="profile-feedback profile-feedback--error"
+      role="alert"
+    >
+      {{ error() }}
+    </div>
   }
+
+  @if (mensaje()) {
+    <div
+      class="profile-feedback profile-feedback--success"
+      role="status"
+    >
+      {{ mensaje() }}
+    </div>
+  }
+
+
+  <!-- ======================================================
+       PERFIL
+       ====================================================== -->
 
   @if (usuario(); as usuarioActual) {
 
     @if (!cargando()) {
-      <div>
-        <p>
-          <strong>Correo principal:</strong>
-          {{ obtenerCorreoPrincipal() }}
-        </p>
 
-        <p>
-          <strong>Correo verificado:</strong>
-          {{ correoPrincipalVerificado() ? 'Sí' : 'No' }}
-        </p>
+      <section class="profile-card">
 
-        <p>
-          <strong>Estado:</strong>
-          {{ usuarioActual.estado }}
-        </p>
+        <!-- ================================================
+             AVATAR
+             ================================================ -->
 
-        <p>
-          <strong>Roles:</strong>
+        <div class="profile-avatar-column">
 
-          @for (
-            rol of usuarioActual.roles;
-            track rol.id_rol
-          ) {
-            <span>{{ rol.nombre }} </span>
+          <div class="profile-avatar">
+            <ng-icon name="heroUser" />
+          </div>
+
+        </div>
+
+
+        <!-- ================================================
+             INFORMACIÓN
+             ================================================ -->
+
+        <div class="profile-information">
+
+          <div class="profile-identity">
+
+            <h2>
+              {{ nombreCompleto() }}
+            </h2>
+
+            <span class="profile-role">
+              {{ rolPrincipal() }}
+            </span>
+
+          </div>
+
+
+          <!-- ==============================================
+               MODO CONSULTA
+               ============================================== -->
+
+          @if (!editando()) {
+
+            <div class="profile-details-grid">
+
+              <!-- CORREO -->
+
+              <div class="profile-detail">
+
+                <div class="profile-detail__icon">
+                  <ng-icon name="heroEnvelope" />
+                </div>
+
+                <div>
+                  <span class="profile-detail__label">
+                    Correo electrónico
+                  </span>
+
+                  <strong>
+                    {{ obtenerCorreo() }}
+                  </strong>
+                </div>
+
+              </div>
+
+
+              <!-- TELÉFONO -->
+
+              <div class="profile-detail">
+
+                <div class="profile-detail__icon">
+                  <ng-icon name="heroPhone" />
+                </div>
+
+                <div>
+                  <span class="profile-detail__label">
+                    Teléfono / Celular
+                  </span>
+
+                  <strong>
+                    {{
+                      usuarioActual.telefono
+                      || 'No registrado'
+                    }}
+                  </strong>
+                </div>
+
+              </div>
+
+
+              <!-- CI -->
+
+              <div class="profile-detail">
+
+                <div class="profile-detail__icon">
+                  <ng-icon name="heroIdentification" />
+                </div>
+
+                <div>
+                  <span class="profile-detail__label">
+                    Carnet / CI
+                  </span>
+
+                  <strong>
+                    {{
+                      perfilAcademico()
+                        .documento_identidad
+                      || 'No registrado'
+                    }}
+                  </strong>
+                </div>
+
+              </div>
+
+
+              <!-- ESTADO -->
+
+              <div class="profile-detail">
+
+                <div class="profile-detail__icon">
+                  <ng-icon name="heroShieldCheck" />
+                </div>
+
+                <div>
+                  <span class="profile-detail__label">
+                    Estado de cuenta
+                  </span>
+
+                  <strong>
+                    {{ etiquetaEstado() }}
+                  </strong>
+                </div>
+
+              </div>
+
+
+              <!-- FECHA REGISTRO -->
+
+              <div class="profile-detail">
+
+                <div class="profile-detail__icon">
+                  <ng-icon name="heroCalendarDays" />
+                </div>
+
+                <div>
+                  <span class="profile-detail__label">
+                    Fecha de registro
+                  </span>
+
+                  <strong>
+                    {{
+                      formatearFecha(
+                        usuarioActual.fecha_creacion
+                      )
+                    }}
+                  </strong>
+                </div>
+
+              </div>
+
+
+              <!-- ÚLTIMO ACCESO -->
+
+              <div class="profile-detail">
+
+                <div class="profile-detail__icon">
+                  <ng-icon name="heroClock" />
+                </div>
+
+                <div>
+                  <span class="profile-detail__label">
+                    Último acceso
+                  </span>
+
+                  <strong>
+                    {{
+                      usuarioActual.fecha_ultimo_acceso
+                        ? formatearFechaHora(
+                            usuarioActual
+                              .fecha_ultimo_acceso
+                          )
+                        : 'Sin accesos registrados'
+                    }}
+                  </strong>
+                </div>
+
+              </div>
+
+            </div>
+
           }
-        </p>
-      </div>
 
-      <h2>Datos personales</h2>
 
-      <form
-        [formGroup]="formulario"
-        (ngSubmit)="guardarCambios()"
-      >
-        <div>
-          <label for="nombres">
-            Nombres
-          </label>
+          <!-- ==============================================
+               MODO EDICIÓN
+               ============================================== -->
 
-          <input
-            id="nombres"
-            type="text"
-            formControlName="nombres"
-          />
+          @if (editando()) {
+
+            <form
+              id="profile-edit-form"
+              class="profile-edit-form"
+              [formGroup]="formulario"
+              (ngSubmit)="guardarCambios()"
+            >
+
+              <!-- NOMBRES -->
+
+              <div class="profile-form-field">
+
+                <label for="nombres">
+                  Nombres
+                </label>
+
+                <input
+                  id="nombres"
+                  type="text"
+                  formControlName="nombres"
+                  autocomplete="given-name"
+                />
+
+                @if (
+                  formulario.controls.nombres.touched
+                  && formulario.controls.nombres.invalid
+                ) {
+                  <small>
+                    Ingresa un nombre válido.
+                  </small>
+                }
+
+              </div>
+
+
+              <!-- APELLIDOS -->
+
+              <div class="profile-form-field">
+
+                <label for="apellidos">
+                  Apellidos
+                </label>
+
+                <input
+                  id="apellidos"
+                  type="text"
+                  formControlName="apellidos"
+                  autocomplete="family-name"
+                />
+
+                @if (
+                  formulario.controls.apellidos.touched
+                  && formulario.controls.apellidos.invalid
+                ) {
+                  <small>
+                    Ingresa apellidos válidos.
+                  </small>
+                }
+
+              </div>
+
+
+              <!-- CI -->
+
+              <div class="profile-form-field">
+
+                <label for="documento_identidad">
+                  Carnet / CI
+                </label>
+
+                <input
+                  id="documento_identidad"
+                  type="text"
+                  maxlength="50"
+                  formControlName="documento_identidad"
+                  autocomplete="off"
+                  placeholder="Ingresa tu número de CI"
+                />
+
+                @if (
+                  formulario.controls
+                    .documento_identidad
+                    .touched
+                  && formulario.controls
+                    .documento_identidad
+                    .invalid
+                ) {
+                  <small>
+                    Ingresa un documento válido.
+                  </small>
+                }
+
+              </div>
+
+
+              <!-- TELÉFONO -->
+
+              <div class="profile-form-field">
+
+                <label for="telefono">
+                  Teléfono / Celular
+                </label>
+
+                <input
+                  id="telefono"
+                  type="tel"
+                  maxlength="30"
+                  formControlName="telefono"
+                  autocomplete="tel"
+                  placeholder="Ej. 71234567"
+                />
+
+                @if (
+                  formulario.controls.telefono.touched
+                  && formulario.controls.telefono.invalid
+                ) {
+                  <small>
+                    El teléfono debe tener al menos 7 caracteres.
+                  </small>
+                }
+
+              </div>
+
+
+              <!-- CORREO SOLO LECTURA -->
+
+              <div class="profile-form-field profile-form-field--full">
+
+                <label>
+                  Correo electrónico
+                </label>
+
+                <div class="profile-readonly">
+                  <ng-icon name="heroEnvelope" />
+
+                  <span>
+                    {{ obtenerCorreo() }}
+                  </span>
+
+                  <small>
+                    El correo de la cuenta no se modifica desde este formulario.
+                  </small>
+                </div>
+
+              </div>
+
+            </form>
+
+          }
+
         </div>
 
-        <div>
-          <label for="apellidos">
-            Apellidos
-          </label>
 
-          <input
-            id="apellidos"
-            type="text"
-            formControlName="apellidos"
-          />
+        <!-- ================================================
+             ACCIONES
+             ================================================ -->
+
+        <aside class="profile-actions">
+
+          @if (!editando()) {
+
+            <button
+              type="button"
+              class="profile-button profile-button--primary"
+              (click)="iniciarEdicion()"
+            >
+              <ng-icon name="heroPencilSquare" />
+
+              <span>
+                Editar perfil
+              </span>
+            </button>
+
+
+            <a
+            class="profile-button profile-button--password"
+            routerLink="/cambiar-contrasena"
+          >
+            <ng-icon name="heroLockClosed" />
+
+            <span>
+              {{
+                usuarioActual.tiene_contrasena
+                  ? 'Cambiar contraseña'
+                  : 'Establecer contraseña'
+              }}
+            </span>
+          </a>
+
+          } @else {
+
+            <button
+              type="submit"
+              class="profile-button profile-button--primary"
+              form="profile-edit-form"
+              [disabled]="guardando()"
+            >
+              <ng-icon name="heroCheck" />
+
+              <span>
+                {{
+                  guardando()
+                    ? 'Guardando...'
+                    : 'Guardar cambios'
+                }}
+              </span>
+            </button>
+
+
+            <button
+              type="button"
+              class="profile-button profile-button--secondary"
+              [disabled]="guardando()"
+              (click)="cancelarEdicion()"
+            >
+              <ng-icon name="heroXMark" />
+
+              <span>
+                Cancelar
+              </span>
+            </button>
+
+          }
+
+        </aside>
+
+      </section>
+
+
+      <!-- ==================================================
+           SEGURIDAD
+           ================================================== -->
+
+      <section class="security-card">
+
+        <div class="security-card__icon">
+          <ng-icon name="heroShieldCheck" />
         </div>
 
-        @if (mensaje()) {
-          <p>{{ mensaje() }}</p>
-        }
 
-        <button
-          type="submit"
-          [disabled]="guardando()"
-        >
-          {{
-            guardando()
-              ? 'Guardando...'
-              : 'Guardar cambios'
-          }}
-        </button>
-      </form>
+        <div class="security-card__content">
+
+          <h2>
+            Seguridad de la cuenta
+          </h2>
+
+
+          <div class="security-grid">
+
+            <div class="security-item">
+
+              <span class="security-item__label">
+                Correo electrónico
+              </span>
+
+              <strong>
+                {{ obtenerCorreo() }}
+              </strong>
+
+            </div>
+
+
+            <div class="security-item">
+
+              <span class="security-item__label">
+                Verificación del correo
+              </span>
+
+              @if (correoVerificado()) {
+
+                <span class="verification-badge">
+
+                  <ng-icon name="heroCheckCircle" />
+
+                  Verificado
+
+                </span>
+
+              } @else {
+
+                <span
+                  class="
+                    verification-badge
+                    verification-badge--pending
+                  "
+                >
+                  Pendiente
+                </span>
+
+              }
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
     }
+
   }
+
 </section>

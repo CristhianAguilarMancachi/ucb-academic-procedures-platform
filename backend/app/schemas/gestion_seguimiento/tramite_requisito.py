@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from app.schemas.gestion_seguimiento.seguimiento import CondicionRequisito
 
 from pydantic import (
     BaseModel,
@@ -12,6 +13,10 @@ from pydantic import (
 
 
 class TramiteRequisitoCrearRequest(BaseModel):
+    id_etapa: int | None = Field(default=None, gt=0)
+    requiere_presentacion_fisica: bool = False
+    condicion: CondicionRequisito | None = None
+
     """
     Datos requeridos para agregar un requisito a un trámite.
 
@@ -57,6 +62,10 @@ class TramiteRequisitoCrearRequest(BaseModel):
 
 
 class TramiteRequisitoActualizarRequest(BaseModel):
+    id_etapa: int | None = Field(default=None, gt=0)
+    requiere_presentacion_fisica: bool | None = None
+    condicion: CondicionRequisito | None = None
+
     """
     Permite modificar la configuración de un requisito.
     """
@@ -300,6 +309,10 @@ class RequisitoEconomicoResponse(BaseModel):
 
 
 class TramiteRequisitoResponse(BaseModel):
+    id_etapa: int | None
+    requiere_presentacion_fisica: bool
+    condicion: CondicionRequisito | None
+
     """
     Información completa de un requisito de trámite.
     """

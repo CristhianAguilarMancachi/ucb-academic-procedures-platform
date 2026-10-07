@@ -1,0 +1,727 @@
+@if (vistaAdministrativa) {
+  <div class="admin-requests-page">
+    <header class="admin-requests-heading">
+      <div>
+        <h1>
+          Solicitudes de trámites
+        </h1>
+
+        <p>
+          Gestiona y consulta las solicitudes académicas
+          registradas por los estudiantes.
+        </p>
+      </div>
+    </header>
+
+    @if (error()) {
+      <div
+        class="admin-message admin-message--error"
+        role="alert"
+      >
+        {{ error() }}
+      </div>
+    }
+
+    <div class="admin-stats-grid">
+      <div class="admin-stat-card">
+        <div class="admin-stat-icon admin-stat-icon--total">
+          <ng-icon
+            name="heroDocumentText"
+            aria-hidden="true"
+          />
+        </div>
+
+        <div class="admin-stat-content">
+          <span>
+            Total solicitudes
+          </span>
+
+          <strong>
+            {{ total() }}
+          </strong>
+
+          <small>
+            Resultado del filtro actual
+          </small>
+        </div>
+      </div>
+
+      <div class="admin-stat-card">
+        <div class="admin-stat-icon admin-stat-icon--process">
+          <ng-icon
+            name="heroCog6Tooth"
+            aria-hidden="true"
+          />
+        </div>
+
+        <div class="admin-stat-content">
+          <span>
+            En proceso
+          </span>
+
+          <strong>
+            {{ contar('en_proceso') }}
+          </strong>
+
+          <small>
+            Página actual
+          </small>
+        </div>
+      </div>
+
+      <div class="admin-stat-card">
+        <div class="admin-stat-icon admin-stat-icon--review">
+          <ng-icon
+            name="heroEye"
+            aria-hidden="true"
+          />
+        </div>
+
+        <div class="admin-stat-content">
+          <span>
+            En revisión
+          </span>
+
+          <strong>
+            {{ contar('en_revision') }}
+          </strong>
+
+          <small>
+            Página actual
+          </small>
+        </div>
+      </div>
+
+      <div class="admin-stat-card">
+        <div class="admin-stat-icon admin-stat-icon--finished">
+          <ng-icon
+            name="heroCheckCircle"
+            aria-hidden="true"
+          />
+        </div>
+
+        <div class="admin-stat-content">
+          <span>
+            Finalizadas
+          </span>
+
+          <strong>
+            {{ contar('finalizada') }}
+          </strong>
+
+          <small>
+            Página actual
+          </small>
+        </div>
+      </div>
+
+      <div class="admin-stat-card">
+        <div class="admin-stat-icon admin-stat-icon--rejected">
+          <ng-icon
+            name="heroXCircle"
+            aria-hidden="true"
+          />
+        </div>
+
+        <div class="admin-stat-content">
+          <span>
+            Rechazadas
+          </span>
+
+          <strong>
+            {{ contar('rechazada') }}
+          </strong>
+
+          <small>
+            Página actual
+          </small>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="admin-filters-bar"
+      [class.admin-filters-bar--disabled]="ocupado()"
+    >
+      <div class="admin-search-control">
+        <ng-icon
+          name="heroMagnifyingGlass"
+          class="admin-control-icon"
+          aria-hidden="true"
+        />
+
+        <input
+          type="search"
+          [(ngModel)]="busqueda"
+          (ngModelChange)="cambioBusqueda()"
+          (keydown.enter)="ejecutarBusqueda()"
+          placeholder="Buscar por solicitud, nombre, CI o trámite..."
+          aria-label="Buscar por número de solicitud, nombre, CI o trámite"
+          autocomplete="off"
+          [disabled]="ocupado()"
+        />
+      </div>
+
+      <div class="admin-select-control">
+        <select
+          [(ngModel)]="filtros.id_tramite"
+          (ngModelChange)="buscar()"
+          [disabled]="ocupado()"
+          aria-label="Filtrar por trámite"
+        >
+          <option value="">
+            Todos los trámites
+          </option>
+
+          @for (
+            t of tramitesFiltro();
+            track t.id_tramite
+          ) {
+            <option
+              [value]="t.id_tramite"
+            >
+              {{ t.nombre }}
+            </option>
+          }
+        </select>
+
+        <ng-icon
+          name="heroChevronDown"
+          class="admin-select-chevron"
+          aria-hidden="true"
+        />
+      </div>
+
+      <div class="admin-select-control">
+        <select
+          [(ngModel)]="filtros.estado"
+          (ngModelChange)="buscar()"
+          [disabled]="ocupado()"
+          aria-label="Filtrar por estado"
+        >
+          <option value="">
+            Todos los estados
+          </option>
+
+          @for (
+            e of estados;
+            track e
+          ) {
+            <option
+              [value]="e"
+            >
+              {{ etiqueta(e) }}
+            </option>
+          }
+        </select>
+
+        <ng-icon
+          name="heroChevronDown"
+          class="admin-select-chevron"
+          aria-hidden="true"
+        />
+      </div>
+    </div>
+
+    <div class="admin-table-card">
+      @if (ocupado()) {
+        <div
+          class="admin-table-loading"
+          role="status"
+        >
+          Actualizando solicitudes…
+        </div>
+      }
+
+      <div class="admin-table-scroll">
+        <table class="admin-requests-table">
+          <thead>
+            <tr>
+              <th class="admin-col-request">
+                Solicitud
+              </th>
+
+              <th class="admin-col-student">
+                Solicitante
+              </th>
+
+              <th class="admin-col-procedure">
+                Trámite
+              </th>
+
+              <th class="admin-col-state">
+                Estado
+              </th>
+
+              <th class="admin-col-update">
+                Última actualización
+              </th>
+
+              <th class="admin-col-action">
+                Acción
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            @for (
+              s of visibles();
+              track s.id_solicitud
+            ) {
+              <tr>
+                <td>
+                  <div class="admin-request">
+                    <strong class="admin-request-number">
+                      {{ formatearNumeroSolicitud(s.id_solicitud) }}
+                    </strong>
+
+                    <small>
+                      {{
+                        (s.fecha_envio || s.fecha_creacion)
+                          | date: 'dd/MM/yyyy'
+                      }}
+                    </small>
+                  </div>
+                </td>
+
+                <td>
+                  <div class="admin-student">
+                    <strong>
+                      {{ nombreSolicitante(s) }}
+                    </strong>
+
+                    <small>
+                      CI {{ documentoSolicitante(s) }}
+                    </small>
+                  </div>
+                </td>
+
+                <td>
+                  <span class="admin-procedure-name">
+                    {{ nombreTramite(s) }}
+                  </span>
+                </td>
+
+                <td>
+                  <span
+                    class="admin-status"
+                    [attr.data-state]="s.estado"
+                  >
+                    {{ etiqueta(s.estado) }}
+                  </span>
+                </td>
+
+                <td class="admin-update-cell">
+                  <span>
+                    {{
+                      fechaUltimaActualizacion(s)
+                        | date: 'dd/MM/yyyy'
+                    }}
+                  </span>
+
+                  <small>
+                    {{
+                      fechaUltimaActualizacion(s)
+                        | date: 'HH:mm'
+                    }}
+                  </small>
+                </td>
+
+                <td>
+                  <a
+                    class="admin-review-button"
+                    [routerLink]="[
+                      '/admin/solicitudes',
+                      s.id_solicitud
+                    ]"
+                  >
+                    <ng-icon
+                      name="heroEye"
+                      aria-hidden="true"
+                    />
+
+                    <span>
+                      {{ textoAccionAdministrativa(s) }}
+                    </span>
+
+                    <ng-icon
+                      name="heroChevronRight"
+                      class="admin-review-button__arrow"
+                      aria-hidden="true"
+                    />
+                  </a>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td
+                  colspan="6"
+                  class="admin-table-empty"
+                >
+                  @if (ocupado()) {
+                    Cargando solicitudes…
+                  } @else if (busqueda.trim()) {
+                    No se encontraron solicitudes para
+                    “{{ busqueda.trim() }}”.
+                  } @else {
+                    No se encontraron solicitudes.
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer class="admin-pagination">
+      <span class="admin-pagination-info">
+        @if (total()) {
+          Mostrando
+          {{ inicioPagina() }}
+          a
+          {{ finPagina() }}
+          de
+          {{ total() }}
+          solicitudes
+        } @else {
+          No hay solicitudes para mostrar
+        }
+      </span>
+
+      <div class="admin-pagination-pages">
+        <button
+          type="button"
+          class="admin-page-arrow"
+          [disabled]="
+            ocupado() ||
+            pagina === 1
+          "
+          (click)="mover(-1)"
+          aria-label="Página anterior"
+        >
+          ‹
+        </button>
+
+        @for (
+          p of paginasVisibles();
+          track p
+        ) {
+          <button
+            type="button"
+            class="admin-page-number"
+            [class.is-active]="p === pagina"
+            [disabled]="ocupado()"
+            (click)="irPagina(p)"
+          >
+            {{ p }}
+          </button>
+        }
+
+        <button
+          type="button"
+          class="admin-page-arrow"
+          [disabled]="
+            ocupado() ||
+            pagina >= totalPaginas()
+          "
+          (click)="mover(1)"
+          aria-label="Página siguiente"
+        >
+          ›
+        </button>
+      </div>
+
+      <div class="admin-page-size">
+        {{ pageSize }} por página
+      </div>
+    </footer>
+  </div>
+} @else {
+  <div class="solicitante-page">
+    <header class="solicitante-heading">
+      <div>
+        <h1>
+          Mis trámites
+        </h1>
+
+        <p>
+          Consulta el estado y seguimiento de tus trámites académicos.
+        </p>
+      </div>
+
+      <a
+        class="new-request-button"
+        routerLink="/tramites"
+      >
+        <ng-icon
+          name="heroPlus"
+          aria-hidden="true"
+        />
+
+        <span>
+          Nuevo trámite
+        </span>
+      </a>
+    </header>
+
+    @if (error()) {
+      <div
+        class="solicitante-message solicitante-message--error"
+        role="alert"
+      >
+        {{ error() }}
+      </div>
+    }
+
+    <div
+      class="filters-bar"
+      [class.filters-bar--disabled]="ocupado()"
+    >
+      <div class="search-control">
+        <ng-icon
+          name="heroMagnifyingGlass"
+          class="control-icon"
+          aria-hidden="true"
+        />
+
+        <input
+          type="search"
+          [(ngModel)]="busqueda"
+          placeholder="Buscar por trámite o solicitud..."
+          aria-label="Buscar por trámite o número de solicitud"
+          [disabled]="ocupado()"
+        />
+      </div>
+
+      <div class="state-filter">
+        <span class="filter-label">
+          Estado
+        </span>
+
+        <div class="select-control">
+          <select
+            [(ngModel)]="filtros.estado"
+            (ngModelChange)="buscar()"
+            [disabled]="ocupado()"
+            aria-label="Filtrar por estado"
+          >
+            <option value="">
+              Todos
+            </option>
+
+            @for (
+              e of estados;
+              track e
+            ) {
+              <option
+                [value]="e"
+              >
+                {{ etiqueta(e) }}
+              </option>
+            }
+          </select>
+
+          <ng-icon
+            name="heroChevronDown"
+            class="select-chevron"
+            aria-hidden="true"
+          />
+        </div>
+      </div>
+
+      <div class="order-control">
+        <ng-icon
+          name="heroArrowsUpDown"
+          class="control-icon"
+          aria-hidden="true"
+        />
+
+        <select
+          [(ngModel)]="orden"
+          aria-label="Ordenar solicitudes"
+        >
+          <option value="recientes">
+            Más recientes
+          </option>
+
+          <option value="antiguos">
+            Más antiguos
+          </option>
+
+          <option value="nombre">
+            Nombre A–Z
+          </option>
+        </select>
+
+        <ng-icon
+          name="heroChevronDown"
+          class="select-chevron"
+          aria-hidden="true"
+        />
+      </div>
+    </div>
+
+    <div class="requests-table-card">
+      @if (ocupado()) {
+        <div
+          class="table-loading"
+          role="status"
+        >
+          Cargando solicitudes…
+        </div>
+      }
+
+      <div class="requests-table-scroll">
+        <table class="requests-table">
+          <thead>
+            <tr>
+              <th class="col-tramite">
+                Trámite
+              </th>
+
+              <th class="col-estado">
+                Estado
+              </th>
+
+              <th class="col-etapa">
+                Etapa actual
+              </th>
+
+              <th class="col-next">
+                Siguiente acción
+              </th>
+
+              <th class="col-date">
+                Última actualización
+              </th>
+
+              <th class="col-action">
+                Acción
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            @for (
+              s of visibles();
+              track s.id_solicitud
+            ) {
+              <tr>
+                <td class="request-name-cell">
+                  <strong class="request-name">
+                    {{ nombreTramite(s) }}
+                  </strong>
+
+                  <span class="request-reference">
+                    Solicitud
+                    #{{ formatearNumeroSolicitud(s.id_solicitud) }}
+                    · Registrada:
+                    {{
+                      s.fecha_creacion
+                        | date: 'dd/MM/yyyy'
+                    }}
+                  </span>
+                </td>
+
+                <td>
+                  <span
+                    class="request-status"
+                    [attr.data-state]="s.estado"
+                  >
+                    {{ etiqueta(s.estado) }}
+                  </span>
+                </td>
+
+                <td class="request-stage">
+                  {{ etapaVisual(s) }}
+                </td>
+
+                <td class="request-next-action">
+                  {{ accionSiguiente(s) }}
+                </td>
+
+                <td class="request-date">
+                  {{
+                    fechaUltimaActualizacion(s)
+                      | date: 'dd/MM/yyyy HH:mm'
+                  }}
+                </td>
+
+                <td>
+                  <a
+                    class="follow-button"
+                    [routerLink]="[
+                      '/solicitudes',
+                      s.id_solicitud
+                    ]"
+                  >
+                    <span>
+                      Ver seguimiento
+                    </span>
+
+                    <ng-icon
+                      name="heroChevronRight"
+                      aria-hidden="true"
+                    />
+                  </a>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td
+                  colspan="6"
+                  class="requests-empty"
+                >
+                  {{
+                    ocupado()
+                      ? 'Cargando…'
+                      : busqueda
+                        ? 'No hay solicitudes que coincidan con la búsqueda.'
+                        : 'Todavía no tienes solicitudes registradas.'
+                  }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer class="requests-pagination">
+      <span>
+        Página {{ pagina }}
+
+        @if (total()) {
+          ·
+          {{ total() }}
+          solicitud{{ total() === 1 ? '' : 'es' }}
+        }
+      </span>
+
+      <div>
+        <button
+          type="button"
+          [disabled]="
+            ocupado() ||
+            pagina === 1
+          "
+          (click)="mover(-1)"
+        >
+          Anterior
+        </button>
+
+        <button
+          type="button"
+          [disabled]="
+            ocupado() ||
+            pagina >= totalPaginas()
+          "
+          (click)="mover(1)"
+        >
+          Siguiente
+        </button>
+      </div>
+    </footer>
+  </div>
+}

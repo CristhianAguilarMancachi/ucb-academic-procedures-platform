@@ -1,0 +1,458 @@
+@mixin superficie {
+  & {
+    display: block;
+    color: #edf2f9;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  &:not(app-gestion-timeline) {
+    padding: 32px clamp(16px, 3vw, 48px);
+    max-width: 1600px;
+    margin: auto;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  h1,
+  h2,
+  h3 {
+    line-height: 1.3;
+    margin: 0 0 16px;
+    font-weight: 600;
+  }
+  h1 {
+    font-size: 28px;
+  }
+  h2 {
+    font-size: 20px;
+  }
+  h3 {
+    font-size: 16px;
+  }
+  p {
+    margin: 10px 0;
+    color: #c6cfdd;
+  }
+  small,
+  .muted {
+    color: #9cacc1;
+    font-size: 13px;
+  }
+  section,
+  article,
+  fieldset,
+  .card {
+    min-width: 0;
+    padding: 24px;
+    margin: 18px 0;
+    border: 1px solid #ffffff12;
+    border-radius: 10px;
+    background: linear-gradient(115deg, #071729, #061b31);
+  }
+  article {
+    padding: 18px;
+  }
+  fieldset {
+    min-width: 0;
+  }
+  legend {
+    padding: 0 8px;
+    color: #edf2f9;
+    font-weight: 600;
+  }
+  label {
+    display: block;
+    margin: 12px 0;
+    color: #d5dfec;
+    font-size: 14px;
+  }
+  input:not([type='checkbox']),
+  select,
+  textarea {
+    width: 100%;
+    display: block;
+    padding: 12px 14px;
+    margin-top: 6px;
+    background: #041326;
+    border: 1px solid #263b53;
+    border-radius: 6px;
+    color: #edf2f9;
+    font: inherit;
+    color-scheme: dark;
+  }
+  textarea {
+    min-height: 105px;
+    resize: vertical;
+  }
+  input[type='checkbox'] {
+    accent-color: #0063f8;
+  }
+  select option {
+    background: #071a30;
+  }
+  button,
+  .button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    margin: 5px 8px 5px 0;
+    border: 1px solid #b79724;
+    border-radius: 6px;
+    background: transparent;
+    color: #ffd21d;
+    font: inherit;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  button:hover,
+  .button:hover {
+    background: #ffcd1512;
+  }
+  button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .primary {
+    background: #ffd015;
+    color: #071426;
+    border-color: #ffd015;
+  }
+  .blue {
+    background: #064edb;
+    color: white;
+    border-color: #064edb;
+  }
+  .danger {
+    background: #d81d31;
+    border-color: #d81d31;
+    color: white;
+  }
+  .positive {
+    background: #008654;
+    border-color: #008654;
+    color: white;
+  }
+  .secondary {
+    border-color: #304961;
+    color: #dbe5f3;
+  }
+  a {
+    color: #68b4ff;
+    text-decoration: none;
+  }
+  :focus-visible {
+    outline: 3px solid #ffcf13;
+    outline-offset: 3px;
+  }
+  .row,
+  .page-heading,
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+  }
+  .page-heading {
+    justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .page-heading h1 {
+    margin-bottom: 6px;
+  }
+  .actions {
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+  .row > label {
+    flex: 1;
+    min-width: 150px;
+  }
+  .grid-two {
+    display: grid;
+    grid-template-columns: 1.08fr 1fr;
+    gap: 22px;
+  }
+  .grid-two > section,
+  .grid-two > .card {
+    margin: 0;
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: 22px;
+    align-items: start;
+  }
+  .detail-grid > * {
+    min-width: 0;
+  }
+  .detail-grid section:first-child {
+    margin-top: 0;
+  }
+  .badge {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 5px;
+    background: #25374d;
+    color: #e5ecf7;
+    font-size: 13px;
+    text-transform: capitalize;
+  }
+  .badge[data-state='en_proceso'],
+  .badge[data-state='cumple'] {
+    background: #00603e;
+  }
+  .badge[data-state='en_revision'] {
+    background: #523093;
+  }
+  .badge[data-state='pendiente_recepcion'],
+  .badge[data-state='pendiente'] {
+    background: #946000;
+  }
+  .badge[data-state='lista_para_entrega'] {
+    background: #bb8600;
+    color: white;
+  }
+  .badge[data-state='finalizada'] {
+    background: #134cb1;
+  }
+  .badge[data-state='cancelada'],
+  .badge[data-state='rechazada'],
+  .badge[data-state='no_cumple'] {
+    background: #a81d2c;
+  }
+  .error,
+  .success,
+  .notice {
+    padding: 18px;
+    border-radius: 8px;
+    border: 1px solid #ffffff16;
+  }
+  .error {
+    background: #471c29;
+    color: #ffcad2;
+  }
+  .success {
+    background: #063e30;
+    color: #9de3be;
+  }
+  .notice {
+    background: #302b18;
+    color: #ffdf90;
+  }
+  .text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .summary {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+  .summary > div {
+    flex: 1;
+    min-width: 130px;
+  }
+  .summary .identifier {
+    color: #ffd21d;
+    font-size: 30px;
+  }
+  .summary h2 {
+    margin: 5px 0;
+  }
+  .stat {
+    font-size: 28px;
+    color: #ffcf13;
+    font-weight: 600;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+  }
+  .stats article {
+    margin: 0;
+  }
+  .table-wrap {
+    overflow: auto;
+    border: 1px solid #ffffff12;
+    border-radius: 10px;
+    margin: 20px 0;
+    background: #07192c;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+  th,
+  td {
+    padding: 18px 20px;
+    border-bottom: 1px solid #ffffff10;
+  }
+  th {
+    color: #afbdce;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+  td {
+    color: #e2e9f3;
+  }
+  td small {
+    display: block;
+    margin-top: 4px;
+  }
+  .pagination {
+    justify-content: space-between;
+  }
+  .empty {
+    text-align: center;
+    padding: 40px;
+    color: #afbdce;
+  }
+  .timeline {
+    list-style: none;
+    padding: 0;
+    margin: 24px 0;
+  }
+  .timeline li {
+    display: grid;
+    grid-template-columns: 30px 1fr auto;
+    gap: 16px;
+    padding: 0 0 28px;
+    position: relative;
+  }
+  .timeline li:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    top: 28px;
+    bottom: 0;
+    left: 14px;
+    width: 2px;
+    background: #405069;
+  }
+  .timeline-dot {
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    background: #304159;
+    z-index: 1;
+  }
+  .completada .timeline-dot {
+    background: #008c5c;
+  }
+  .actual .timeline-dot {
+    background: #0759eb;
+    box-shadow: 0 0 0 5px #0759eb22;
+  }
+  .detenida {
+    opacity: 0.65;
+  }
+  .timeline time {
+    color: #aebcd0;
+    font-size: 12px;
+    max-width: 100px;
+  }
+  .timeline p {
+    margin: 6px 0;
+    font-size: 14px;
+  }
+  progress {
+    width: 100%;
+    accent-color: #1766ed;
+    height: 8px;
+  }
+  .confirmation {
+    text-align: center;
+    padding: 40px 24px;
+  }
+  .confirmation .stats {
+    text-align: left;
+    margin: 32px 0;
+  }
+  .success-mark {
+    display: grid;
+    place-items: center;
+    margin: 0 auto 24px;
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: #00a862;
+    font-size: 50px;
+    color: white;
+  }
+  .confirmation .notice {
+    text-align: left;
+    border-left: 3px solid #00b36c;
+    background: #062b29;
+    color: #b1e8cf;
+  }
+  .catalog-select {
+    min-height: 260px;
+  }
+  ul {
+    padding-left: 22px;
+  }
+  li {
+    margin: 8px 0;
+  }
+  details {
+    margin: 16px 0;
+  }
+  summary {
+    cursor: pointer;
+    padding: 12px;
+  }
+  .modal-summary {
+    padding: 16px;
+    border: 1px solid #244365;
+    border-radius: 8px;
+    margin: 16px 0;
+  }
+  .section-icon {
+    color: #ffcf13;
+    margin-right: 10px;
+  }
+  @media (max-width: 1050px) {
+    .grid-two,
+    .detail-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  @media (max-width: 600px) {
+    &:not(app-gestion-timeline) {
+      padding: 22px 14px;
+    }
+    section,
+    fieldset,
+    .card {
+      padding: 18px;
+    }
+    h1 {
+      font-size: 24px;
+    }
+    .summary {
+      gap: 16px;
+    }
+    .timeline li {
+      grid-template-columns: 28px 1fr;
+      gap: 12px;
+    }
+    .timeline time {
+      grid-column: 2;
+      max-width: none;
+    }
+    .actions button {
+      flex: 1;
+    }
+  }
+
+  .evento-cierre .timeline-dot {
+    background: #bc2134;
+  }
+}

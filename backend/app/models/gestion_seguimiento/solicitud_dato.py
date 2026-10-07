@@ -15,6 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from sqlalchemy import String
 from app.db.base import Base
 
 if TYPE_CHECKING:
@@ -24,6 +25,10 @@ if TYPE_CHECKING:
 
 class SolicitudDato(Base):
     __tablename__ = "solicitud_dato"
+
+    clave_snapshot: Mapped[str | None] = mapped_column(String(100))
+    etiqueta_snapshot: Mapped[str | None] = mapped_column(String(200))
+
 
     id_solicitud_dato: Mapped[int] = mapped_column(
         BigInteger,

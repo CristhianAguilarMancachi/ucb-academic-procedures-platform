@@ -37,6 +37,13 @@ class Tramite(Base):
 
     __tablename__ = "tramite"
 
+    tiempo_estimado: Mapped[str | None] = mapped_column(Text)
+    canales_atencion: Mapped[str | None] = mapped_column(Text)
+    instrucciones: Mapped[str | None] = mapped_column(Text)
+    condiciones: Mapped[str | None] = mapped_column(Text)
+    tipo_finalizacion: Mapped[str | None] = mapped_column(String(30))
+
+
     id_tramite: Mapped[int] = mapped_column(
         BigInteger,
         primary_key=True,
@@ -117,6 +124,8 @@ class Tramite(Base):
     # =====================================================
 
     __table_args__ = (
+        CheckConstraint("tipo_finalizacion IN ('entrega', 'resultado_registrado', 'externo')", name="ck_tramite_tipo_finalizacion"),
+
         CheckConstraint(
             "LENGTH(TRIM(nombre)) >= 3",
             name="ck_tramite_nombre_no_vacio",

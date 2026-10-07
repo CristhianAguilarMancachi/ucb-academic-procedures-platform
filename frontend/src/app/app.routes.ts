@@ -11,7 +11,6 @@ import { ForgotPasswordComponent } from './features/auth/forgot-password/forgot-
 import { ResetPasswordComponent } from './features/auth/reset-password/reset-password.component';
 
 import { ProfileComponent } from './features/account/profile/profile.component';
-import { SessionsComponent } from './features/account/sessions/sessions.component';
 import { ChangePasswordComponent } from './features/account/change-password/change-password.component';
 
 import { UserListComponent } from './features/admin/users/user-list/user-list.component';
@@ -20,9 +19,7 @@ import { UserDetailComponent } from './features/admin/users/user-detail/user-det
 import { authGuard } from './core/auth/auth.guard';
 import { roleGuard } from './core/auth/role.guard';
 
-
 export const routes: Routes = [
-
   // =========================================================
   // AUTENTICACIÓN
   // =========================================================
@@ -52,7 +49,6 @@ export const routes: Routes = [
     component: ResetPasswordComponent,
   },
 
-
   // =========================================================
   // APLICACIÓN
   // =========================================================
@@ -62,7 +58,6 @@ export const routes: Routes = [
     component: MainLayout,
 
     children: [
-
       {
         path: '',
         pathMatch: 'full',
@@ -75,63 +70,110 @@ export const routes: Routes = [
         component: RagHome,
       },
 
+      // Gestión y seguimiento de trámites
+      { path: 'tramites/nuevo', pathMatch: 'full', redirectTo: 'tramites' },
+      {
+        path: 'tramites',
+        loadComponent: () =>
+          import('./features/gestion-seguimiento/pages/tramites-disponibles/tramites-disponibles.component').then(
+            (m) => m.TramitesDisponiblesComponent,
+          ),
+      },
+      {
+        path: 'tramites/:id',
+        loadComponent: () =>
+          import('./features/gestion-seguimiento/pages/tramites-disponibles/tramites-disponibles.component').then(
+            (m) => m.TramitesDisponiblesComponent,
+          ),
+      },
+      {
+        path: 'mis-solicitudes',
+        canActivate: [authGuard, roleGuard],
+        data: { roles: ['solicitante', 'administrador'] },
+        loadComponent: () =>
+          import('./features/gestion-seguimiento/pages/lista-solicitudes/lista-solicitudes.component').then(
+            (m) => m.ListaSolicitudesComponent,
+          ),
+      },
+      {
+        path: 'solicitudes/:id/preparar',
+        canActivate: [authGuard, roleGuard],
+        data: { roles: ['solicitante', 'administrador'] },
+        loadComponent: () =>
+          import('./features/gestion-seguimiento/pages/nueva-solicitud/nueva-solicitud.component').then(
+            (m) => m.NuevaSolicitudComponent,
+          ),
+      },
+      {
+        path: 'solicitudes/:id',
+        canActivate: [authGuard, roleGuard],
+        data: { roles: ['solicitante', 'administrador'] },
+        loadComponent: () =>
+          import('./features/gestion-seguimiento/pages/seguimiento-solicitud/seguimiento-solicitud.component').then(
+            (m) => m.SeguimientoSolicitudComponent,
+          ),
+      },
+      {
+        path: 'admin/solicitudes',
+        canActivate: [authGuard, roleGuard],
+        data: { roles: ['personal_administrativo', 'administrador'], admin: true },
+        loadComponent: () =>
+          import('./features/gestion-seguimiento/pages/lista-solicitudes/lista-solicitudes.component').then(
+            (m) => m.ListaSolicitudesComponent,
+          ),
+      },
+      {
+        path: 'admin/solicitudes/:id',
+        canActivate: [authGuard, roleGuard],
+        data: { roles: ['personal_administrativo', 'administrador'], admin: true },
+        loadComponent: () =>
+          import('./features/gestion-seguimiento/pages/seguimiento-solicitud/seguimiento-solicitud.component').then(
+            (m) => m.SeguimientoSolicitudComponent,
+          ),
+      },
+      {
+        path: 'admin/tramites',
+        canActivate: [authGuard, roleGuard],
+        data: { roles: ['administrador'] },
+        loadComponent: () =>
+          import('./features/gestion-seguimiento/pages/configuracion-tramites/configuracion-tramites.component').then(
+            (m) => m.ConfiguracionTramitesComponent,
+          ),
+      },
+
       // Cuenta
       {
         path: 'perfil',
         component: ProfileComponent,
-        canActivate: [
-          authGuard,
-        ],
-      },
-
-      {
-        path: 'sesiones',
-        component: SessionsComponent,
-        canActivate: [
-          authGuard,
-        ],
+        canActivate: [authGuard],
       },
 
       {
         path: 'cambiar-contrasena',
         component: ChangePasswordComponent,
-        canActivate: [
-          authGuard,
-        ],
+        canActivate: [authGuard],
       },
 
       // Administración
       {
         path: 'admin/usuarios',
         component: UserListComponent,
-        canActivate: [
-          authGuard,
-          roleGuard,
-        ],
+        canActivate: [authGuard, roleGuard],
         data: {
-          roles: [
-            'administrador',
-          ],
+          roles: ['administrador'],
         },
       },
 
       {
         path: 'admin/usuarios/:id',
         component: UserDetailComponent,
-        canActivate: [
-          authGuard,
-          roleGuard,
-        ],
+        canActivate: [authGuard, roleGuard],
         data: {
-          roles: [
-            'administrador',
-          ],
+          roles: ['administrador'],
         },
       },
-
     ],
   },
-
 
   // =========================================================
   // FALLBACK

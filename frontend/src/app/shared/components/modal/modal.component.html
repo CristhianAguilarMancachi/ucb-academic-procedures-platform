@@ -1,0 +1,37 @@
+<dialog
+  #dialog
+  [class.amplio]="amplio()"
+  [class.lateral]="lateral()"
+  [class.compacto]="compacto()"
+  [class.operativo]="operativo()"
+  (cancel)="cancelar($event)"
+  aria-labelledby="gestion-modal-title"
+>
+  <header class="modal-header">
+    <div class="modal-heading">
+      <h2 id="gestion-modal-title">
+        {{ titulo() }}
+      </h2>
+
+      @if (subtitulo()) {
+        <p>
+          {{ subtitulo() }}
+        </p>
+      }
+    </div>
+
+    <button
+      type="button"
+      class="modal-close"
+      aria-label="Cerrar ventana"
+      [disabled]="ocupado()"
+      (click)="cerrar.emit()"
+    >
+      ×
+    </button>
+  </header>
+
+  <div class="modal-body">
+    <ng-content />
+  </div>
+</dialog>

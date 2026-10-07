@@ -43,6 +43,9 @@ class TramiteEtapa(Base):
 
     __tablename__ = "tramite_etapa"
 
+    visible_solicitante: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+
+
     id_etapa: Mapped[int] = mapped_column(
         BigInteger,
         primary_key=True,
@@ -136,6 +139,7 @@ class TramiteEtapa(Base):
     # =====================================================
 
     __table_args__ = (
+        UniqueConstraint("id_tramite", "id_etapa", name="uq_tramite_etapa_pertenencia"),
         UniqueConstraint(
             "id_tramite",
             "orden",

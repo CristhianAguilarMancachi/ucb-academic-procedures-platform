@@ -1,0 +1,586 @@
+.auth-shell {
+
+  // =========================================================
+  // ELEMENTOS COMPARTIDOS
+  // =========================================================
+
+  .auth-divider {
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+
+    margin:
+      14px 0;
+
+    color: var(--auth-muted);
+
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .auth-divider::before,
+  .auth-divider::after {
+    content: '';
+
+    flex: 1;
+
+    height: 1px;
+
+    background: #1c3558;
+  }
+
+
+  .auth-google {
+    min-height: 52px;
+
+    color: #121a35;
+
+    border:
+      1px solid
+      rgba(255, 255, 255, 0.8);
+
+    background: #ffffff;
+
+    font-weight: 600;
+  }
+
+  .auth-google:disabled {
+    opacity: 1;
+  }
+
+  .auth-google-mark {
+    font-size: 24px;
+    font-weight: 700;
+
+    color: #4285f4;
+  }
+
+
+  .auth-switch {
+    margin-top: 16px;
+
+    text-align: center;
+
+    color: var(--auth-muted);
+
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  .auth-switch a {
+    margin-left: 5px;
+  }
+
+  .auth-switch small {
+    display: block;
+
+    margin-top: 4px;
+
+    color: var(--auth-muted);
+
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+
+  .auth-note {
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+
+    color: var(--auth-muted);
+
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .auth-note > app-auth-icon {
+    flex: 0 0 auto;
+
+    color: #075cf4;
+
+    font-size: 29px;
+  }
+
+
+  .auth-back {
+    display: flex;
+
+    width: fit-content;
+
+    align-items: center;
+
+    gap: 8px;
+
+    margin-inline: auto;
+
+    font-size: 15px;
+  }
+
+  .auth-back app-auth-icon {
+    font-size: 21px;
+  }
+
+
+  .auth-validation {
+    display: block;
+
+    margin:
+      -7px 0 9px;
+
+    color: #ff9dad;
+
+    font-size: 12.5px;
+    line-height: 1.3;
+  }
+
+  .auth-message {
+    margin:
+      8px 0;
+
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+
+  // =========================================================
+  // LOGIN
+  // =========================================================
+
+  .auth-panel--login {
+    height:
+      min(
+        900px,
+        calc(100svh - 92px)
+      );
+
+    min-height: 0;
+
+    padding:
+      28px 32px 22px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    overflow: hidden;
+  }
+
+  .auth-panel--login .auth-heading {
+    margin-bottom: 15px;
+  }
+
+  .auth-panel--login .auth-note--login {
+    margin-top: 15px;
+
+    padding:
+      0 28px;
+  }
+
+
+  // =========================================================
+  // REGISTRO
+  // =========================================================
+
+  .auth-panel--register {
+    height:
+      min(
+        924px,
+        calc(100svh - 76px)
+      );
+
+    min-height: 0;
+
+    padding:
+      18px 38px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    overflow: hidden;
+  }
+
+  .auth-panel--register .auth-heading {
+    margin-bottom: 12px;
+  }
+
+  .auth-panel--register .auth-emblem {
+    width: 64px;
+    height: 64px;
+  }
+
+  .auth-panel--register .auth-emblem app-auth-icon {
+    font-size: 37px;
+  }
+
+  .auth-panel--register .auth-heading h1 {
+    margin-top: 8px;
+
+    font-size: 30px;
+  }
+
+  .auth-panel--register .auth-heading p {
+    font-size: 15px;
+  }
+
+  .auth-panel--register .auth-field {
+    margin-bottom: 11px;
+  }
+
+  .auth-panel--register .auth-field label {
+    margin-bottom: 5px;
+
+    font-size: 14px;
+  }
+
+  .auth-panel--register .auth-input {
+    min-height: 48px;
+  }
+
+  .auth-panel--register .auth-input input {
+    padding-block: 11px;
+
+    font-size: 15px;
+  }
+
+  .auth-panel--register .auth-primary,
+  .auth-panel--register .auth-google {
+    min-height: 49px;
+  }
+
+  .auth-panel--register .auth-divider {
+    margin-block: 11px;
+  }
+
+  .auth-panel--register .auth-switch {
+    margin-top: 13px;
+
+    font-size: 15px;
+  }
+
+
+  // =========================================================
+  // VERIFICACIÓN DE CORREO
+  // =========================================================
+
+  .auth-panel--verify {
+    height:
+      min(
+        904px,
+        calc(100svh - 92px)
+      );
+
+    min-height: 0;
+
+    padding:
+      34px 44px 28px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    overflow: hidden;
+  }
+
+
+  .auth-mail-emblem {
+    position: relative;
+
+    width: 94px;
+    height: 72px;
+
+    margin:
+      0 auto 20px;
+
+    color: #0757f5;
+  }
+
+  .auth-mail-emblem > app-auth-icon {
+    font-size: 80px;
+  }
+
+  .auth-mail-emblem span {
+    position: absolute;
+
+    right: 0;
+    bottom: 0;
+
+    width: 42px;
+    height: 42px;
+
+    display: grid;
+
+    place-items: center;
+
+    border:
+      4px solid
+      #00142f;
+
+    border-radius: 50%;
+
+    background: #0757f5;
+
+    color: #ffd021;
+  }
+
+  .auth-mail-emblem span app-auth-icon {
+    font-size: 26px;
+  }
+
+
+  .auth-heading--verification {
+    margin-bottom: 18px;
+  }
+
+  .auth-heading--verification h1 {
+    margin-top: 0;
+
+    white-space: nowrap;
+
+    font-size: 31px;
+  }
+
+  .auth-heading--verification p {
+    margin-top: 11px;
+
+    font-size: 17px;
+    line-height: 1.45;
+  }
+
+
+  .auth-email-label {
+    display: block;
+
+    margin-bottom: 6px;
+
+    color: var(--auth-muted);
+
+    font-size: 14px;
+  }
+
+
+  .auth-email-display {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 16px;
+
+    min-height: 66px;
+
+    padding:
+      12px 15px;
+
+    border:
+      1px solid
+      #1b365f;
+
+    border-radius: 11px;
+
+    background:
+      rgba(0, 16, 39, 0.42);
+  }
+
+  .auth-email-display strong {
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+
+    font-size: 20px;
+    font-weight: 500;
+  }
+
+
+  .auth-inbox {
+    margin:
+      17px 0 19px;
+
+    padding-top: 16px;
+
+    border-top:
+      1px solid
+      #1c3558;
+
+    text-align: center;
+
+    color: var(--auth-muted);
+
+    font-size: 16px;
+    line-height: 1.45;
+
+    letter-spacing: -0.25px;
+  }
+
+  .auth-inbox span {
+    color: var(--auth-link);
+  }
+
+
+  .auth-panel--verify .auth-primary {
+    min-height: 54px;
+  }
+
+  .auth-panel--verify .auth-back {
+    margin-top: 25px;
+  }
+
+
+  .auth-expiry {
+    margin-top: 25px;
+
+    padding:
+      13px 18px;
+
+    border:
+      1px solid
+      #1b3457;
+
+    border-radius: 11px;
+  }
+
+
+  .auth-centered {
+    text-align: center;
+  }
+
+
+  // =========================================================
+  // RECUPERAR CONTRASEÑA
+  // =========================================================
+
+  .auth-panel--forgot {
+    height:
+      min(
+        718px,
+        calc(100svh - 150px)
+      );
+
+    min-height: 0;
+
+    padding:
+      32px 36px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    transform: none;
+
+    overflow: hidden;
+  }
+
+  .auth-panel--forgot .auth-emblem {
+    width: 74px;
+    height: 74px;
+  }
+
+  .auth-panel--forgot .auth-heading h1 {
+    margin-top: 16px;
+  }
+
+  .auth-panel--forgot .auth-heading p {
+    margin-top: 10px;
+
+    font-size: 17px;
+    line-height: 1.45;
+  }
+
+  .auth-panel--forgot .auth-heading {
+    margin-bottom: 32px;
+  }
+
+  .auth-panel--forgot .auth-field {
+    margin-bottom: 26px;
+  }
+
+  .auth-panel--forgot .auth-primary {
+    min-height: 56px;
+  }
+
+
+  .auth-return {
+    margin-top: 26px;
+
+    padding-top: 24px;
+
+    border-top:
+      1px solid
+      #203755;
+  }
+
+
+  // =========================================================
+  // RESTABLECER CONTRASEÑA
+  // =========================================================
+
+  .auth-panel--reset {
+    height:
+      min(
+        790px,
+        calc(100svh - 112px)
+      );
+
+    min-height: 0;
+
+    padding:
+      26px 36px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    overflow: hidden;
+  }
+
+  .auth-panel--reset .auth-emblem {
+    width: 74px;
+    height: 74px;
+  }
+
+  .auth-panel--reset .auth-heading h1 {
+    margin-top: 15px;
+  }
+
+  .auth-panel--reset .auth-heading {
+    margin-bottom: 26px;
+  }
+
+  .auth-panel--reset .auth-heading p {
+    font-size: 16px;
+  }
+
+  .auth-panel--reset .auth-input {
+    min-height: 54px;
+  }
+
+  .auth-panel--reset .auth-field {
+    margin-bottom: 20px;
+  }
+
+  .auth-panel--reset .auth-primary {
+    min-height: 54px;
+
+    margin-top: 22px;
+  }
+
+  .auth-reset-note {
+    margin:
+      21px auto 0;
+
+    padding-inline: 25px;
+
+    font-size: 13px;
+  }
+
+  .auth-panel--reset .auth-return {
+    margin-top: 22px;
+
+    padding-top: 20px;
+  }
+}

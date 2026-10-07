@@ -1,0 +1,335 @@
+.auth-shell {
+
+  // =========================================================
+  // ENCABEZADO DE LOS FORMULARIOS
+  // =========================================================
+
+  .auth-heading {
+    text-align: center;
+    margin-bottom: 18px;
+  }
+
+  .auth-heading h1 {
+    margin-top: 12px;
+
+    font-size: 32px;
+    line-height: 1.15;
+
+    letter-spacing: -0.9px;
+
+    font-weight: 600;
+  }
+
+  .auth-heading p {
+    margin-top: 6px;
+
+    color: var(--auth-muted);
+
+    font-size: 17px;
+    line-height: 1.4;
+
+    letter-spacing: -0.3px;
+  }
+
+
+  // =========================================================
+  // ICONO SUPERIOR
+  // =========================================================
+
+  .auth-emblem {
+    display: flex;
+
+    justify-content: center;
+    align-items: center;
+
+    width: 70px;
+    height: 70px;
+
+    margin: 0 auto;
+
+    border-radius: 50%;
+
+    background:
+      radial-gradient(
+        circle,
+        rgba(0, 37, 86, 0.42),
+        rgba(0, 28, 60, 0.34)
+      );
+
+    border:
+      1px solid
+      rgba(16, 47, 81, 0.45);
+
+    color: #0664ff;
+  }
+
+  .auth-emblem app-auth-icon {
+    font-size: 40px;
+  }
+
+
+  // =========================================================
+  // CAMPOS
+  // =========================================================
+
+  .auth-field {
+    margin-bottom: 16px;
+  }
+
+  .auth-field label {
+    display: block;
+
+    margin-bottom: 6px;
+
+    font-size: 15px;
+    font-weight: 500;
+
+    letter-spacing: -0.25px;
+  }
+
+
+  // =========================================================
+  // INPUT
+  // =========================================================
+
+  .auth-input {
+    display: flex;
+
+    align-items: center;
+
+    min-height: 54px;
+
+    padding:
+      0 15px;
+
+    gap: 14px;
+
+    border:
+      1px solid
+      var(--auth-border);
+
+    border-radius: 9px;
+
+    background:
+      rgba(0, 17, 42, 0.4);
+
+    transition:
+      border-color 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  .auth-input:focus-within {
+    border-color: #287bf2;
+
+    box-shadow:
+      0 0 0 2px
+      rgba(7, 87, 245, 0.12);
+  }
+
+  .auth-input > app-auth-icon {
+    flex: 0 0 auto;
+
+    color: #c0bfd4;
+
+    font-size: 23px;
+  }
+
+  .auth-input input {
+    width: 100%;
+    min-width: 0;
+
+    border: 0;
+    outline: none;
+
+    background: transparent;
+
+    color: #f7f7fc;
+
+    padding:
+      13px 0;
+
+    font-size: 16px;
+
+    line-height: 1.25;
+
+    letter-spacing: -0.25px;
+  }
+
+  .auth-input input::placeholder {
+    color: #bfbbd0;
+    opacity: 1;
+  }
+
+  .auth-input input:focus-visible {
+    outline: none;
+  }
+
+  .auth-input input:-webkit-autofill {
+    -webkit-text-fill-color: #fff;
+
+    box-shadow:
+      0 0 0 1000px
+      #00152d inset;
+  }
+
+
+  // =========================================================
+  // MOSTRAR / OCULTAR CONTRASEÑA
+  // =========================================================
+
+  .auth-eye {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 auto;
+
+    padding: 4px;
+
+    margin-right: -4px;
+
+    border: 0;
+
+    background: none;
+
+    color: #bdb9d0;
+  }
+
+  .auth-eye app-auth-icon {
+    font-size: 23px;
+  }
+
+
+  // =========================================================
+  // TEXTOS AUXILIARES
+  // =========================================================
+
+  .auth-help {
+    display: block;
+
+    margin-top: 6px;
+
+    color: var(--auth-muted);
+
+    font-size: 13px;
+    line-height: 1.35;
+
+    letter-spacing: -0.2px;
+  }
+
+
+  // =========================================================
+  // RECORDAR / OLVIDÓ CONTRASEÑA
+  // =========================================================
+
+  .auth-options {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    margin:
+      -1px 0 17px;
+
+    font-size: 14px;
+  }
+
+  .auth-remember {
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 9px;
+
+    color: #ececf5;
+  }
+
+  .auth-remember input {
+    appearance: none;
+
+    width: 19px;
+    height: 19px;
+
+    margin: 0;
+
+    border:
+      1px solid
+      #a5afc9;
+
+    border-radius: 3px;
+
+    background: transparent;
+  }
+
+  .auth-remember input:checked {
+    background: #0757f5;
+
+    box-shadow:
+      inset 0 0 0 4px
+      #00152d;
+  }
+
+  .auth-remember input:disabled {
+    cursor: not-allowed;
+  }
+
+
+  // =========================================================
+  // BOTONES PRINCIPALES
+  // =========================================================
+
+  .auth-primary,
+  .auth-google {
+    width: 100%;
+
+    min-height: 52px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 13px;
+
+    border-radius: 9px;
+
+    padding:
+      10px 15px;
+
+    font-size: 18px;
+    font-weight: 500;
+
+    line-height: 1.15;
+  }
+
+  .auth-primary app-auth-icon,
+  .auth-google app-auth-icon {
+    font-size: 23px;
+  }
+
+  .auth-primary {
+    color: #ffffff;
+
+    border:
+      1px solid
+      #1555ef;
+
+    background:
+      linear-gradient(
+        100deg,
+        #0845df,
+        #0757f5
+      );
+  }
+
+  .auth-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  .auth-primary:disabled {
+    opacity: 0.62;
+  }
+}

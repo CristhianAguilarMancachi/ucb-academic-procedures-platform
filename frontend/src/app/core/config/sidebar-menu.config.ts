@@ -1,71 +1,133 @@
-import { MenuItem } from '../../shared/models/menu-item.model';
+import {
+  MenuItem,
+} from '../../shared/models/menu-item.model';
 
-export const SIDEBAR_MENU: MenuItem[] = [
+
+export const SIDEBAR_MENU:
+  MenuItem[] = [
+
   {
-    label: 'Módulo informativo',
-    route: '/informacion',
-    section: 'INFORMACIÓN',
-    badge: 'IA',
-    icon: 'sparkles',
+    label:
+      'Módulo informativo',
+
+    route:
+      '/informacion',
+
+    section:
+      'INFORMACIÓN',
+
+    badge:
+      'IA',
+
+    icon:
+      'sparkles',
   },
 
   {
-    label: 'Nuevo trámite',
-    route: '/tramites/nuevo',
-    section: 'TRÁMITES',
-    icon: 'plus',
-    requiresAuth: true,
-    roles: ['solicitante'],
+    label:
+      'Nuevo trámite',
+
+    route:
+      '/tramites',
+
+    section:
+      'TRÁMITES',
+
+    icon:
+      'plus',
+
+    requiresAuth:
+      true,
+
+    roles: [
+      'solicitante',
+      'administrador',
+    ],
   },
 
   {
-    label: 'Mis trámites',
-    route: '/mis-solicitudes',
-    section: 'TRÁMITES',
-    icon: 'folder',
-    requiresAuth: true,
-    roles: ['solicitante'],
+    label:
+      'Mis trámites',
+
+    route:
+      '/mis-solicitudes',
+
+    section:
+      'TRÁMITES',
+
+    icon:
+      'folder',
+
+    requiresAuth:
+      true,
+
+    roles: [
+      'solicitante',
+      'administrador',
+    ],
   },
 
   {
-    label: 'Observaciones',
-    route: '/observaciones',
-    section: 'TRÁMITES',
-    icon: 'alert',
-    requiresAuth: true,
-    roles: ['solicitante'],
+    label:
+      'Gestión de solicitudes',
+
+    route:
+      '/admin/solicitudes',
+
+    section:
+      'ADMINISTRACIÓN',
+
+    icon:
+      'folder',
+
+    requiresAuth:
+      true,
+
+    roles: [
+      'personal_administrativo',
+      'administrador',
+    ],
   },
 
   {
-    label: 'Perfil',
-    route: '/perfil',
-    section: 'CUENTA',
-    icon: 'folder',
-    requiresAuth: true,
+    label:
+      'Configuración de trámites',
+
+    route:
+      '/admin/tramites',
+
+    section:
+      'ADMINISTRACIÓN',
+
+    icon:
+      'folder',
+
+    requiresAuth:
+      true,
+
+    roles: [
+      'administrador',
+    ],
   },
 
   {
-    label: 'Sesiones',
-    route: '/sesiones',
-    section: 'CUENTA',
-    icon: 'folder',
-    requiresAuth: true,
-  },
+    label:
+      'Administración de usuarios',
 
-  {
-    label: 'Cambiar contraseña',
-    route: '/cambiar-contrasena',
-    section: 'CUENTA',
-    icon: 'alert',
-    requiresAuth: true,
-  },
+    route:
+      '/admin/usuarios',
 
-  {
-    label: 'Administración de usuarios',
-    route: '/admin/usuarios',
-    section: 'ADMINISTRACIÓN',
-    icon: 'folder',
-    requiresAuth: true,
-    roles: ['administrador'],
+    section:
+      'ADMINISTRACIÓN',
+
+    icon:
+      'folder',
+
+    requiresAuth:
+      true,
+
+    roles: [
+      'administrador',
+    ],
   },
 ];

@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+
 import {
   Observable,
   catchError,
@@ -19,6 +20,7 @@ import {
   CambioContrasenaRequest,
   CorreoReenviarVerificacionRequest,
   CorreoVerificarRequest,
+  GoogleLoginRequest,
   LoginRequest,
   LoginResponse,
   MensajeResponse,
@@ -84,7 +86,25 @@ export class AuthService {
 
 
   // =========================================================
-  // LOGIN
+  // ESTABLECER SESIÓN AUTENTICADA
+  // =========================================================
+
+  private establecerSesion(
+    respuesta: LoginResponse,
+  ): void {
+    this.accessToken = respuesta.access_token;
+
+    this.usuarioActual.set(
+      respuesta.usuario,
+    );
+
+    this.autenticado.set(true);
+    this.sesionInicializada.set(true);
+  }
+
+
+  // =========================================================
+  // LOGIN TRADICIONAL
   // =========================================================
 
   login(
@@ -98,14 +118,36 @@ export class AuthService {
       },
     ).pipe(
       tap((respuesta) => {
-        this.accessToken = respuesta.access_token;
-
-        this.usuarioActual.set(
-          respuesta.usuario,
+        this.establecerSesion(
+          respuesta
         );
+      }),
+    );
+  }
 
-        this.autenticado.set(true);
-        this.sesionInicializada.set(true);
+
+  // =========================================================
+  // LOGIN CON GOOGLE
+  // =========================================================
+
+  loginGoogle(
+    credential: string,
+  ): Observable<LoginResponse> {
+    const datos: GoogleLoginRequest = {
+      credential,
+    };
+
+    return this.http.post<LoginResponse>(
+      `${this.apiAuthUrl}/google`,
+      datos,
+      {
+        withCredentials: true,
+      },
+    ).pipe(
+      tap((respuesta) => {
+        this.establecerSesion(
+          respuesta
+        );
       }),
     );
   }
@@ -137,6 +179,7 @@ export class AuthService {
   restaurarSesion(): Observable<boolean> {
     if (this.autenticado()) {
       this.sesionInicializada.set(true);
+
       return of(true);
     }
 
@@ -152,7 +195,10 @@ export class AuthService {
       }),
 
       tap((usuario) => {
-        this.usuarioActual.set(usuario);
+        this.usuarioActual.set(
+          usuario
+        );
+
         this.autenticado.set(true);
       }),
 
@@ -160,6 +206,7 @@ export class AuthService {
 
       catchError(() => {
         this.limpiarSesion();
+
         return of(false);
       }),
 
@@ -287,11 +334,6 @@ export class AuthService {
       datos,
     ).pipe(
       tap(() => {
-        /*
-         * El backend revoca las sesiones después del cambio
-         * de contraseña, por lo que también eliminamos el
-         * estado local.
-         */
         this.limpiarSesion();
       }),
     );
@@ -325,9 +367,11 @@ export class AuthService {
     );
   }
 
-  
-  // ==========  
-  
+
+  // =========================================================
+  // IDENTIFICADOR DE SESIÓN
+  // =========================================================
+
   obtenerIdentificadorSesionActual(): string | null {
     if (!this.accessToken) {
       return null;
@@ -361,4 +405,3 @@ export class AuthService {
     }
   }
 }
-  

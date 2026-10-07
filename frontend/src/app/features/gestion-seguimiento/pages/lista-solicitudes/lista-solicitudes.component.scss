@@ -1,0 +1,2513 @@
+:host {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  max-width: none !important;
+
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   BASE COMPARTIDA
+   ========================================================= */
+
+.admin-requests-page,
+.solicitante-page {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+
+  overflow: hidden;
+
+  color:
+    var(--ucb-text);
+
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(0, 166, 200, 0.04),
+      transparent 25%
+    ),
+    linear-gradient(
+      180deg,
+      var(--ucb-surface),
+      var(--ucb-surface-soft) 52%,
+      var(--ucb-bg)
+    );
+}
+
+
+.admin-requests-heading h1,
+.solicitante-heading h1 {
+  margin: 0;
+
+  color:
+    var(--ucb-text-strong);
+
+  font-size:
+    clamp(
+      1.55rem,
+      1.8vw,
+      1.85rem
+    );
+
+  font-weight: 700;
+
+  line-height: 1.15;
+}
+
+
+.admin-requests-heading p,
+.solicitante-heading p {
+  margin:
+    0.35rem
+    0
+    0;
+
+  color:
+    var(--ucb-text-muted);
+
+  font-size:
+    0.88rem;
+
+  line-height:
+    1.4;
+}
+
+
+/* =========================================================
+   ADMINISTRATIVO - LAYOUT
+   ========================================================= */
+
+.admin-requests-page {
+  padding:
+    1.05rem
+    2rem
+    0.8rem;
+
+  display: grid;
+
+  grid-template-rows:
+    auto
+    auto
+    auto
+    minmax(0, 1fr)
+    auto;
+
+  gap:
+    0.75rem;
+}
+
+
+/* =========================================================
+   ADMIN - MENSAJES
+   ========================================================= */
+
+.admin-message {
+  padding:
+    0.7rem
+    0.9rem;
+
+  border-radius:
+    8px;
+
+  font-size:
+    0.82rem;
+}
+
+
+.admin-message--error {
+  border:
+    1px solid
+    rgba(
+      232,
+      70,
+      91,
+      0.32
+    );
+
+  background:
+    rgba(
+      103,
+      23,
+      38,
+      0.24
+    );
+
+  color:
+    #ffcbd3;
+}
+
+
+/* =========================================================
+   ADMIN - INDICADORES
+   ========================================================= */
+
+.admin-stats-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      5,
+      minmax(0, 1fr)
+    );
+
+  gap:
+    0.7rem;
+}
+
+
+.admin-stat-card {
+  min-width: 0;
+  min-height: 92px;
+
+  padding:
+    0.75rem
+    0.85rem;
+
+  display: grid;
+
+  grid-template-columns:
+    46px
+    minmax(0, 1fr);
+
+  align-items: center;
+
+  gap:
+    0.75rem;
+
+  border:
+    1px solid
+    var(--ucb-border);
+
+  border-radius:
+    9px;
+
+  background:
+    var(--ucb-surface-soft);
+}
+
+
+.admin-stat-icon {
+  width:
+    44px;
+
+  height:
+    44px;
+
+  display:
+    grid;
+
+  place-items:
+    center;
+
+  border-radius:
+    50%;
+
+  color:
+    #ffffff;
+
+  ng-icon {
+    font-size:
+      1.3rem;
+  }
+
+  &--total {
+    background:
+      linear-gradient(
+        135deg,
+        #0873dd,
+        #0756b9
+      );
+  }
+
+  &--process {
+    background:
+      linear-gradient(
+        135deg,
+        #0b9d68,
+        #08754f
+      );
+  }
+
+  &--review {
+    background:
+      linear-gradient(
+        135deg,
+        #d58a00,
+        #a86d00
+      );
+  }
+
+  &--finished {
+    background:
+      linear-gradient(
+        135deg,
+        #6840bd,
+        #493092
+      );
+  }
+
+  &--rejected {
+    background:
+      linear-gradient(
+        135deg,
+        #df3047,
+        #ae2235
+      );
+  }
+}
+
+
+.admin-stat-content {
+  min-width: 0;
+
+  > span {
+    display: block;
+
+    color:
+      var(--ucb-text-soft);
+
+    font-size:
+      0.76rem;
+
+    line-height:
+      1.2;
+
+    white-space:
+      nowrap;
+  }
+
+  > strong {
+    display: block;
+
+    margin-top:
+      0.18rem;
+
+    color:
+      var(--ucb-yellow);
+
+    font-size:
+      1.42rem;
+
+    font-weight:
+      750;
+
+    line-height:
+      1;
+  }
+
+  > small {
+    display: block;
+
+    margin-top:
+      0.28rem;
+
+    color:
+      var(--ucb-text-muted);
+
+    font-size:
+      0.65rem;
+
+    white-space:
+      nowrap;
+  }
+}
+
+
+/* =========================================================
+   ADMIN - FILTROS
+   ========================================================= */
+
+.admin-filters-bar {
+  min-height:
+    58px;
+
+  padding:
+    0.58rem
+    0.75rem;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(
+      360px,
+      1.55fr
+    )
+    minmax(
+      220px,
+      0.78fr
+    )
+    minmax(
+      220px,
+      0.78fr
+    );
+
+  align-items: center;
+
+  gap:
+    0.75rem;
+
+  border:
+    1px solid
+    var(--ucb-border);
+
+  border-radius:
+    9px;
+
+  background:
+    var(--ucb-surface-soft);
+
+  transition:
+    opacity
+    150ms ease;
+}
+
+
+.admin-filters-bar--disabled {
+  opacity:
+    0.7;
+}
+
+
+.admin-search-control,
+.admin-select-control {
+  position: relative;
+
+  min-width: 0;
+
+  height:
+    40px;
+}
+
+
+.admin-search-control input,
+.admin-select-control select {
+  width: 100%;
+  height: 100%;
+
+  margin:
+    0 !important;
+
+  outline:
+    0;
+
+  border:
+    1px solid
+    var(--ucb-border-strong) !important;
+
+  border-radius:
+    6px !important;
+
+  background:
+    var(--ucb-bg-deep) !important;
+
+  color:
+    var(--ucb-text) !important;
+
+  font-family:
+    inherit;
+
+  font-size:
+    0.79rem !important;
+
+  transition:
+    border-color
+    150ms ease,
+    box-shadow
+    150ms ease;
+}
+
+
+.admin-search-control input:focus,
+.admin-select-control select:focus {
+  border-color:
+    rgba(
+      0,
+      166,
+      200,
+      0.72
+    ) !important;
+
+  box-shadow:
+    0
+    0
+    0
+    3px
+    rgba(
+      0,
+      166,
+      200,
+      0.07
+    );
+}
+
+
+.admin-search-control input {
+  padding:
+    0
+    0.85rem
+    0
+    2.5rem !important;
+}
+
+
+.admin-search-control input::placeholder {
+  color:
+    var(--ucb-text-muted);
+}
+
+
+.admin-select-control select {
+  appearance:
+    none;
+
+  padding:
+    0
+    2.2rem
+    0
+    0.85rem !important;
+
+  cursor:
+    pointer;
+}
+
+
+.admin-control-icon {
+  position:
+    absolute;
+
+  top:
+    50%;
+
+  left:
+    0.82rem;
+
+  z-index:
+    1;
+
+  transform:
+    translateY(-50%);
+
+  color:
+    var(--ucb-text-muted);
+
+  font-size:
+    1rem;
+
+  pointer-events:
+    none;
+}
+
+
+.admin-select-chevron {
+  position:
+    absolute;
+
+  top:
+    50%;
+
+  right:
+    0.75rem;
+
+  transform:
+    translateY(-50%);
+
+  color:
+    var(--ucb-text-muted);
+
+  font-size:
+    0.8rem;
+
+  pointer-events:
+    none;
+}
+
+
+/* =========================================================
+   ADMIN - TABLA
+   ========================================================= */
+
+.admin-table-card {
+  position:
+    relative;
+
+  min-width:
+    0;
+
+  min-height:
+    0;
+
+  overflow:
+    hidden;
+
+  border:
+    1px solid
+    var(--ucb-border);
+
+  border-radius:
+    9px;
+
+  background:
+    var(--ucb-surface-soft);
+}
+
+
+.admin-table-scroll {
+  width:
+    100%;
+
+  height:
+    100%;
+
+  min-height:
+    0;
+
+  overflow:
+    auto;
+
+  scrollbar-width:
+    thin;
+
+  scrollbar-color:
+    rgba(
+      170,
+      190,
+      212,
+      0.35
+    )
+    transparent;
+}
+
+
+.admin-table-scroll::-webkit-scrollbar {
+  width:
+    6px;
+
+  height:
+    6px;
+}
+
+
+.admin-table-scroll::-webkit-scrollbar-track {
+  background:
+    transparent;
+}
+
+
+.admin-table-scroll::-webkit-scrollbar-thumb {
+  border-radius:
+    999px;
+
+  background:
+    rgba(
+      170,
+      190,
+      212,
+      0.35
+    );
+}
+
+
+.admin-requests-table {
+  width:
+    100%;
+
+  min-width:
+    980px;
+
+  border-collapse:
+    collapse;
+
+  table-layout:
+    fixed;
+}
+
+
+.admin-requests-table thead {
+  position:
+    sticky;
+
+  top:
+    0;
+
+  z-index:
+    3;
+
+  background:
+    var(--ucb-surface-soft);
+}
+
+
+.admin-requests-table th {
+  height:
+    49px;
+
+  padding:
+    0
+    1rem;
+
+  border-bottom:
+    1px solid
+    var(--ucb-border);
+
+  color:
+    var(--ucb-text-muted);
+
+  text-align:
+    left;
+
+  font-size:
+    0.75rem;
+
+  font-weight:
+    550;
+
+  white-space:
+    nowrap;
+}
+
+
+.admin-requests-table td {
+  height:
+    75px;
+
+  padding:
+    0.7rem
+    1rem;
+
+  border-bottom:
+    1px solid
+    var(--ucb-border-soft);
+
+  color:
+    var(--ucb-text-soft);
+
+  font-size:
+    0.78rem;
+
+  vertical-align:
+    middle;
+}
+
+
+.admin-requests-table tbody tr {
+  transition:
+    background
+    150ms ease;
+}
+
+
+.admin-requests-table tbody tr:hover {
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.025
+    );
+}
+
+
+.admin-requests-table tbody tr:last-child td {
+  border-bottom:
+    0;
+}
+
+
+/* =========================================================
+   ADMIN - ANCHOS
+   ========================================================= */
+
+.admin-col-request {
+  width:
+    11%;
+}
+
+
+.admin-col-student {
+  width:
+    20%;
+}
+
+
+.admin-col-procedure {
+  width:
+    27%;
+}
+
+
+.admin-col-state {
+  width:
+    13%;
+}
+
+
+.admin-col-update {
+  width:
+    15%;
+}
+
+
+.admin-col-action {
+  width:
+    14%;
+}
+
+
+/* =========================================================
+   ADMIN - CELDAS
+   ========================================================= */
+
+.admin-request {
+  strong,
+  small {
+    display:
+      block;
+  }
+
+  small {
+    margin-top:
+      0.3rem;
+
+    color:
+      var(--ucb-text-muted);
+
+    font-size:
+      0.68rem;
+  }
+}
+
+
+.admin-request-number {
+  color:
+    var(--ucb-yellow);
+
+  font-size:
+    0.9rem;
+
+  font-weight:
+    750;
+
+  letter-spacing:
+    0.025em;
+}
+
+
+.admin-student {
+  min-width:
+    0;
+
+  strong {
+    display:
+      block;
+
+    overflow:
+      hidden;
+
+    color:
+      var(--ucb-text-strong);
+
+    font-size:
+      0.82rem;
+
+    font-weight:
+      650;
+
+    line-height:
+      1.3;
+
+    text-overflow:
+      ellipsis;
+
+    white-space:
+      nowrap;
+  }
+
+  small {
+    display:
+      block;
+
+    margin-top:
+      0.28rem;
+
+    color:
+      var(--ucb-text-muted);
+
+    font-size:
+      0.68rem;
+
+    line-height:
+      1.25;
+  }
+}
+
+
+.admin-procedure-name {
+  display:
+    -webkit-box;
+
+  overflow:
+    hidden;
+
+  -webkit-box-orient:
+    vertical;
+
+  -webkit-line-clamp:
+    2;
+
+  color:
+    var(--ucb-text);
+
+  font-size:
+    0.8rem;
+
+  font-weight:
+    550;
+
+  line-height:
+    1.35;
+}
+
+
+.admin-update-cell {
+  white-space:
+    nowrap;
+
+  span,
+  small {
+    display:
+      block;
+  }
+
+  span {
+    color:
+      var(--ucb-text-soft);
+
+    font-size:
+      0.77rem;
+  }
+
+  small {
+    margin-top:
+      0.28rem;
+
+    color:
+      var(--ucb-text-muted);
+
+    font-size:
+      0.68rem;
+  }
+}
+
+
+/* =========================================================
+   ADMIN - ESTADOS
+   ========================================================= */
+
+.admin-status {
+  min-height:
+    29px;
+
+  padding:
+    0.28rem
+    0.65rem;
+
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  border-radius:
+    5px;
+
+  color:
+    #ffffff;
+
+  font-size:
+    0.69rem;
+
+  font-weight:
+    650;
+
+  white-space:
+    nowrap;
+}
+
+
+.admin-status[data-state='pendiente_recepcion'] {
+  background:
+    #956000;
+}
+
+
+.admin-status[data-state='en_revision'] {
+  background:
+    #6840a4;
+}
+
+
+.admin-status[data-state='en_proceso'] {
+  background:
+    #08734e;
+}
+
+
+.admin-status[data-state='lista_para_entrega'] {
+  background:
+    #a97800;
+}
+
+
+.admin-status[data-state='finalizada'] {
+  background:
+    #1855b8;
+}
+
+
+.admin-status[data-state='cancelada'],
+.admin-status[data-state='rechazada'] {
+  background:
+    #bd2939;
+}
+
+
+/* =========================================================
+   ADMIN - ACCIÓN
+   ========================================================= */
+
+.admin-review-button {
+  min-width:
+    104px;
+
+  height:
+    35px;
+
+  padding:
+    0
+    0.72rem;
+
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  gap:
+    0.42rem;
+
+  border:
+    1px solid
+    rgba(
+      255,
+      204,
+      0,
+      0.55
+    );
+
+  border-radius:
+    6px;
+
+  background:
+    transparent;
+
+  color:
+    var(--ucb-text) !important;
+
+  text-decoration:
+    none !important;
+
+  font-size:
+    0.72rem;
+
+  font-weight:
+    600;
+
+  white-space:
+    nowrap;
+
+  transition:
+    background
+    150ms ease,
+    border-color
+    150ms ease,
+    transform
+    150ms ease;
+
+  ng-icon {
+    color:
+      var(--ucb-yellow);
+
+    font-size:
+      0.85rem;
+  }
+
+  &:hover {
+    transform:
+      translateY(-1px);
+
+    border-color:
+      var(--ucb-yellow);
+
+    background:
+      rgba(
+        255,
+        204,
+        0,
+        0.055
+      );
+  }
+
+  &__arrow {
+    margin-left:
+      0.15rem;
+  }
+}
+
+
+/* =========================================================
+   ADMIN - CARGA Y VACÍO
+   ========================================================= */
+
+.admin-table-loading {
+  position:
+    absolute;
+
+  top:
+    0;
+
+  left:
+    0;
+
+  right:
+    0;
+
+  z-index:
+    5;
+
+  padding:
+    0.4rem
+    1rem;
+
+  border-bottom:
+    1px solid
+    var(--ucb-border-soft);
+
+  background:
+    rgba(
+      5,
+      22,
+      42,
+      0.96
+    );
+
+  color:
+    var(--ucb-text-soft);
+
+  font-size:
+    0.72rem;
+}
+
+
+.admin-table-empty {
+  height:
+    160px !important;
+
+  color:
+    var(--ucb-text-muted) !important;
+
+  font-size:
+    0.8rem !important;
+
+  text-align:
+    center !important;
+}
+
+
+/* =========================================================
+   ADMIN - PAGINACIÓN
+   ========================================================= */
+
+.admin-pagination {
+  min-height:
+    36px;
+
+  display:
+    grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto
+    minmax(0, 1fr);
+
+  align-items:
+    center;
+
+  gap:
+    1rem;
+}
+
+
+.admin-pagination-info {
+  color:
+    var(--ucb-text-muted);
+
+  font-size:
+    0.68rem;
+}
+
+
+.admin-pagination-pages {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    0.3rem;
+
+  button {
+    width:
+      31px;
+
+    height:
+      31px;
+
+    min-width:
+      31px;
+
+    margin:
+      0 !important;
+
+    padding:
+      0 !important;
+
+    display:
+      inline-flex;
+
+    align-items:
+      center;
+
+    justify-content:
+      center;
+
+    border:
+      1px solid
+      var(--ucb-border-strong) !important;
+
+    border-radius:
+      5px !important;
+
+    background:
+      transparent !important;
+
+    color:
+      var(--ucb-text-muted) !important;
+
+    font-size:
+      0.69rem !important;
+
+    &:hover:not(:disabled) {
+      border-color:
+        rgba(
+          255,
+          204,
+          0,
+          0.55
+        ) !important;
+
+      color:
+        var(--ucb-text) !important;
+    }
+
+    &:disabled {
+      opacity:
+        0.3;
+    }
+  }
+}
+
+
+.admin-page-number.is-active {
+  border-color:
+    var(--ucb-yellow) !important;
+
+  background:
+    rgba(
+      255,
+      204,
+      0,
+      0.055
+    ) !important;
+
+  color:
+    var(--ucb-yellow) !important;
+}
+
+
+.admin-page-size {
+  justify-self:
+    end;
+
+  min-width:
+    96px;
+
+  height:
+    31px;
+
+  padding:
+    0
+    0.65rem;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  border:
+    1px solid
+    var(--ucb-border-strong);
+
+  border-radius:
+    5px;
+
+  color:
+    var(--ucb-text-muted);
+
+  font-size:
+    0.67rem;
+}
+
+
+/* =========================================================
+   SOLICITANTE
+   ========================================================= */
+
+.solicitante-page {
+  padding:
+    1.3rem
+    2.7rem
+    1rem;
+
+  display:
+    grid;
+
+  grid-template-rows:
+    auto
+    auto
+    minmax(0, 1fr)
+    auto;
+
+  gap:
+    1rem;
+}
+
+
+/* =========================================================
+   SOLICITANTE - CABECERA
+   ========================================================= */
+
+.solicitante-heading {
+  min-width:
+    0;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    space-between;
+
+  gap:
+    1.5rem;
+}
+
+
+.solicitante-heading > div {
+  min-width:
+    0;
+}
+
+
+/* =========================================================
+   SOLICITANTE - NUEVO TRÁMITE
+   ========================================================= */
+
+.new-request-button {
+  min-width:
+    168px;
+
+  height:
+    46px;
+
+  flex:
+    0
+    0
+    auto;
+
+  padding:
+    0
+    1.2rem;
+
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  gap:
+    0.55rem;
+
+  border:
+    1px solid
+    #075de0;
+
+  border-radius:
+    6px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #075de0,
+      #096be8
+    );
+
+  color:
+    #ffffff !important;
+
+  text-decoration:
+    none !important;
+
+  font-size:
+    0.8rem;
+
+  font-weight:
+    600;
+
+  transition:
+    transform
+    150ms ease,
+    filter
+    150ms ease;
+
+  ng-icon {
+    font-size:
+      1rem;
+  }
+
+  &:hover {
+    transform:
+      translateY(-1px);
+
+    filter:
+      brightness(1.06);
+  }
+}
+
+
+/* =========================================================
+   SOLICITANTE - MENSAJES
+   ========================================================= */
+
+.solicitante-message {
+  padding:
+    0.7rem
+    0.9rem;
+
+  border-radius:
+    7px;
+
+  font-size:
+    0.76rem;
+}
+
+
+.solicitante-message--error {
+  border:
+    1px solid
+    rgba(
+      255,
+      85,
+      104,
+      0.3
+    );
+
+  background:
+    rgba(
+      134,
+      24,
+      42,
+      0.26
+    );
+
+  color:
+    #ffcbd3;
+}
+
+
+/* =========================================================
+   SOLICITANTE - FILTROS
+   ========================================================= */
+
+.filters-bar {
+  min-height:
+    70px;
+
+  padding:
+    0.8rem
+    1rem;
+
+  display:
+    grid;
+
+  grid-template-columns:
+    minmax(
+      280px,
+      1.15fr
+    )
+    minmax(
+      280px,
+      0.95fr
+    )
+    minmax(
+      220px,
+      0.72fr
+    );
+
+  align-items:
+    center;
+
+  gap:
+    1.4rem;
+
+  border:
+    1px solid
+    var(--ucb-border);
+
+  border-radius:
+    9px;
+
+  background:
+    var(--ucb-surface-soft);
+}
+
+
+.filters-bar--disabled {
+  opacity:
+    0.68;
+}
+
+
+.search-control,
+.select-control,
+.order-control {
+  position:
+    relative;
+
+  min-width:
+    0;
+
+  height:
+    42px;
+}
+
+
+.search-control input,
+.select-control select,
+.order-control select {
+  width:
+    100%;
+
+  height:
+    100%;
+
+  margin:
+    0 !important;
+
+  outline:
+    0;
+
+  border:
+    1px solid
+    var(--ucb-border-strong) !important;
+
+  border-radius:
+    6px !important;
+
+  background:
+    var(--ucb-bg-deep) !important;
+
+  color:
+    var(--ucb-text) !important;
+
+  font-family:
+    inherit;
+
+  font-size:
+    0.79rem !important;
+}
+
+
+.search-control input {
+  padding:
+    0
+    0.85rem
+    0
+    2.65rem !important;
+}
+
+
+.search-control input::placeholder {
+  color:
+    var(--ucb-text-muted);
+}
+
+
+.search-control .control-icon,
+.order-control .control-icon {
+  position:
+    absolute;
+
+  top:
+    50%;
+
+  left:
+    0.8rem;
+
+  z-index:
+    1;
+
+  transform:
+    translateY(-50%);
+
+  color:
+    var(--ucb-text-soft);
+
+  font-size:
+    1rem;
+
+  pointer-events:
+    none;
+}
+
+
+.state-filter {
+  min-width:
+    0;
+
+  display:
+    grid;
+
+  grid-template-columns:
+    auto
+    minmax(0, 1fr);
+
+  align-items:
+    center;
+
+  gap:
+    0.75rem;
+}
+
+
+.filter-label {
+  color:
+    var(--ucb-text-soft);
+
+  font-size:
+    0.79rem;
+
+  font-weight:
+    500;
+}
+
+
+.select-control select,
+.order-control select {
+  appearance:
+    none;
+
+  padding:
+    0
+    2.3rem
+    0
+    0.9rem !important;
+
+  cursor:
+    pointer;
+}
+
+
+.order-control select {
+  padding-left:
+    2.6rem !important;
+}
+
+
+.select-chevron {
+  position:
+    absolute;
+
+  top:
+    50%;
+
+  right:
+    0.75rem;
+
+  transform:
+    translateY(-50%);
+
+  color:
+    var(--ucb-text-muted);
+
+  font-size:
+    0.85rem;
+
+  pointer-events:
+    none;
+}
+
+
+/* =========================================================
+   SOLICITANTE - TABLA
+   ========================================================= */
+
+.requests-table-card {
+  position:
+    relative;
+
+  min-height:
+    0;
+
+  overflow:
+    hidden;
+
+  border:
+    1px solid
+    var(--ucb-border);
+
+  border-radius:
+    9px;
+
+  background:
+    var(--ucb-surface-soft);
+}
+
+
+.requests-table-scroll {
+  width:
+    100%;
+
+  height:
+    100%;
+
+  min-height:
+    0;
+
+  overflow:
+    auto;
+
+  scrollbar-width:
+    thin;
+
+  scrollbar-color:
+    rgba(
+      170,
+      190,
+      212,
+      0.4
+    )
+    transparent;
+}
+
+
+.requests-table {
+  width:
+    100%;
+
+  min-width:
+    1040px;
+
+  border-collapse:
+    collapse;
+
+  table-layout:
+    fixed;
+}
+
+
+.requests-table thead {
+  position:
+    sticky;
+
+  top:
+    0;
+
+  z-index:
+    2;
+
+  background:
+    var(--ucb-surface-soft);
+}
+
+
+.requests-table th {
+  height:
+    48px;
+
+  padding:
+    0
+    1rem;
+
+  border-bottom:
+    1px solid
+    var(--ucb-border);
+
+  color:
+    var(--ucb-text-muted);
+
+  text-align:
+    left;
+
+  font-size:
+    0.73rem;
+
+  font-weight:
+    500;
+
+  white-space:
+    nowrap;
+}
+
+
+.requests-table td {
+  height:
+    72px;
+
+  padding:
+    0.7rem
+    1rem;
+
+  border-bottom:
+    1px solid
+    var(--ucb-border-soft);
+
+  color:
+    var(--ucb-text-soft);
+
+  font-size:
+    0.73rem;
+
+  vertical-align:
+    middle;
+}
+
+
+.requests-table tbody tr:last-child td {
+  border-bottom:
+    0;
+}
+
+
+.requests-table tbody tr:hover {
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.025
+    );
+}
+
+
+.col-tramite {
+  width:
+    27%;
+}
+
+
+.col-estado {
+  width:
+    12%;
+}
+
+
+.col-etapa {
+  width:
+    14%;
+}
+
+
+.col-next {
+  width:
+    16%;
+}
+
+
+.col-date {
+  width:
+    16%;
+}
+
+
+.col-action {
+  width:
+    15%;
+}
+
+
+.request-name {
+  display:
+    block;
+
+  margin-bottom:
+    0.22rem;
+
+  overflow:
+    hidden;
+
+  color:
+    var(--ucb-text-strong);
+
+  font-size:
+    0.8rem;
+
+  font-weight:
+    650;
+
+  line-height:
+    1.3;
+
+  text-overflow:
+    ellipsis;
+
+  white-space:
+    nowrap;
+}
+
+
+.request-reference {
+  display:
+    block;
+
+  overflow:
+    hidden;
+
+  color:
+    var(--ucb-text-muted);
+
+  font-size:
+    0.66rem;
+
+  text-overflow:
+    ellipsis;
+
+  white-space:
+    nowrap;
+}
+
+
+/* =========================================================
+   SOLICITANTE - ESTADOS
+   ========================================================= */
+
+.request-status {
+  min-height:
+    28px;
+
+  padding:
+    0.25rem
+    0.65rem;
+
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  border-radius:
+    5px;
+
+  color:
+    #ffffff;
+
+  font-size:
+    0.68rem;
+
+  font-weight:
+    600;
+
+  white-space:
+    nowrap;
+}
+
+
+.request-status[data-state='borrador'] {
+  background:
+    #435267;
+}
+
+
+.request-status[data-state='pendiente_recepcion'] {
+  background:
+    #9b6500;
+}
+
+
+.request-status[data-state='en_revision'] {
+  background:
+    #6840a4;
+}
+
+
+.request-status[data-state='en_proceso'] {
+  background:
+    #00724c;
+}
+
+
+.request-status[data-state='lista_para_entrega'] {
+  background:
+    #a97800;
+}
+
+
+.request-status[data-state='finalizada'] {
+  background:
+    #0a54bd;
+}
+
+
+.request-status[data-state='cancelada'],
+.request-status[data-state='rechazada'] {
+  background:
+    #ba2535;
+}
+
+
+.request-stage,
+.request-next-action,
+.request-date {
+  color:
+    var(--ucb-text-soft) !important;
+
+  line-height:
+    1.35;
+}
+
+
+.request-date {
+  white-space:
+    nowrap;
+}
+
+
+/* =========================================================
+   SOLICITANTE - SEGUIMIENTO
+   ========================================================= */
+
+.follow-button {
+  min-width:
+    125px;
+
+  height:
+    34px;
+
+  padding:
+    0
+    0.65rem;
+
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  gap:
+    0.35rem;
+
+  border:
+    1px solid
+    rgba(
+      255,
+      204,
+      0,
+      0.58
+    );
+
+  border-radius:
+    5px;
+
+  background:
+    transparent;
+
+  color:
+    var(--ucb-text) !important;
+
+  text-decoration:
+    none !important;
+
+  font-size:
+    0.67rem;
+
+  font-weight:
+    500;
+
+  white-space:
+    nowrap;
+
+  transition:
+    border-color
+    150ms ease,
+    background
+    150ms ease;
+
+  ng-icon {
+    color:
+      var(--ucb-yellow);
+
+    font-size:
+      0.75rem;
+  }
+
+  &:hover {
+    border-color:
+      var(--ucb-yellow);
+
+    background:
+      rgba(
+        255,
+        204,
+        0,
+        0.055
+      );
+  }
+}
+
+
+.requests-empty {
+  height:
+    160px !important;
+
+  color:
+    var(--ucb-text-muted) !important;
+
+  text-align:
+    center !important;
+}
+
+
+.table-loading {
+  position:
+    absolute;
+
+  top:
+    0;
+
+  left:
+    0;
+
+  right:
+    0;
+
+  z-index:
+    5;
+
+  padding:
+    0.35rem
+    1rem;
+
+  background:
+    rgba(
+      6,
+      24,
+      45,
+      0.94
+    );
+
+  color:
+    var(--ucb-text-soft);
+
+  font-size:
+    0.67rem;
+}
+
+
+/* =========================================================
+   SOLICITANTE - PAGINACIÓN
+   ========================================================= */
+
+.requests-pagination {
+  min-height:
+    38px;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    space-between;
+
+  gap:
+    1rem;
+}
+
+
+.requests-pagination > span {
+  color:
+    var(--ucb-text-muted);
+
+  font-size:
+    0.67rem;
+}
+
+
+.requests-pagination > div {
+  display:
+    flex;
+
+  gap:
+    0.4rem;
+}
+
+
+.requests-pagination button {
+  min-width:
+    82px;
+
+  height:
+    32px;
+
+  margin:
+    0 !important;
+
+  padding:
+    0
+    0.8rem !important;
+
+  border:
+    1px solid
+    var(--ucb-border-strong) !important;
+
+  border-radius:
+    5px !important;
+
+  background:
+    transparent !important;
+
+  color:
+    var(--ucb-text-soft) !important;
+
+  font-size:
+    0.66rem !important;
+}
+
+
+/* =========================================================
+   DESKTOP DE MENOR ALTURA
+   ========================================================= */
+
+@media (
+  max-height: 820px
+) and (
+  min-width: 1001px
+) {
+  .admin-requests-page {
+    padding:
+      0.75rem
+      1.6rem
+      0.55rem;
+
+    gap:
+      0.5rem;
+  }
+
+  .admin-stat-card {
+    min-height:
+      76px;
+
+    grid-template-columns:
+      39px
+      minmax(0, 1fr);
+
+    padding:
+      0.5rem
+      0.65rem;
+  }
+
+  .admin-stat-icon {
+    width:
+      38px;
+
+    height:
+      38px;
+  }
+
+  .admin-stat-content > strong {
+    font-size:
+      1.2rem;
+  }
+
+  .admin-filters-bar {
+    min-height:
+      48px;
+
+    padding:
+      0.4rem
+      0.6rem;
+  }
+
+  .admin-search-control,
+  .admin-select-control {
+    height:
+      36px;
+  }
+
+  .admin-requests-table th {
+    height:
+      42px;
+  }
+
+  .admin-requests-table td {
+    height:
+      64px;
+  }
+
+  .solicitante-page {
+    padding:
+      1rem
+      2rem
+      0.75rem;
+
+    gap:
+      0.75rem;
+  }
+
+  .filters-bar {
+    min-height:
+      60px;
+
+    padding:
+      0.55rem
+      0.8rem;
+  }
+
+  .search-control,
+  .select-control,
+  .order-control {
+    height:
+      38px;
+  }
+
+  .requests-table th {
+    height:
+      42px;
+  }
+
+  .requests-table td {
+    height:
+      62px;
+  }
+
+  .new-request-button {
+    height:
+      40px;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (
+  max-width: 1180px
+) {
+  :host {
+    height:
+      auto;
+
+    overflow:
+      auto;
+  }
+
+  .admin-requests-page,
+  .solicitante-page {
+    height:
+      auto;
+
+    min-height:
+      100%;
+
+    overflow:
+      visible;
+
+    padding:
+      1.2rem
+      1.4rem;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns:
+      repeat(
+        3,
+        minmax(0, 1fr)
+      );
+  }
+
+  .admin-filters-bar {
+    grid-template-columns:
+      1fr
+      1fr;
+  }
+
+  .admin-search-control {
+    grid-column:
+      1 / -1;
+  }
+
+  .admin-table-card,
+  .requests-table-card {
+    min-height:
+      420px;
+  }
+
+  .filters-bar {
+    grid-template-columns:
+      1fr
+      1fr;
+  }
+
+  .order-control {
+    grid-column:
+      1 / -1;
+  }
+}
+
+
+@media (
+  max-width: 720px
+) {
+  .admin-requests-page,
+  .solicitante-page {
+    padding:
+      1rem;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns:
+      1fr
+      1fr;
+  }
+
+  .admin-filters-bar {
+    grid-template-columns:
+      1fr;
+  }
+
+  .admin-search-control {
+    grid-column:
+      auto;
+  }
+
+  .admin-pagination {
+    grid-template-columns:
+      1fr;
+
+    justify-items:
+      center;
+
+    text-align:
+      center;
+  }
+
+  .admin-pagination-info,
+  .admin-page-size {
+    justify-self:
+      center;
+  }
+
+  .solicitante-heading {
+    align-items:
+      flex-start;
+
+    flex-direction:
+      column;
+  }
+
+  .new-request-button {
+    width:
+      100%;
+  }
+
+  .filters-bar {
+    grid-template-columns:
+      1fr;
+
+    gap:
+      0.75rem;
+  }
+
+  .state-filter {
+    grid-template-columns:
+      1fr;
+
+    gap:
+      0.35rem;
+  }
+
+  .order-control {
+    grid-column:
+      auto;
+  }
+
+  .requests-pagination {
+    align-items:
+      flex-start;
+
+    flex-direction:
+      column;
+  }
+
+  .requests-pagination > div {
+    width:
+      100%;
+  }
+
+  .requests-pagination button {
+    flex:
+      1;
+  }
+}

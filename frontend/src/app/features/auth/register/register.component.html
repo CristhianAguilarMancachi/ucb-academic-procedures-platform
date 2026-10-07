@@ -1,80 +1,460 @@
-<section>
-  <h1>Crear cuenta</h1>
+<app-auth-layout [variant]="registrado ? 'verify' : 'register'">
 
-  <form
-    [formGroup]="formulario"
-    (ngSubmit)="registrar()"
-  >
-    <div>
-      <label for="nombres">Nombres</label>
-      <input
-        id="nombres"
-        type="text"
-        formControlName="nombres"
-      />
-    </div>
+  @if (!registrado) {
 
-    <div>
-      <label for="apellidos">Apellidos</label>
-      <input
-        id="apellidos"
-        type="text"
-        formControlName="apellidos"
-      />
-    </div>
+    <header class="auth-heading">
 
-    <div>
-      <label for="correo">Correo</label>
-      <input
-        id="correo"
-        type="email"
-        formControlName="correo"
-      />
-    </div>
+      <div class="auth-emblem">
+        <app-auth-icon name="heroUser" />
+      </div>
 
-    <div>
-      <label for="contrasena">Contraseña</label>
-      <input
-        id="contrasena"
-        type="password"
-        formControlName="contrasena"
-      />
-    </div>
-
-    <div>
-      <label for="confirmar">
-        Confirmar contraseña
-      </label>
-
-      <input
-        id="confirmar"
-        type="password"
-        formControlName="confirmar_contrasena"
-      />
-    </div>
-
-    @if (error) {
-      <p>{{ error }}</p>
-    }
-
-    @if (mensaje) {
-      <p>{{ mensaje }}</p>
+      <h1 id="auth-title">
+        Crear cuenta
+      </h1>
 
       <p>
-        Revisa tu correo para verificar la cuenta antes
-        de iniciar sesión.
+        Completa tus datos para registrarte en la plataforma
+      </p>
+
+    </header>
+
+
+    <form
+      [formGroup]="formulario"
+      (ngSubmit)="registrar()"
+      [attr.aria-busy]="cargando"
+    >
+
+      <div class="auth-field">
+
+        <label for="nombres">
+          Nombre
+        </label>
+
+        <div class="auth-input">
+
+          <input
+            id="nombres"
+            type="text"
+            formControlName="nombres"
+            autocomplete="given-name"
+            placeholder="Ingresa tu nombre"
+          />
+
+        </div>
+
+      </div>
+
+
+      <div class="auth-field">
+
+        <label for="apellidos">
+          Apellidos
+        </label>
+
+        <div class="auth-input">
+
+          <input
+            id="apellidos"
+            type="text"
+            formControlName="apellidos"
+            autocomplete="family-name"
+            placeholder="Ingresa tus apellidos"
+          />
+
+        </div>
+
+      </div>
+
+
+      <div class="auth-field">
+
+        <label for="correo">
+          Correo electrónico
+        </label>
+
+        <div class="auth-input">
+
+          <app-auth-icon
+            name="heroEnvelope"
+          />
+
+          <input
+            id="correo"
+            type="email"
+            formControlName="correo"
+            autocomplete="email"
+            placeholder="Ingresa tu correo institucional o personal"
+          />
+
+        </div>
+
+      </div>
+
+
+      @if (
+        formulario.controls.correo.touched
+        && formulario.controls.correo.invalid
+      ) {
+
+        <small class="auth-validation">
+          Ingresa un correo válido.
+        </small>
+      }
+
+
+      <div class="auth-field">
+
+        <label for="contrasena">
+          Contraseña
+        </label>
+
+        <div class="auth-input">
+
+          <app-auth-icon
+            name="heroLockClosed"
+          />
+
+          <input
+            id="contrasena"
+            [type]="mostrarContrasena ? 'text' : 'password'"
+            formControlName="contrasena"
+            autocomplete="new-password"
+            placeholder="Crea una contraseña segura"
+          />
+
+          <button
+            class="auth-eye"
+            type="button"
+            (click)="mostrarContrasena = !mostrarContrasena"
+            [attr.aria-label]="
+              mostrarContrasena
+                ? 'Ocultar contraseña'
+                : 'Mostrar contraseña'
+            "
+            [attr.aria-pressed]="mostrarContrasena"
+            [attr.aria-controls]="'contrasena'"
+          >
+
+            <app-auth-icon
+              [name]="
+                mostrarContrasena
+                  ? 'heroEyeSlash'
+                  : 'heroEye'
+              "
+            />
+
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div class="auth-field">
+
+        <label for="confirmar">
+          Confirmar contraseña
+        </label>
+
+        <div class="auth-input">
+
+          <app-auth-icon
+            name="heroLockClosed"
+          />
+
+          <input
+            id="confirmar"
+            [type]="mostrarConfirmacion ? 'text' : 'password'"
+            formControlName="confirmar_contrasena"
+            autocomplete="new-password"
+            placeholder="Confirma tu contraseña"
+          />
+
+          <button
+            class="auth-eye"
+            type="button"
+            (click)="mostrarConfirmacion = !mostrarConfirmacion"
+            [attr.aria-label]="
+              mostrarConfirmacion
+                ? 'Ocultar contraseña'
+                : 'Mostrar contraseña'
+            "
+            [attr.aria-pressed]="mostrarConfirmacion"
+            [attr.aria-controls]="'confirmar'"
+          >
+
+            <app-auth-icon
+              [name]="
+                mostrarConfirmacion
+                  ? 'heroEyeSlash'
+                  : 'heroEye'
+              "
+            />
+
+          </button>
+
+        </div>
+
+      </div>
+
+
+      @if (error) {
+
+        <p
+          class="auth-message auth-message--error"
+          role="alert"
+        >
+          {{ error }}
+        </p>
+      }
+
+
+      @if (
+        formulario.touched
+        && formulario.invalid
+      ) {
+
+        <p class="auth-validation">
+
+          Completa todos los campos.
+          Nombres y apellidos: al menos 2 caracteres.
+          Contraseña: entre 8 y 128 caracteres.
+
+        </p>
+      }
+
+
+      <button
+        class="auth-primary"
+        type="submit"
+        [disabled]="cargando || cargandoGoogle"
+      >
+
+        <app-auth-icon
+          name="heroArrowRightOnRectangle"
+        />
+
+        <span>
+          {{
+            cargando
+              ? 'Creando cuenta...'
+              : 'Crear cuenta'
+          }}
+        </span>
+
+      </button>
+
+    </form>
+
+
+    <div class="auth-divider">
+      o continúa con
+    </div>
+
+
+    @if (googleDisponible) {
+
+      <div
+        #googleButton
+        class="auth-google-container"
+        [attr.aria-busy]="cargandoGoogle"
+      ></div>
+
+    } @else {
+
+      <p
+        class="auth-message auth-message--error"
+        role="status"
+      >
+        El acceso con Google no está disponible en este momento.
       </p>
     }
 
-    <button
-      type="submit"
-      [disabled]="cargando"
-    >
-      {{ cargando ? 'Creando cuenta...' : 'Registrarse' }}
-    </button>
-  </form>
 
-  <a routerLink="/login">
-    Ya tengo una cuenta
-  </a>
-</section>
+    <p class="auth-switch">
+
+      ¿Ya tienes cuenta?
+
+      <a routerLink="/login">
+        Iniciar sesión
+      </a>
+
+    </p>
+
+  } @else {
+
+    <header class="auth-heading auth-heading--verification">
+
+      <div class="auth-mail-emblem">
+
+        <app-auth-icon
+          name="heroEnvelope"
+        />
+
+        <span>
+          <app-auth-icon
+            name="heroCheck"
+          />
+        </span>
+
+      </div>
+
+
+      <h1 id="auth-title">
+        Verifica tu correo electrónico
+      </h1>
+
+
+      <p>
+        {{ mensaje }}
+      </p>
+
+    </header>
+
+
+    <form
+      (submit)="$event.preventDefault(); reenviar()"
+      [attr.aria-busy]="reenviando"
+    >
+
+      <div class="auth-email-display">
+
+        <app-auth-icon
+          name="heroEnvelope"
+        />
+
+        <strong>
+          {{ correoReenvio.value }}
+        </strong>
+
+      </div>
+
+
+      @if (
+        correoReenvio.touched
+        && correoReenvio.invalid
+      ) {
+
+        <p
+          class="auth-validation"
+          role="alert"
+        >
+          Introduce un correo válido.
+        </p>
+      }
+
+
+      <p class="auth-inbox">
+
+        Por favor, revisa tu
+        <span>
+          bandeja de entrada
+        </span>
+
+        y también
+
+        <br class="auth-desktop-break" />
+
+        tu carpeta de
+        <span>
+          spam o correo no deseado
+        </span>.
+
+      </p>
+
+
+      <button
+        class="auth-primary"
+        type="submit"
+        [disabled]="
+          reenviando
+          || esperandoReenvio
+          || correoReenvio.invalid
+        "
+      >
+
+        <app-auth-icon
+          name="heroPaperAirplane"
+        />
+
+        <span>
+          {{
+            reenviando
+              ? 'Solicitando envío...'
+              : 'Reenviar correo'
+          }}
+        </span>
+
+      </button>
+
+
+      @if (esperandoReenvio) {
+
+        <p
+          class="auth-help auth-centered"
+          role="status"
+        >
+          Puedes volver a solicitarlo después de 60 segundos.
+        </p>
+      }
+
+
+      @if (mensajeReenvio) {
+
+        <p
+          class="auth-message"
+          role="status"
+        >
+          {{ mensajeReenvio }}
+        </p>
+      }
+
+
+      @if (errorReenvio) {
+
+        <p
+          class="auth-message auth-message--error"
+          role="alert"
+        >
+          {{ errorReenvio }}
+        </p>
+      }
+
+    </form>
+
+
+    <a
+      class="auth-back"
+      routerLink="/login"
+    >
+
+      <app-auth-icon
+        name="heroArrowLeft"
+      />
+
+      Volver al inicio de sesión
+
+    </a>
+
+
+    <div class="auth-note auth-expiry">
+
+      <app-auth-icon
+        name="heroInformationCircle"
+      />
+
+      <p>
+
+        El enlace de verificación tiene una vigencia limitada.
+
+        <br />
+
+        Verifica tu correo para poder acceder a tu cuenta.
+
+      </p>
+
+    </div>
+  }
+
+</app-auth-layout>

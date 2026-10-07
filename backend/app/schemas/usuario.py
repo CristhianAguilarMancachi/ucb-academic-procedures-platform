@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -22,9 +22,14 @@ EstadoUsuario = Literal[
 ]
 
 
+# ============================================================
+# DATOS GENERALES
+# ============================================================
+
+
 class UsuarioBase(BaseModel):
     """
-    Datos generales y reutilizables de una cuenta.
+    Datos personales generales y reutilizables de una cuenta.
     """
 
     model_config = ConfigDict(
@@ -41,25 +46,94 @@ class UsuarioBase(BaseModel):
         max_length=100,
     )
 
-    @field_validator("nombres", "apellidos")
-    @classmethod
-    def normalizar_nombre(cls, value: str) -> str:
-        value = " ".join(value.split())
+    telefono: str | None = Field(
+        default=None,
+        min_length=7,
+        max_length=30,
+    )
 
-        if not any(character.isalpha() for character in value):
+    @field_validator(
+        "nombres",
+        "apellidos",
+    )
+    @classmethod
+    def normalizar_nombre(
+        cls,
+        value: str,
+    ) -> str:
+        value = " ".join(
+            value.split()
+        )
+
+        if not any(
+            character.isalpha()
+            for character in value
+        ):
             raise ValueError(
                 "El campo debe contener al menos una letra."
             )
 
         return value
 
+    @field_validator(
+        "telefono",
+        mode="before",
+    )
+    @classmethod
+    def normalizar_telefono(
+        cls,
+        value: Any,
+    ) -> Any:
+        """
+        Normaliza el teléfono.
+
+        Se permiten formatos como:
+
+            +591 71234567
+            71234567
+            +591-71234567
+
+        Un valor vacío se interpreta como ausencia de teléfono.
+        """
+        if value is None:
+            return None
+
+        if not isinstance(
+            value,
+            str,
+        ):
+            return value
+
+        value = " ".join(
+            value.split()
+        )
+
+        if not value:
+            return None
+
+        return value
+
+
+# ============================================================
+# ACTUALIZACIÓN DEL PERFIL
+# ============================================================
+
 
 class UsuarioActualizarRequest(BaseModel):
     """
     Permite modificar los datos personales básicos.
 
-    No incluye correo, contraseña, estado ni roles porque
-    esas operaciones tienen flujos independientes.
+    Se puede actualizar:
+
+        - nombres;
+        - apellidos;
+        - teléfono.
+
+    El correo, contraseña, estado y roles utilizan flujos
+    independientes.
+
+    El CI tampoco pertenece a este contrato porque actualmente
+    se conserva en perfil_academico.
     """
 
     model_config = ConfigDict(
@@ -79,7 +153,16 @@ class UsuarioActualizarRequest(BaseModel):
         max_length=100,
     )
 
-    @field_validator("nombres", "apellidos")
+    telefono: str | None = Field(
+        default=None,
+        min_length=7,
+        max_length=30,
+    )
+
+    @field_validator(
+        "nombres",
+        "apellidos",
+    )
     @classmethod
     def normalizar_nombre_opcional(
         cls,
@@ -88,14 +171,55 @@ class UsuarioActualizarRequest(BaseModel):
         if value is None:
             return None
 
-        value = " ".join(value.split())
+        value = " ".join(
+            value.split()
+        )
 
-        if not any(character.isalpha() for character in value):
+        if not any(
+            character.isalpha()
+            for character in value
+        ):
             raise ValueError(
                 "El campo debe contener al menos una letra."
             )
 
         return value
+
+    @field_validator(
+        "telefono",
+        mode="before",
+    )
+    @classmethod
+    def normalizar_telefono_opcional(
+        cls,
+        value: Any,
+    ) -> Any:
+        """
+        Permite enviar null o una cadena vacía cuando el usuario
+        desea dejar el teléfono sin registrar.
+        """
+        if value is None:
+            return None
+
+        if not isinstance(
+            value,
+            str,
+        ):
+            return value
+
+        value = " ".join(
+            value.split()
+        )
+
+        if not value:
+            return None
+
+        return value
+
+
+# ============================================================
+# ESTADO
+# ============================================================
 
 
 class UsuarioEstadoActualizarRequest(BaseModel):
@@ -108,11 +232,17 @@ class UsuarioEstadoActualizarRequest(BaseModel):
     )
 
     estado: EstadoUsuario
+
     motivo: str | None = Field(
         default=None,
         min_length=3,
         max_length=500,
     )
+
+
+# ============================================================
+# RESPUESTAS
+# ============================================================
 
 
 class UsuarioResumenResponse(BaseModel):
@@ -132,13 +262,21 @@ class UsuarioResumenResponse(BaseModel):
     fecha_creacion: datetime
 
     @property
-    def nombre_completo(self) -> str:
-        return f"{self.nombres} {self.apellidos}"
+    def nombre_completo(
+        self,
+    ) -> str:
+        return (
+            f"{self.nombres} "
+            f"{self.apellidos}"
+        )
 
 
 class UsuarioResponse(BaseModel):
     """
     Información general de una cuenta.
+
+    telefono puede ser null para cuentas antiguas o usuarios
+    que todavía no registraron un número.
     """
 
     model_config = ConfigDict(
@@ -148,18 +286,30 @@ class UsuarioResponse(BaseModel):
     id_usuario: int
     nombres: str
     apellidos: str
+    telefono: str | None = None
     estado: EstadoUsuario
     fecha_ultimo_acceso: datetime | None
     fecha_creacion: datetime
     fecha_actualizacion: datetime
 
 
-class UsuarioAutenticadoResponse(UsuarioResponse):
+class UsuarioAutenticadoResponse(
+    UsuarioResponse
+):
     """
     Información del usuario autenticado.
 
-    Incluye correos y roles, pero nunca contrasena_hash.
+    Incluye los registros de correo y los roles activos,
+    pero nunca contrasena_hash.
+
+    tiene_contrasena únicamente informa si la cuenta dispone
+    de credenciales locales. No expone el hash ni ningún
+    dato sensible asociado a la contraseña.
+
+    La base de datos limita al usuario a un solo correo activo.
     """
+
+    tiene_contrasena: bool
 
     correos: list[CorreoResponse] = Field(
         default_factory=list,
@@ -186,6 +336,14 @@ class ListaUsuariosResponse(BaseModel):
     """
 
     items: list[UsuarioResumenResponse]
+
     total: int
-    pagina: int = Field(ge=1)
-    por_pagina: int = Field(ge=1, le=100)
+
+    pagina: int = Field(
+        ge=1,
+    )
+
+    por_pagina: int = Field(
+        ge=1,
+        le=100,
+    )

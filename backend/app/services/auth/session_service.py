@@ -14,6 +14,7 @@ from app.core.security import (
 )
 from app.models.sesion_usuario import SesionUsuario
 from app.models.usuario import Usuario
+from app.repositories.usuario_repository import tiene_correo_principal_verificado
 from app.repositories.sesion_usuario_repository import (
     actualizar_actividad_sesion,
     crear_sesion,
@@ -90,7 +91,7 @@ def _validar_usuario_habilitado(
     """
     Comprueba que la cuenta pueda utilizar sesiones.
     """
-    if usuario.estado != "activo":
+    if usuario.estado != "activo" or not tiene_correo_principal_verificado(usuario):
         raise UsuarioSesionNoHabilitadoError(
             "La cuenta no está habilitada para iniciar sesión."
         )

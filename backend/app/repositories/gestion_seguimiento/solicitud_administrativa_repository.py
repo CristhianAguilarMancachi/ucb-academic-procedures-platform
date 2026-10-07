@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.gestion_seguimiento.perfil_academico import (
+    PerfilAcademico,
+)
 from app.models.gestion_seguimiento.solicitud import Solicitud
 from app.models.gestion_seguimiento.solicitud_recepcion import (
     SolicitudRecepcion,
@@ -13,6 +17,8 @@ from app.models.gestion_seguimiento.solicitud_recepcion import (
 from app.models.gestion_seguimiento.solicitud_requisito import (
     SolicitudRequisito,
 )
+from app.models.gestion_seguimiento.tramite import Tramite
+from app.models.usuario import Usuario
 
 
 # ============================================================
@@ -26,18 +32,24 @@ def listar_solicitudes_administrativas(
     estado: str | None = None,
     id_tramite: int | None = None,
     id_solicitud: int | None = None,
+    fecha_desde: date | None = None,
+    fecha_hasta: date | None = None,
+    id_solicitante: int | None = None,
+    busqueda: str | None = None,
     pagina: int = 1,
     limite: int = 20,
 ) -> tuple[Sequence[Solicitud], int]:
     """
     Lista solicitudes visibles para gestión administrativa.
 
-    En Fase 3 solamente se consideran:
-    - pendiente_recepcion
-    - en_revision
+    Permite buscar globalmente por:
+    - número de solicitud;
+    - nombre o apellido del solicitante;
+    - nombre completo;
+    - documento de identidad / CI;
+    - nombre del trámite.
 
-    No se filtra por unidad porque todavía no conocemos
-    institucionalmente qué unidad recibe cada trámite.
+    La búsqueda se realiza antes de la paginación.
     """
     pagina = max(
         pagina,
@@ -53,13 +65,39 @@ def listar_solicitudes_administrativas(
     )
 
     filtros = [
-        Solicitud.estado.in_(
-            (
-                "pendiente_recepcion",
-                "en_revision",
+        Solicitud.fecha_envio.is_not(None),
+    ]
+
+    if id_solicitante is not None:
+        filtros.append(
+            Solicitud.id_solicitante
+            == id_solicitante
+        )
+
+    zona = ZoneInfo(
+        "America/La_Paz"
+    )
+
+    if fecha_desde:
+        filtros.append(
+            Solicitud.fecha_envio
+            >= datetime.combine(
+                fecha_desde,
+                time.min,
+                zona,
             )
         )
-    ]
+
+    if fecha_hasta:
+        filtros.append(
+            Solicitud.fecha_envio
+            < datetime.combine(
+                fecha_hasta
+                + timedelta(days=1),
+                time.min,
+                zona,
+            )
+        )
 
     if estado is not None:
         filtros.append(
@@ -68,26 +106,125 @@ def listar_solicitudes_administrativas(
 
     if id_tramite is not None:
         filtros.append(
-            Solicitud.id_tramite == id_tramite
+            Solicitud.id_tramite
+            == id_tramite
         )
 
     if id_solicitud is not None:
         filtros.append(
-            Solicitud.id_solicitud == id_solicitud
+            Solicitud.id_solicitud
+            == id_solicitud
         )
 
-    total = db.scalar(
-        select(func.count())
-        .select_from(Solicitud)
-        .where(*filtros)
-    ) or 0
+    busqueda_normalizada = (
+        busqueda.strip()
+        if busqueda
+        else ""
+    )
+
+    if busqueda_normalizada:
+        patron = (
+            f"%{busqueda_normalizada}%"
+        )
+
+        nombre_completo = func.concat_ws(
+            " ",
+            Usuario.nombres,
+            Usuario.apellidos,
+        )
+
+        filtros.append(
+            or_(
+                cast(
+                    Solicitud.id_solicitud,
+                    String,
+                ).ilike(patron),
+
+                Usuario.nombres.ilike(
+                    patron
+                ),
+
+                Usuario.apellidos.ilike(
+                    patron
+                ),
+
+                nombre_completo.ilike(
+                    patron
+                ),
+
+                PerfilAcademico
+                .documento_identidad
+                .ilike(patron),
+
+                Solicitud
+                .nombre_tramite_snapshot
+                .ilike(patron),
+
+                Tramite.nombre.ilike(
+                    patron
+                ),
+            )
+        )
+
+    consulta_base = (
+        select(Solicitud)
+        .join(
+            Usuario,
+            Usuario.id_usuario
+            == Solicitud.id_solicitante,
+        )
+        .join(
+            Tramite,
+            Tramite.id_tramite
+            == Solicitud.id_tramite,
+        )
+        .outerjoin(
+            PerfilAcademico,
+            PerfilAcademico.id_usuario
+            == Solicitud.id_solicitante,
+        )
+        .where(
+            *filtros
+        )
+    )
+
+    total = (
+        db.scalar(
+            select(
+                func.count(
+                    Solicitud.id_solicitud
+                )
+            )
+            .join(
+                Usuario,
+                Usuario.id_usuario
+                == Solicitud.id_solicitante,
+            )
+            .join(
+                Tramite,
+                Tramite.id_tramite
+                == Solicitud.id_tramite,
+            )
+            .outerjoin(
+                PerfilAcademico,
+                PerfilAcademico.id_usuario
+                == Solicitud.id_solicitante,
+            )
+            .where(
+                *filtros
+            )
+        )
+        or 0
+    )
 
     consulta = (
-        select(Solicitud)
-        .where(*filtros)
+        consulta_base
         .options(
             selectinload(
                 Solicitud.tramite
+            ),
+            selectinload(
+                Solicitud.solicitante
             ),
         )
         .order_by(
@@ -95,18 +232,26 @@ def listar_solicitudes_administrativas(
             Solicitud.id_solicitud.asc(),
         )
         .offset(
-            (pagina - 1) * limite
+            (pagina - 1)
+            * limite
         )
         .limit(
             limite
         )
     )
 
-    solicitudes = db.scalars(
-        consulta
-    ).all()
+    solicitudes = (
+        db.scalars(
+            consulta
+        )
+        .unique()
+        .all()
+    )
 
-    return solicitudes, int(total)
+    return (
+        solicitudes,
+        int(total),
+    )
 
 
 def obtener_solicitud_administrativa_por_id(
@@ -120,17 +265,18 @@ def obtener_solicitud_administrativa_por_id(
     consulta = (
         select(Solicitud)
         .where(
-            Solicitud.id_solicitud == id_solicitud,
-            Solicitud.estado.in_(
-                (
-                    "pendiente_recepcion",
-                    "en_revision",
-                )
+            Solicitud.id_solicitud
+            == id_solicitud,
+            Solicitud.fecha_envio.is_not(
+                None
             ),
         )
         .options(
             selectinload(
                 Solicitud.tramite
+            ),
+            selectinload(
+                Solicitud.solicitante
             ),
             selectinload(
                 Solicitud.datos
@@ -141,9 +287,13 @@ def obtener_solicitud_administrativa_por_id(
         )
     )
 
-    return db.scalars(
-        consulta
-    ).unique().one_or_none()
+    return (
+        db.scalars(
+            consulta
+        )
+        .unique()
+        .one_or_none()
+    )
 
 
 # ============================================================
@@ -155,16 +305,22 @@ def obtener_recepcion_por_solicitud(
     db: Session,
     id_solicitud: int,
 ) -> SolicitudRecepcion | None:
-    consulta = select(
-        SolicitudRecepcion
-    ).where(
-        SolicitudRecepcion.id_solicitud
-        == id_solicitud
+    consulta = (
+        select(
+            SolicitudRecepcion
+        )
+        .where(
+            SolicitudRecepcion.id_solicitud
+            == id_solicitud
+        )
     )
 
-    return db.scalars(
-        consulta
-    ).one_or_none()
+    return (
+        db.scalars(
+            consulta
+        )
+        .one_or_none()
+    )
 
 
 def crear_recepcion(
@@ -181,13 +337,23 @@ def crear_recepcion(
     """
     recepcion = SolicitudRecepcion(
         id_solicitud=id_solicitud,
-        id_usuario_receptor=id_usuario_receptor,
-        fecha_recepcion=fecha_recepcion,
+        id_usuario_receptor=(
+            id_usuario_receptor
+        ),
+        fecha_recepcion=(
+            fecha_recepcion
+        ),
     )
 
-    db.add(recepcion)
+    db.add(
+        recepcion
+    )
+
     db.flush()
-    db.refresh(recepcion)
+
+    db.refresh(
+        recepcion
+    )
 
     return recepcion
 
@@ -201,10 +367,15 @@ def marcar_solicitud_en_revision(
 
     Esto NO representa el inicio de una etapa institucional.
     """
-    solicitud.estado = "en_revision"
+    solicitud.estado = (
+        "en_revision"
+    )
 
     db.flush()
-    db.refresh(solicitud)
+
+    db.refresh(
+        solicitud
+    )
 
     return solicitud
 
@@ -243,17 +414,23 @@ def actualizar_verificacion_requisito(
     requisito.estado_verificacion = (
         estado_verificacion
     )
+
     requisito.id_usuario_verificador = (
         id_usuario_verificador
     )
+
     requisito.fecha_verificacion = (
         fecha_verificacion
     )
+
     requisito.detalle_verificacion = (
         detalle_verificacion
     )
 
     db.flush()
-    db.refresh(requisito)
+
+    db.refresh(
+        requisito
+    )
 
     return requisito

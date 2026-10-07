@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import os
-from contextlib import asynccontextmanager
+
+from contextlib import (
+    asynccontextmanager,
+)
+
 from decimal import Decimal
 
 from fastapi import (
@@ -13,35 +17,54 @@ from fastapi import (
 )
 
 from mock_pago_api.database import (
-    buscar_concepto,
     buscar_factura,
     inicializar_base_datos,
 )
+
 from mock_pago_api.schemas import (
     FacturaValidarRequest,
     FacturaValidarResponse,
 )
 
 
+# ============================================================
+# INICIO DEL SERVICIO
+# ============================================================
+
+
 @asynccontextmanager
 async def lifespan(
     app: FastAPI,
 ):
+    """
+    Inicializa la base independiente del servicio externo
+    cuando arranca el contenedor.
+    """
     inicializar_base_datos()
 
     yield
 
 
 app = FastAPI(
-    title="Mock API de Pagos",
-    version="1.0.0",
-    description=(
-        "API independiente utilizada exclusivamente para "
-        "simular la integración con un sistema externo de "
-        "pagos y facturación."
+    title=(
+        "API de Facturación - "
+        "Simulador Institucional"
     ),
+
+    version="1.0.0",
+
+    description=(
+        "Servicio HTTP independiente utilizado para simular "
+        "la consulta al sistema externo de pagos y facturación."
+    ),
+
     lifespan=lifespan,
 )
+
+
+# ============================================================
+# AUTENTICACIÓN ENTRE SISTEMAS
+# ============================================================
 
 
 def verificar_token(
@@ -50,11 +73,15 @@ def verificar_token(
     ),
 ) -> None:
     """
-    La autenticación se activa únicamente cuando existe
-    MOCK_PAGO_API_TOKEN en el entorno.
+    Protege la comunicación entre M03 y el servicio externo.
 
-    De esa forma podemos utilizar un Bearer Token durante
-    desarrollo sin incrustarlo en el código.
+    Si MOCK_PAGO_API_TOKEN está configurado, el backend debe
+    enviar:
+
+        Authorization: Bearer <token>
+
+    El token se obtiene del entorno y nunca se escribe
+    directamente en este archivo.
     """
     token_esperado = os.getenv(
         "MOCK_PAGO_API_TOKEN",
@@ -66,15 +93,20 @@ def verificar_token(
 
     if authorization is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+
             detail=(
-                "Se requiere autenticación para "
-                "consultar la API."
+                "Se requiere autenticación "
+                "para consultar la API."
             ),
         )
 
     esquema, separador, token = (
-        authorization.partition(" ")
+        authorization.partition(
+            " "
+        )
     )
 
     if (
@@ -83,27 +115,52 @@ def verificar_token(
         or token.strip() != token_esperado
     ):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+
             detail=(
                 "Credencial de API inválida."
             ),
         )
 
 
+# ============================================================
+# HEALTH CHECK
+# ============================================================
+
+
 @app.get(
     "/health",
-    status_code=status.HTTP_200_OK,
+    status_code=(
+        status.HTTP_200_OK
+    ),
 )
 def health() -> dict[str, str]:
+    """
+    Permite comprobar que el servicio externo está disponible.
+    """
     return {
         "status": "ok",
     }
 
 
+# ============================================================
+# CONSULTA DE FACTURA
+# ============================================================
+
+
 @app.post(
     "/api/v1/facturas/validar",
-    response_model=FacturaValidarResponse,
-    status_code=status.HTTP_200_OK,
+
+    response_model=(
+        FacturaValidarResponse
+    ),
+
+    status_code=(
+        status.HTTP_200_OK
+    ),
+
     dependencies=[
         Depends(
             verificar_token
@@ -114,17 +171,58 @@ def validar_factura(
     datos: FacturaValidarRequest,
 ) -> FacturaValidarResponse:
     """
-    Consulta una factura utilizando:
+    Consulta una factura procesada.
 
+    ========================================================
+    DATOS QUE RECIBE
+    ========================================================
+
+    M03 envía:
+
+        documento_identidad
         codigo
         numero_factura
 
-    La API devuelve los hechos almacenados en su propio
-    sistema.
+    El estudiante únicamente escribe numero_factura.
 
-    La decisión definitiva sobre si el requisito de una
-    solicitud cumple la realiza el backend principal.
+    documento_identidad se obtiene desde la solicitud y
+    codigo corresponde al Cod. Servicio del requisito
+    económico.
+
+
+    ========================================================
+    CRITERIO DE BÚSQUEDA
+    ========================================================
+
+    La factura debe coincidir simultáneamente con:
+
+        Número de factura
+        CI
+        Cod. Servicio
+
+    Si alguno no coincide, la respuesta pública es la misma:
+
+        encontrada = False
+
+    De esta forma el servicio no revela si falló el CI,
+    el código o el número ingresado.
+
+
+    ========================================================
+    QUÉ SIGNIFICA QUE EXISTA UNA FACTURA
+    ========================================================
+
+    En este simulador toda factura almacenada representa un
+    pago que ya fue realizado y procesado fuera de M03.
+
+    Si el estudiante todavía no realizó el pago, simplemente
+    no dispone de una factura para registrar.
     """
+
+    # --------------------------------------------------------
+    # 1. BUSCAR POR NÚMERO DE FACTURA
+    # --------------------------------------------------------
+
     factura = buscar_factura(
         datos.numero_factura
     )
@@ -132,99 +230,143 @@ def validar_factura(
     if factura is None:
         return FacturaValidarResponse(
             encontrada=False,
+
             numero_factura=(
                 datos.numero_factura
             ),
+
             mensaje=(
-                "La factura indicada no existe."
+                "No se encontró una factura que "
+                "coincida con los datos consultados."
             ),
         )
 
+
+    # --------------------------------------------------------
+    # 2. COMPROBAR CI
+    # --------------------------------------------------------
+
+    documento_real = str(
+        factura[
+            "documento_identidad"
+        ]
+        or ""
+    ).strip()
+
+    if (
+        documento_real
+        != datos.documento_identidad
+    ):
+        return FacturaValidarResponse(
+            encontrada=False,
+
+            numero_factura=(
+                datos.numero_factura
+            ),
+
+            mensaje=(
+                "No se encontró una factura que "
+                "coincida con los datos consultados."
+            ),
+        )
+
+
+    # --------------------------------------------------------
+    # 3. COMPROBAR COD. SERVICIO
+    # --------------------------------------------------------
+
     codigo_real = str(
-        factura["codigo_concepto"]
-    )
+        factura[
+            "codigo_concepto"
+        ]
+    ).strip()
+
+    if (
+        codigo_real
+        != datos.codigo
+    ):
+        return FacturaValidarResponse(
+            encontrada=False,
+
+            numero_factura=(
+                datos.numero_factura
+            ),
+
+            mensaje=(
+                "No se encontró una factura que "
+                "coincida con los datos consultados."
+            ),
+        )
+
+
+    # --------------------------------------------------------
+    # 4. FACTURA ENCONTRADA
+    # --------------------------------------------------------
+    #
+    # Si llegamos hasta aquí coinciden:
+    #
+    # - número de factura;
+    # - CI;
+    # - Cod. Servicio.
+    #
+    # También devolvemos monto y moneda para que M03 pueda
+    # contrastarlos contra el requisito económico snapshot.
+    # --------------------------------------------------------
 
     monto_real = Decimal(
         str(
-            factura["monto_pagado"]
+            factura[
+                "monto_pagado"
+            ]
         )
     )
 
     moneda_real = str(
-        factura["moneda"]
-    ).upper()
+        factura[
+            "moneda"
+        ]
+    ).strip().upper()
 
-    estado_real = str(
-        factura["estado"]
-    ).lower()
-
-    utilizada = bool(
-        factura["utilizada"]
-    )
-
-    concepto_consultado = buscar_concepto(
-        datos.codigo
-    )
-
-    if concepto_consultado is None:
-        mensaje = (
-            "El código consultado no existe en "
-            "el catálogo de pagos."
-        )
-
-    elif codigo_real != datos.codigo:
-        mensaje = (
-            "La factura existe, pero no corresponde "
-            "al código consultado."
-        )
-
-    elif utilizada:
-        mensaje = (
-            "La factura ya se encuentra utilizada."
-        )
-
-    elif estado_real != "pagada":
-        mensaje = (
-            "La factura existe, pero no se encuentra "
-            "en estado pagada."
-        )
-
-    else:
-        monto_catalogo = Decimal(
-            str(
-                factura["monto_concepto"]
-            )
-        )
-
-        moneda_catalogo = str(
-            factura["moneda_concepto"]
-        ).upper()
-
-        if (
-            monto_real != monto_catalogo
-            or moneda_real != moneda_catalogo
-        ):
-            mensaje = (
-                "La factura presenta valores económicos "
-                "diferentes a los registrados para "
-                "el concepto."
-            )
-        else:
-            mensaje = (
-                "Factura encontrada correctamente."
-            )
 
     return FacturaValidarResponse(
         encontrada=True,
+
+        documento_identidad=(
+            documento_real
+        ),
+
         numero_factura=(
             str(
-                factura["numero_factura"]
+                factura[
+                    "numero_factura"
+                ]
             )
         ),
-        codigo=codigo_real,
-        monto=monto_real,
-        moneda=moneda_real,
-        estado_factura=estado_real,
-        utilizada=utilizada,
-        mensaje=mensaje,
+
+        codigo=(
+            codigo_real
+        ),
+
+        monto=(
+            monto_real
+        ),
+
+        moneda=(
+            moneda_real
+        ),
+
+        # El backend actual espera este campo.
+        # Toda factura de este simulador ya corresponde
+        # a un pago procesado.
+        estado_factura=(
+            "pagada"
+        ),
+
+        # La reutilización de una factura entre solicitudes
+        # es responsabilidad de M03.
+        utilizada=False,
+
+        mensaje=(
+            "Factura encontrada correctamente."
+        ),
     )

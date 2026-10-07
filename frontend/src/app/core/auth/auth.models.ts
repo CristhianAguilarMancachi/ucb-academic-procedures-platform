@@ -3,6 +3,10 @@ import {
 } from '../account/account.models';
 
 
+// ============================================================
+// REGISTRO
+// ============================================================
+
 export interface RegistroRequest {
   nombres: string;
   apellidos: string;
@@ -12,16 +16,37 @@ export interface RegistroRequest {
 }
 
 
+// ============================================================
+// LOGIN TRADICIONAL
+// ============================================================
+
 export interface LoginRequest {
   correo: string;
   contrasena: string;
 }
 
 
+// ============================================================
+// LOGIN CON GOOGLE
+// ============================================================
+
+export interface GoogleLoginRequest {
+  credential: string;
+}
+
+
+// ============================================================
+// REFRESH
+// ============================================================
+
 export interface RefreshTokenRequest {
   refresh_token?: string | null;
 }
 
+
+// ============================================================
+// CAMBIO DE CONTRASEÑA
+// ============================================================
 
 export interface CambioContrasenaRequest {
   contrasena_actual: string;
@@ -29,6 +54,10 @@ export interface CambioContrasenaRequest {
   confirmar_nueva_contrasena: string;
 }
 
+
+// ============================================================
+// RECUPERACIÓN
+// ============================================================
 
 export interface SolicitudRecuperacionRequest {
   correo: string;
@@ -42,6 +71,10 @@ export interface RestablecerContrasenaRequest {
 }
 
 
+// ============================================================
+// VERIFICACIÓN DE CORREO
+// ============================================================
+
 export interface CorreoVerificarRequest {
   token: string;
 }
@@ -51,6 +84,10 @@ export interface CorreoReenviarVerificacionRequest {
   correo: string;
 }
 
+
+// ============================================================
+// RESPUESTAS
+// ============================================================
 
 export interface MensajeResponse {
   mensaje: string;

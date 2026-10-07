@@ -1,50 +1,221 @@
-<section class="rag-home" [class.chat-mode]="conversationStarted()">
-  <ng-container *ngIf="!conversationStarted(); else chatMode">
+<section
+  class="rag-home"
+  [class.chat-mode]="conversationStarted()"
+>
+
+  <ng-container
+    *ngIf="!conversationStarted(); else chatMode"
+  >
+
     <div class="welcome-mode">
-      <div class="welcome-inner">
-        <div class="hero-icon">
-          <ng-icon name="heroSparkles" class="sparkle-icon"></ng-icon>
-        </div>
 
-        <div class="hero-text">
-          <h2>Hola, soy tu <span>asistente académico</span></h2>
-          <p>
-            Encuentra información oficial sobre trámites, reglamentos y consultas académicas
-            de la Universidad Católica Boliviana “San Pablo”.
-          </p>
-        </div>
-
-        <div class="composer composer-centered">
-          <input
-            type="text"
-            placeholder="Escribe tu consulta aquí..."
-            [(ngModel)]="question"
-            (keyup.enter)="submitQuery()"
-          />
-
-          <button class="composer-send" (click)="submitQuery()" [disabled]="loading()">
-            <ng-icon name="heroPaperAirplane" class="send-icon"></ng-icon>
-          </button>
-        </div>
-
-        <div class="suggested-header">
-          <span>Preguntas sugeridas</span>
-        </div>
-
-        <div class="suggested-grid compact">
-          <button
-            class="suggested-card compact"
-            *ngFor="let item of suggestedQuestions"
-            (click)="useSuggestedQuestion(item)"
-          >
-            {{ item }}
-          </button>
-        </div>
+      <div class="welcome-background">
       </div>
+
+      <div class="welcome-overlay">
+      </div>
+
+
+      <div class="welcome-content">
+
+        <!-- ===================================================
+             COLUMNA PRINCIPAL
+             =================================================== -->
+
+        <div class="welcome-primary">
+
+          <div class="institutional-label">
+
+            <span>
+              DIRECCIÓN ACADÉMICA
+            </span>
+
+            <span
+              class="institutional-line"
+            >
+            </span>
+
+          </div>
+
+
+          <div class="hero-copy">
+
+            <h1>
+
+              Información
+
+              <span class="hero-title-bottom">
+
+                académica
+
+                <strong>
+                  UCB
+                </strong>
+
+              </span>
+
+            </h1>
+
+
+            <p>
+
+              Encuentra información oficial sobre
+              trámites, reglamentos y consultas
+              académicas de la Universidad Católica
+              Boliviana “San Pablo”.
+
+            </p>
+
+          </div>
+
+
+          <!-- =================================================
+               BUSCADOR
+               Todo el bloque es clickeable.
+               ================================================= -->
+
+          <div
+            class="composer"
+            (click)="queryInput.focus()"
+          >
+
+            <ng-icon
+              name="heroMagnifyingGlass"
+              class="composer-search-icon"
+            >
+            </ng-icon>
+
+
+            <input
+              #queryInput
+              type="text"
+              placeholder="Escribe tu consulta aquí..."
+              [(ngModel)]="question"
+              (keyup.enter)="submitQuery()"
+              aria-label="Consulta académica"
+            />
+
+
+            <button
+              type="button"
+              class="composer-send"
+              aria-label="Enviar consulta"
+              [disabled]="loading()"
+              (click)="
+                $event.stopPropagation();
+                submitQuery()
+              "
+            >
+
+              <ng-icon
+                name="heroPaperAirplane"
+                class="send-icon"
+              >
+              </ng-icon>
+
+            </button>
+
+          </div>
+
+
+          <div class="institutional-note">
+
+            <ng-icon
+              name="heroInformationCircle"
+              class="institutional-note-icon"
+            >
+            </ng-icon>
+
+            <span>
+              Consulta basada en documentación institucional.
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <!-- ===================================================
+             CONSULTAS FRECUENTES
+             =================================================== -->
+
+        <aside class="frequent-panel">
+
+          <div class="frequent-heading">
+
+            <span
+              class="frequent-heading-accent"
+            >
+            </span>
+
+
+            <div>
+
+              <h2>
+                Consultas frecuentes
+              </h2>
+
+              <p>
+                Selecciona una consulta para obtener
+                información rápida y confiable.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div class="frequent-list">
+
+            <button
+              type="button"
+              class="frequent-item"
+              *ngFor="let item of suggestedQuestions"
+              (click)="useSuggestedQuestion(item)"
+            >
+
+              <span class="frequent-item-icon">
+
+                <ng-icon
+                  name="heroDocumentText"
+                >
+                </ng-icon>
+
+              </span>
+
+
+              <span class="frequent-item-text">
+
+                {{ item }}
+
+              </span>
+
+
+              <ng-icon
+                name="heroChevronRight"
+                class="frequent-item-chevron"
+              >
+              </ng-icon>
+
+            </button>
+
+          </div>
+
+        </aside>
+
+      </div>
+
     </div>
+
   </ng-container>
 
+
+  <!-- =======================================================
+       MODO CONVERSACIÓN
+       ======================================================= -->
+
   <ng-template #chatMode>
+
     <app-rag-chat
       [messages]="messages()"
       [question]="question"
@@ -52,7 +223,8 @@
       (questionChange)="updateQuestion($event)"
       (submit)="submitQuery()"
       (clear)="clearConversation()"
-      (toggleSources)="toggleSources($event)"
     />
+
   </ng-template>
+
 </section>

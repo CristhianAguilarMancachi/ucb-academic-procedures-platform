@@ -25,6 +25,7 @@ from app.repositories.usuario_correo_repository import (
     existe_correo,
 )
 from app.repositories.usuario_repository import (
+    tiene_correo_principal_verificado,
     actualizar_contrasena,
     actualizar_ultimo_acceso,
     crear_usuario,
@@ -44,7 +45,8 @@ from app.services.auth.audit_service import (
 )
 from app.services.auth.email_verification_service import (
     EnvioVerificacionCorreoError,
-    emitir_verificacion_correo,
+    preparar_verificacion_correo,
+    enviar_verificacion_preparada,
 )
 from app.services.auth.role_service import (
     asignar_rol_solicitante,
@@ -119,19 +121,28 @@ def _construir_usuario_autenticado(
     usuario: Usuario,
 ) -> UsuarioAutenticadoResponse:
     """
-    Construye una respuesta segura sin exponer el hash de
-    contraseña.
+    Construye una respuesta segura del usuario autenticado.
+
+    Nunca expone contrasena_hash. Únicamente informa mediante
+    tiene_contrasena si existe una credencial local configurada.
     """
     return UsuarioAutenticadoResponse(
         id_usuario=usuario.id_usuario,
         nombres=usuario.nombres,
         apellidos=usuario.apellidos,
+        telefono=usuario.telefono,
         estado=usuario.estado,
         fecha_ultimo_acceso=usuario.fecha_ultimo_acceso,
         fecha_creacion=usuario.fecha_creacion,
         fecha_actualizacion=usuario.fecha_actualizacion,
+        tiene_contrasena=(
+            usuario.contrasena_hash
+            is not None
+        ),
         correos=usuario.correos,
-        roles=_obtener_roles_activos_usuario(usuario),
+        roles=_obtener_roles_activos_usuario(
+            usuario
+        ),
     )
 
 
@@ -145,8 +156,7 @@ def registrar_usuario(
     """
     Crea una cuenta, su correo principal y el rol solicitante.
 
-    Después de confirmar la cuenta en PostgreSQL, genera y
-    envía el correo de verificación.
+    Confirma cuenta, correo y token juntos; después intenta SMTP.
     """
     correo_normalizado = _normalizar_correo(
         str(datos.correo)
@@ -205,15 +215,26 @@ def registrar_usuario(
             user_agent=user_agent,
         )
 
+        token = preparar_verificacion_correo(
+            db, usuario_correo=usuario_correo,
+            direccion_ip=direccion_ip, user_agent=user_agent,
+        )
+        id_usuario = usuario.id_usuario
+        estado = usuario.estado
         db.commit()
-        db.refresh(usuario)
-        db.refresh(usuario_correo)
 
     except IntegrityError as exc:
         db.rollback()
-
-        raise CorreoYaRegistradoError(
-            "El correo ya se encuentra registrado."
+        # Solo presentar un duplicado si el correo realmente existe. Otros
+        # fallos de integridad no deben disfrazarse de una cuenta ya registrada.
+        duplicado = existe_correo(db, correo_normalizado)
+        db.rollback()
+        if duplicado:
+            raise CorreoYaRegistradoError(
+                "El correo ya se encuentra registrado."
+            ) from exc
+        raise AuthServiceError(
+            "No fue posible completar el registro. Inténtalo de nuevo más tarde."
         ) from exc
 
     except Exception:
@@ -226,11 +247,8 @@ def registrar_usuario(
     )
 
     try:
-        emitir_verificacion_correo(
-            db,
-            usuario_correo=usuario_correo,
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
+        enviar_verificacion_preparada(
+            destinatario=correo_normalizado, token=token.valor,
         )
 
     except EnvioVerificacionCorreoError:
@@ -241,9 +259,9 @@ def registrar_usuario(
         )
 
     return RegistroResponse(
-        id_usuario=usuario.id_usuario,
+        id_usuario=id_usuario,
         correo=correo_normalizado,
-        estado=usuario.estado,
+        estado=estado,
         requiere_verificacion=True,
         mensaje=mensaje,
     )
@@ -336,6 +354,11 @@ def iniciar_sesion(
     if usuario.estado != "activo":
         raise CuentaInactivaError(
             "La cuenta no se encuentra habilitada."
+        )
+
+    if not tiene_correo_principal_verificado(usuario):
+        raise CuentaPendienteVerificacionError(
+            "Debes verificar tu correo principal antes de iniciar sesión."
         )
 
     try:

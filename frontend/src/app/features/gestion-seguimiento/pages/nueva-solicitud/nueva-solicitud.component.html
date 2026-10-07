@@ -1,0 +1,912 @@
+@if (enviada(); as s) {
+  <!-- =======================================================
+       SOLICITUD REGISTRADA
+       ======================================================= -->
+
+  <div class="confirmation-view">
+    <div class="confirmation-panel">
+      <div class="confirmation-hero">
+        <div class="success-symbol" aria-hidden="true">
+          <span>✓</span>
+        </div>
+
+        <h1>Solicitud registrada correctamente</h1>
+
+        <p>
+          Tu solicitud de trámite ha sido registrada exitosamente.
+          <br />
+          Guarda tu número de solicitud para darle seguimiento.
+        </p>
+      </div>
+
+      <div class="confirmation-summary">
+        <div class="summary-card">
+          <div class="summary-card__heading">
+            <span class="summary-card__icon">
+              <app-gestion-icon tipo="documento" />
+            </span>
+
+            <span class="summary-card__label">
+              Número de solicitud
+            </span>
+          </div>
+
+          <strong class="request-number">
+            {{ formatearNumeroSolicitud(s.id_solicitud) }}
+          </strong>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-card__heading">
+            <span class="summary-card__icon">
+              <app-gestion-icon tipo="documento" />
+            </span>
+
+            <span class="summary-card__label">
+              Trámite
+            </span>
+          </div>
+
+          <strong class="summary-card__main summary-card__main--tramite">
+            {{ s.nombre_tramite_snapshot || tramite()?.nombre }}
+          </strong>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-card__heading">
+            <span class="summary-card__icon">
+              <app-gestion-icon tipo="reloj" />
+            </span>
+
+            <span class="summary-card__label">
+              Fecha de registro
+            </span>
+          </div>
+
+          <div class="registration-date">
+            <strong>
+              {{ s.fecha_envio | date: 'dd/MM/yyyy' }}
+            </strong>
+
+            <span>
+              {{ s.fecha_envio | date: 'HH:mm' }}
+            </span>
+          </div>
+        </div>
+
+        @if (auth.usuarioActual(); as usuario) {
+          <div class="summary-card">
+            <div class="summary-card__heading">
+              <span class="summary-card__icon">
+                <app-gestion-icon tipo="persona" />
+              </span>
+
+              <span class="summary-card__label">
+                Solicitante
+              </span>
+            </div>
+
+            <strong class="summary-card__main">
+              {{ usuario.nombres }} {{ usuario.apellidos }}
+            </strong>
+
+            <span class="summary-card__secondary">
+              Solicitante
+            </span>
+          </div>
+        }
+      </div>
+
+      <div class="next-step">
+        <div class="next-step__icon" aria-hidden="true">
+          <app-gestion-icon tipo="documento" />
+        </div>
+
+        <div class="next-step__content">
+          <h2>Siguiente paso</h2>
+
+          <p>
+            {{ mensajeTrasEnvio() }}
+          </p>
+
+          @if (tramite()?.canales_atencion) {
+            <p class="next-step__detail">
+              {{ tramite()?.canales_atencion }}
+            </p>
+          }
+        </div>
+      </div>
+
+      <div class="confirmation-actions">
+        <a
+          class="confirmation-button confirmation-button--primary"
+          [routerLink]="['/solicitudes', s.id_solicitud]"
+        >
+          <span class="confirmation-button__icon">
+            <app-gestion-icon tipo="proceso" />
+          </span>
+
+          <span>Ver seguimiento</span>
+        </a>
+
+        <a
+          class="confirmation-button confirmation-button--secondary"
+          routerLink="/mis-solicitudes"
+        >
+          <span class="confirmation-button__icon">
+            <app-gestion-icon tipo="documento" />
+          </span>
+
+          <span>Volver a mis trámites</span>
+        </a>
+      </div>
+    </div>
+  </div>
+} @else {
+  <!-- =======================================================
+       PREPARACIÓN
+       ======================================================= -->
+
+  @if (solicitud(); as s) {
+    <div class="preparation-view">
+      <!-- CABECERA -->
+
+      <header class="preparation-header">
+        <div class="preparation-heading">
+          <div class="preparation-title-row">
+            <h1>Preparar solicitud</h1>
+
+            <span class="draft-status">
+              Borrador
+            </span>
+          </div>
+
+          @if (tramite(); as t) {
+            <p class="preparation-procedure">
+              {{ t.nombre }}
+            </p>
+          }
+
+          <span class="preparation-reference">
+            Solicitud #{{ formatearNumeroSolicitud(s.id_solicitud) }}
+          </span>
+        </div>
+
+        <a
+          class="preparation-detail-link"
+          [routerLink]="['/solicitudes', s.id_solicitud]"
+        >
+          <app-gestion-icon tipo="proceso" />
+
+          <span>
+            Ver seguimiento o cancelar
+          </span>
+        </a>
+      </header>
+
+      <!-- MENSAJES -->
+
+      @if (error()) {
+        <div
+          class="preparation-message preparation-message--error"
+          role="alert"
+        >
+          {{ error() }}
+        </div>
+      }
+
+      @if (mensaje()) {
+        <div
+          class="preparation-message preparation-message--success"
+          role="status"
+        >
+          {{ mensaje() }}
+        </div>
+      }
+
+      @if (tramite(); as t) {
+        <div class="preparation-workspace">
+          <!-- =================================================
+               COLUMNA IZQUIERDA
+               ================================================= -->
+
+          <section class="preparation-card applicant-card">
+            <div class="preparation-card__header">
+              <div class="preparation-card__title">
+                <app-gestion-icon tipo="persona" />
+
+                <div>
+                  <h2>Datos para la solicitud</h2>
+
+                  <p>
+                    Completa la información que se utilizará para registrar y gestionar este trámite.
+                  </p>
+                </div>
+              </div>
+
+              @if (formularioCompleto()) {
+                <span class="form-status form-status--complete">
+                  Datos completos
+                </span>
+              } @else {
+                <span class="form-status">
+                  Datos pendientes
+                </span>
+              }
+            </div>
+
+            <fieldset
+              class="preparation-fieldset applicant-card__body"
+              [disabled]="ocupado()"
+            >
+              <!-- CONTACTO -->
+
+              <section class="form-section">
+                <div class="form-section__heading">
+                  <div class="form-section__number">
+                    1
+                  </div>
+
+                  <div>
+                    <h3>Datos de contacto</h3>
+
+                    <p>
+                      Indica los datos mediante los cuales podrán comunicarse contigo respecto a esta solicitud.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="contact-grid">
+                  <!-- NOMBRE -->
+
+                  <label class="preparation-field preparation-field--wide">
+                    <span class="preparation-field__label">
+                      Nombre de contacto
+                      <strong>*</strong>
+                    </span>
+
+                    <input
+                      type="text"
+                      maxlength="200"
+                      autocomplete="name"
+                      placeholder="Nombre completo"
+                      [(ngModel)]="contacto.nombre_contacto"
+                      (ngModelChange)="cambiar()"
+                    />
+
+                    @if (nombreContactoModificado()) {
+                      <span class="field-note field-note--info">
+                        Este nombre se utilizará únicamente como nombre de contacto para esta solicitud. No modifica los datos de tu cuenta.
+                      </span>
+                    } @else {
+                      <span class="preparation-field__help">
+                        Se completó automáticamente con el nombre registrado en tu cuenta.
+                      </span>
+                    }
+                  </label>
+
+                  <!-- TELÉFONO -->
+
+                  <label class="preparation-field">
+                    <span class="preparation-field__label">
+                      Número de teléfono
+                      <strong>*</strong>
+                    </span>
+
+                    <input
+                      type="tel"
+                      maxlength="30"
+                      autocomplete="tel"
+                      inputmode="tel"
+                      placeholder="Ej. 76543210"
+                      [(ngModel)]="contacto.telefono_contacto"
+                      (ngModelChange)="cambiar()"
+                    />
+
+                    @if (
+                      contacto.telefono_contacto &&
+                      !telefonoContactoValido()
+                    ) {
+                      <span class="field-note field-note--warning">
+                        Ingresa un número de teléfono válido.
+                      </span>
+                    } @else {
+                      <span class="preparation-field__help">
+                        Podrá utilizarse para contactarte si fuese necesario.
+                      </span>
+                    }
+                  </label>
+
+                  <!-- CORREO -->
+
+                  <label class="preparation-field">
+                    <span class="preparation-field__label">
+                      Correo de contacto
+                      <strong>*</strong>
+                    </span>
+
+                    <input
+                      type="email"
+                      maxlength="254"
+                      autocomplete="email"
+                      spellcheck="false"
+                      placeholder="correo@ejemplo.com"
+                      [(ngModel)]="contacto.correo_contacto"
+                      (ngModelChange)="cambiar()"
+                    />
+
+                    @if (
+                      contacto.correo_contacto &&
+                      !correoContactoValido()
+                    ) {
+                      <span class="field-note field-note--warning">
+                        Revisa el formato del correo ingresado.
+                      </span>
+                    } @else if (correoContactoModificado()) {
+                      <span class="field-note field-note--warning">
+                        Verifica que este correo esté correctamente escrito. Podrá utilizarse para comunicaciones relacionadas con esta solicitud y cambiarlo aquí no modifica el correo de tu cuenta.
+                      </span>
+                    } @else {
+                      <span class="preparation-field__help">
+                        Se completó con el correo principal de tu cuenta.
+                      </span>
+                    }
+                  </label>
+                </div>
+              </section>
+
+              <!-- INFORMACIÓN ACADÉMICA -->
+
+              <section class="form-section">
+                <div class="form-section__heading">
+                  <div class="form-section__number">
+                    2
+                  </div>
+
+                  <div>
+                    <h3>Información académica</h3>
+
+                    <p>
+                      Selecciona el área y la carrera a la que perteneces.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="academic-fields">
+                  <fieldset class="academic-area-group">
+                    <legend>
+                      Área académica
+                      <strong>*</strong>
+                    </legend>
+
+                    <div class="academic-area-grid">
+                      @for (grupo of carreras; track grupo.grupo) {
+                        <label
+                          class="academic-area-option"
+                          [class.academic-area-option--selected]="
+                            areaAcademica === grupo.grupo
+                          "
+                        >
+                          <input
+                            type="radio"
+                            name="area-academica"
+                            [value]="grupo.grupo"
+                            [ngModel]="areaAcademica"
+                            (ngModelChange)="seleccionarArea($event)"
+                          />
+
+                          <span class="academic-area-option__mark">
+                            <span></span>
+                          </span>
+
+                          <span class="academic-area-option__text">
+                            {{ grupo.nombreCorto }}
+                          </span>
+                        </label>
+                      }
+                    </div>
+                  </fieldset>
+
+                  <div class="academic-data-grid">
+                    <!-- CARRERA -->
+
+                    <label class="preparation-field">
+                      <span class="preparation-field__label">
+                        Carrera o programa
+                        <strong>*</strong>
+                      </span>
+
+                      <div
+                        class="select-shell"
+                        [class.select-shell--disabled]="!areaAcademica"
+                      >
+                        <select
+                          [(ngModel)]="perfil['carrera_programa']"
+                          (ngModelChange)="cambiar()"
+                          [disabled]="!areaAcademica"
+                        >
+                          <option value="">
+                            {{
+                              areaAcademica
+                                ? 'Selecciona tu carrera'
+                                : 'Selecciona primero un área'
+                            }}
+                          </option>
+
+                          @for (
+                            carrera of carrerasDelArea();
+                            track carrera.valor
+                          ) {
+                            <option [value]="carrera.valor">
+                              {{ carrera.etiqueta }}
+                            </option>
+                          }
+                        </select>
+
+                        <span
+                          class="select-shell__arrow"
+                          aria-hidden="true"
+                        >
+                          ▾
+                        </span>
+                      </div>
+                    </label>
+
+                    <!-- CI -->
+
+                    <label class="preparation-field">
+                      <span class="preparation-field__label">
+                        Documento de identidad (CI)
+                        <strong>*</strong>
+                      </span>
+
+                      <input
+                        type="text"
+                        maxlength="50"
+                        autocomplete="off"
+                        placeholder="Ingresa tu número de CI"
+                        [(ngModel)]="perfil['documento_identidad']"
+                        (ngModelChange)="cambiar()"
+                      />
+
+                      <span class="preparation-field__help">
+                        Este dato también podrá utilizarse posteriormente para verificar pagos del trámite.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              <!-- DATOS ESPECÍFICOS DEL TRÁMITE -->
+
+              @if (camposSolicitados().length) {
+                <section class="form-section">
+                  <div class="form-section__heading">
+                    <div class="form-section__number">
+                      3
+                    </div>
+
+                    <div>
+                      <h3>Información adicional del trámite</h3>
+
+                      <p>
+                        Completa únicamente los datos adicionales requeridos para este trámite.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="request-fields-grid">
+                    @for (c of camposSolicitados(); track c.id_campo) {
+                      <label
+                        class="preparation-field"
+                        [class.preparation-field--wide]="
+                          c.tipo_dato === 'texto_largo'
+                        "
+                      >
+                        <span class="preparation-field__label">
+                          {{ c.etiqueta }}
+
+                          @if (c.obligatorio) {
+                            <strong>*</strong>
+                          } @else {
+                            <small>(opcional)</small>
+                          }
+                        </span>
+
+                        @switch (c.tipo_dato) {
+                          @case ('seleccion') {
+                            <div class="select-shell">
+                              <select
+                                [(ngModel)]="valores[c.id_campo]"
+                                (ngModelChange)="cambiar()"
+                              >
+                                <option [ngValue]="null">
+                                  Selecciona una opción
+                                </option>
+
+                                @for (
+                                  o of opciones(c);
+                                  track o.valor
+                                ) {
+                                  <option [ngValue]="o.valor">
+                                    {{ o.etiqueta }}
+                                  </option>
+                                }
+                              </select>
+
+                              <span
+                                class="select-shell__arrow"
+                                aria-hidden="true"
+                              >
+                                ▾
+                              </span>
+                            </div>
+                          }
+
+                          @case ('booleano') {
+                            <div class="select-shell">
+                              <select
+                                [(ngModel)]="valores[c.id_campo]"
+                                (ngModelChange)="cambiar()"
+                              >
+                                <option [ngValue]="null">
+                                  Selecciona una opción
+                                </option>
+
+                                <option [ngValue]="true">
+                                  Sí
+                                </option>
+
+                                <option [ngValue]="false">
+                                  No
+                                </option>
+                              </select>
+
+                              <span
+                                class="select-shell__arrow"
+                                aria-hidden="true"
+                              >
+                                ▾
+                              </span>
+                            </div>
+                          }
+
+                          @case ('texto_largo') {
+                            <textarea
+                              [(ngModel)]="valores[c.id_campo]"
+                              (ngModelChange)="cambiar()"
+                            ></textarea>
+                          }
+
+                          @default {
+                            <input
+                              [type]="
+                                c.tipo_dato === 'fecha'
+                                  ? 'date'
+                                  : c.tipo_dato === 'entero' ||
+                                      c.tipo_dato === 'decimal'
+                                    ? 'number'
+                                    : 'text'
+                              "
+                              [step]="
+                                c.tipo_dato === 'entero'
+                                  ? '1'
+                                  : 'any'
+                              "
+                              [(ngModel)]="valores[c.id_campo]"
+                              (ngModelChange)="cambiar()"
+                            />
+                          }
+                        }
+
+                        @if (c.descripcion) {
+                          <span class="preparation-field__help">
+                            {{ c.descripcion }}
+                          </span>
+                        }
+                      </label>
+                    }
+                  </div>
+                </section>
+              }
+            </fieldset>
+
+            <div class="preparation-card__footer applicant-card__footer">
+              <div class="form-footer-status">
+                @if (formularioCompleto()) {
+                  <span class="form-footer-status__check">
+                    ✓
+                  </span>
+
+                  <span>
+                    Los datos obligatorios están completos.
+                  </span>
+                } @else {
+                  <span class="form-footer-status__dot">
+                    •
+                  </span>
+
+                  <span>
+                    Completa todos los campos marcados con *.
+                  </span>
+                }
+              </div>
+
+              <button
+                type="button"
+                class="preparation-button preparation-button--primary"
+                [disabled]="!puedeConsultar()"
+                (click)="guardar()"
+              >
+                @if (ocupado()) {
+                  Consultando…
+                } @else {
+                  Consultar requisitos
+                }
+              </button>
+            </div>
+          </section>
+
+          <!-- =================================================
+               COLUMNA DERECHA: REQUISITOS
+               ================================================= -->
+
+          <section class="preparation-card requirements-panel">
+            <div class="preparation-card__header requirements-header">
+              <div class="preparation-card__title">
+                <app-gestion-icon tipo="proceso" />
+
+                <div>
+                  <h2>Requisitos del trámite</h2>
+
+                  @if (aplicables()) {
+                    <p>
+                      Revisa lo que deberás completar después de registrar la solicitud.
+                    </p>
+                  } @else {
+                    <p>
+                      Consulta los requisitos antes de enviar la solicitud.
+                    </p>
+                  }
+                </div>
+              </div>
+
+              @if (aplicables()) {
+                <span class="requirements-ready">
+                  Consultados
+                </span>
+              }
+            </div>
+
+            @if (aplicables(); as p) {
+              <div class="requirements-content">
+                <div class="requirements-information">
+                  <div class="requirements-information__icon">
+                    i
+                  </div>
+
+                  <p>
+                    Los requisitos mostrados aquí son informativos. El pago y la entrega física, cuando correspondan, se completarán después de registrar la solicitud desde su seguimiento.
+                  </p>
+                </div>
+
+                <div class="requirements-scroll">
+                  <div class="requirements-grid">
+                    @for (
+                      r of p.requisitos;
+                      track r.id_requisito
+                    ) {
+                      <article
+                        class="requirement-card"
+                        [class.requirement-card--economic]="r.es_economico"
+                      >
+                        <div class="requirement-card__header">
+                          <div class="requirement-card__name">
+                            <strong>
+                              {{ r.nombre }}
+                            </strong>
+
+                            <span
+                              class="requirement-badge"
+                              [class.requirement-badge--optional]="!r.obligatorio"
+                            >
+                              {{
+                                r.obligatorio
+                                  ? 'Obligatorio'
+                                  : 'Opcional'
+                              }}
+                            </span>
+                          </div>
+                        </div>
+
+                        @if (r.descripcion) {
+                          <p class="requirement-description">
+                            {{ r.descripcion }}
+                          </p>
+                        }
+
+                        <div class="requirement-meta">
+                          @if (r.informacion_economica; as c) {
+                            <span class="requirement-meta--economic">
+                              {{ c.monto }} {{ c.moneda }}
+                            </span>
+                          }
+
+                          @if (r.requiere_presentacion_fisica) {
+                            <span>
+                              Presentación física
+                            </span>
+                          }
+
+                          @if (!r.es_inicial) {
+                            <span>
+                              Etapa posterior
+                            </span>
+                          }
+                        </div>
+
+                        @if (r.informacion_economica; as c) {
+                          <div class="economic-detail">
+                            {{ c.concepto }}
+                          </div>
+                        }
+
+                        @if (r.es_economico && r.es_inicial) {
+                          <div class="requirement-later-note">
+                            El pago se registrará y verificará después de enviar la solicitud.
+                          </div>
+                        }
+
+                        @if (
+                          r.requiere_presentacion_fisica &&
+                          r.es_inicial
+                        ) {
+                          <div class="requirement-later-note">
+                            La entrega física se informará posteriormente desde el seguimiento.
+                          </div>
+                        }
+
+                        @if (!r.es_inicial) {
+                          <div class="requirement-later-note">
+                            Se gestionará cuando corresponda dentro del proceso.
+                          </div>
+                        }
+                      </article>
+                    } @empty {
+                      <div class="requirements-empty">
+                        <div class="requirements-empty__icon">
+                          ✓
+                        </div>
+
+                        <strong>
+                          No existen requisitos adicionales
+                        </strong>
+
+                        <p>
+                          Puedes registrar la solicitud y continuar con el seguimiento.
+                        </p>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <div class="requirements-footer">
+                <div class="requirements-footer__text">
+                  <strong>Todo listo para registrar</strong>
+
+                  <span>
+                    Al enviar, la solicitud quedará formalmente registrada.
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  class="preparation-button preparation-button--send"
+                  [disabled]="!puedeEnviar()"
+                  (click)="enviar()"
+                >
+                  Enviar solicitud
+                </button>
+              </div>
+            } @else {
+              <div class="requirements-waiting">
+                <div class="requirements-waiting__top">
+                  <div class="requirements-waiting__icon">
+                    <app-gestion-icon tipo="proceso" />
+                  </div>
+
+                  <div>
+                    <strong>
+                      Requisitos aún no consultados
+                    </strong>
+
+                    <p>
+                      Completa los datos de la izquierda y selecciona
+                      <b>Consultar requisitos</b>.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="readiness-list">
+                  <div
+                    class="readiness-item"
+                    [class.readiness-item--complete]="contactoCompleto()"
+                  >
+                    <span class="readiness-item__state">
+                      {{ contactoCompleto() ? '✓' : '1' }}
+                    </span>
+
+                    <div>
+                      <strong>Datos de contacto</strong>
+
+                      <span>
+                        Nombre, teléfono y correo.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    class="readiness-item"
+                    [class.readiness-item--complete]="perfilCompleto()"
+                  >
+                    <span class="readiness-item__state">
+                      {{ perfilCompleto() ? '✓' : '2' }}
+                    </span>
+
+                    <div>
+                      <strong>Información académica</strong>
+
+                      <span>
+                        Área, carrera y documento de identidad.
+                      </span>
+                    </div>
+                  </div>
+
+                  @if (camposSolicitados().length) {
+                    <div
+                      class="readiness-item"
+                      [class.readiness-item--complete]="camposAdicionalesCompletos()"
+                    >
+                      <span class="readiness-item__state">
+                        {{ camposAdicionalesCompletos() ? '✓' : '3' }}
+                      </span>
+
+                      <div>
+                        <strong>Datos adicionales</strong>
+
+                        <span>
+                          Información específica requerida para este trámite.
+                        </span>
+                      </div>
+                    </div>
+                  }
+                </div>
+
+                @if (formularioCompleto()) {
+                  <div class="requirements-waiting__ready">
+                    <span>✓</span>
+
+                    Los datos están completos. Ya puedes consultar los requisitos.
+                  </div>
+                } @else {
+                  <div class="requirements-waiting__hint">
+                    Los requisitos aparecerán aquí antes de que registres la solicitud.
+                  </div>
+                }
+              </div>
+            }
+          </section>
+        </div>
+      }
+    </div>
+  } @else if (error()) {
+    <p class="error" role="alert">
+      {{ error() }}
+    </p>
+  } @else {
+    <p role="status">
+      Cargando…
+    </p>
+  }
+}

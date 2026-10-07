@@ -21,6 +21,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from sqlalchemy import ForeignKeyConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from app.db.base import Base
 
 if TYPE_CHECKING:
@@ -35,6 +37,14 @@ if TYPE_CHECKING:
 
 class SolicitudRequisito(Base):
     __tablename__ = "solicitud_requisito"
+
+    id_solicitud_etapa: Mapped[int | None] = mapped_column(BigInteger)
+    requiere_presentacion_fisica: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    presentado: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    fecha_presentacion: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    id_usuario_presentacion: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("usuario.id_usuario", ondelete="RESTRICT"))
+    condicion_snapshot: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))
+
 
     id_solicitud_requisito: Mapped[int] = mapped_column(
         BigInteger,
@@ -179,6 +189,13 @@ class SolicitudRequisito(Base):
     )
 
     __table_args__ = (
+        ForeignKeyConstraint(["id_solicitud", "id_solicitud_etapa"], ["solicitud_etapa.id_solicitud", "solicitud_etapa.id_solicitud_etapa"], name="fk_solicitud_requisito_etapa"),
+        UniqueConstraint("id_solicitud", "id_solicitud_requisito", name="uq_solicitud_requisito_pertenencia"),
+        Index("idx_solicitud_requisito_etapa", "id_solicitud_etapa"),
+        CheckConstraint("""(NOT presentado AND fecha_presentacion IS NULL AND id_usuario_presentacion IS NULL)
+            OR (presentado AND requiere_presentacion_fisica AND fecha_presentacion IS NOT NULL
+            AND id_usuario_presentacion IS NOT NULL AND fecha_presentacion >= fecha_creacion)""", name="ck_solicitud_requisito_presentacion"),
+
         UniqueConstraint(
             "id_solicitud",
             "id_requisito_origen",

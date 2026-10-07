@@ -1,92 +1,352 @@
 <div class="chat-mode-layout">
+
   <div class="chat-topbar">
-    <button class="clear-chat-button" (click)="onClear()">
-      <ng-icon name="heroTrash"></ng-icon>
-      <span>Nueva conversación</span>
+
+    <button
+      type="button"
+      class="clear-chat-button"
+      (click)="onClear()"
+    >
+
+      <ng-icon
+        name="heroTrash"
+      >
+      </ng-icon>
+
+      <span>
+        Nueva conversación
+      </span>
+
     </button>
+
   </div>
+
 
   <div class="chat-thread">
+
     <div
       class="message"
-      *ngFor="let message of messages; trackBy: trackByMessageId"
-      [class.user-message]="message.role === 'user'"
-      [class.assistant-message]="message.role === 'assistant'"
-      [class.loading-message]="message.status === 'loading'"
-      [class.error-message]="message.status === 'error'"
+      *ngFor="
+        let message
+        of messages;
+        trackBy: trackByMessageId
+      "
+      [class.user-message]="
+        message.role === 'user'
+      "
+      [class.assistant-message]="
+        message.role === 'assistant'
+      "
+      [class.loading-message]="
+        message.status === 'loading'
+      "
+      [class.error-message]="
+        message.status === 'error'
+      "
     >
-      <div class="message-bubble">
-        <div class="message-role" *ngIf="message.role === 'assistant'">
-          Asistente académico
+
+      <!-- =================================================
+           USUARIO
+           ================================================= -->
+
+      <div
+        *ngIf="
+          message.role === 'user'
+        "
+        class="user-message-wrap"
+      >
+
+        <div class="user-message-bubble">
+
+          <div class="message-content">
+
+            {{ message.content }}
+
+          </div>
+
+
+          <div class="user-message-time">
+
+            {{
+              message.createdAt
+                | date:'HH:mm'
+            }}
+
+          </div>
+
         </div>
 
-        <div class="message-content">
-          {{ message.content }}
+      </div>
+
+
+      <!-- =================================================
+           ASISTENTE
+           ================================================= -->
+
+      <div
+        *ngIf="
+          message.role === 'assistant'
+        "
+        class="assistant-message-wrap"
+      >
+
+        <div class="assistant-heading">
+
+          <span class="assistant-label">
+            Asistente académico
+          </span>
+
+
+          <span class="assistant-time">
+
+            {{
+              message.createdAt
+                | date:'HH:mm'
+            }}
+
+          </span>
+
         </div>
+
+
+        <div class="assistant-response">
+
+          <div class="message-content">
+
+            {{ message.content }}
+
+          </div>
+
+
+          <!-- ===============================================
+               FUENTE
+               =============================================== -->
+
+          <div
+            class="message-source-inline"
+            *ngIf="
+              message.sources &&
+              message.sources.length > 0 &&
+              getPrimarySource(message) as primary
+            "
+          >
+
+            <span class="source-inline-label">
+              Fuente:
+            </span>
+
+
+            <span class="source-inline-document">
+
+              {{ primary.document }}
+
+            </span>
+
+
+            <span
+              class="source-inline-meta"
+              *ngIf="
+                primary.page !== null ||
+                primary.article_number
+              "
+            >
+
+              <span
+                *ngIf="
+                  primary.page !== null
+                "
+              >
+
+                · Pág. {{ primary.page }}
+
+              </span>
+
+
+              <span
+                *ngIf="
+                  primary.article_number
+                "
+              >
+
+                · {{ primary.article_number }}
+
+              </span>
+
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <!-- =================================================
+             ACCIONES
+             ================================================= -->
 
         <div
-          class="message-sources compact"
-          *ngIf="message.role === 'assistant' && message.sources && message.sources.length > 0"
+          class="assistant-actions"
+          *ngIf="
+            message.status === 'done'
+          "
         >
-          <div class="source-summary-card" *ngIf="getPrimarySource(message) as primary">
-            <div class="source-summary-label">Fuente principal</div>
-            <div class="source-summary-main">
-              {{ primary.document }}
-            </div>
-            <div class="source-summary-meta">
-              <span *ngIf="primary.page !== null">Pág. {{ primary.page }}</span>
-              <span *ngIf="primary.article_number">· {{ primary.article_number }}</span>
-            </div>
-          </div>
+
+          <!-- LIKE -->
 
           <button
-            class="toggle-sources-button"
-            *ngIf="getAdditionalSourcesCount(message) > 0"
-            (click)="onToggleSources(message.id)"
+            *ngIf="message.messageId"
+            type="button"
+            class="message-action"
+            [class.message-action--active-positive]="
+              message.feedbackRating === 1
+            "
+            [disabled]="
+              message.feedbackLoading
+            "
+            [attr.aria-pressed]="
+              message.feedbackRating === 1
+            "
+            aria-label="Me gusta"
+            title="Me gusta"
+            (click)="
+              onFeedback(
+                message,
+                1
+              )
+            "
           >
+
             <ng-icon
-              [name]="message.sourcesExpanded ? 'heroChevronUp' : 'heroChevronDown'"
-            ></ng-icon>
-            <span>
-              {{
-                message.sourcesExpanded
-                  ? 'Ocultar fuentes adicionales'
-                  : '+' + getAdditionalSourcesCount(message) + ' fuentes adicionales'
-              }}
-            </span>
+              name="heroHandThumbUp"
+            >
+            </ng-icon>
+
           </button>
 
-          <div class="sources-grid" *ngIf="message.sourcesExpanded">
-            <div class="source-card" *ngFor="let source of getAdditionalSources(message)">
-              <div><strong>Documento:</strong> {{ source.document }}</div>
-              <div *ngIf="source.page !== null"><strong>Página:</strong> {{ source.page }}</div>
-              <div *ngIf="source.article_number"><strong>Artículo:</strong> {{ source.article_number }}</div>
-              <div *ngIf="source.section"><strong>Sección:</strong> {{ source.section }}</div>
-              <div *ngIf="source.subsection"><strong>Subsección:</strong> {{ source.subsection }}</div>
-            </div>
-          </div>
+
+          <!-- DISLIKE -->
+
+          <button
+            *ngIf="message.messageId"
+            type="button"
+            class="message-action"
+            [class.message-action--active-negative]="
+              message.feedbackRating === -1
+            "
+            [disabled]="
+              message.feedbackLoading
+            "
+            [attr.aria-pressed]="
+              message.feedbackRating === -1
+            "
+            aria-label="No me gusta"
+            title="No me gusta"
+            (click)="
+              onFeedback(
+                message,
+                -1
+              )
+            "
+          >
+
+            <ng-icon
+              name="heroHandThumbDown"
+            >
+            </ng-icon>
+
+          </button>
+
+
+          <!-- COPIAR -->
+
+          <button
+            type="button"
+            class="
+              message-action
+              message-action-copy
+            "
+            aria-label="Copiar respuesta"
+            title="Copiar respuesta"
+            (click)="
+              copyResponse(
+                message.content
+              )
+            "
+          >
+
+            <ng-icon
+              name="heroDocumentDuplicate"
+            >
+            </ng-icon>
+
+            <span>
+              Copiar texto
+            </span>
+
+          </button>
+
         </div>
 
-        <div class="message-time">
-          {{ message.createdAt | date:'HH:mm' }}
-        </div>
       </div>
+
     </div>
+
   </div>
 
+
+  <!-- =====================================================
+       COMPOSITOR
+       ===================================================== -->
+
   <div class="chat-composer-wrap">
-    <div class="composer composer-bottom">
+
+    <div
+      class="
+        composer
+        composer-bottom
+      "
+      (click)="
+        chatInput.focus()
+      "
+    >
+
       <input
+        #chatInput
         type="text"
         placeholder="Escribe tu consulta aquí..."
         [ngModel]="question"
-        (ngModelChange)="onQuestionChange($event)"
-        (keyup.enter)="onSubmit()"
+        (ngModelChange)="
+          onQuestionChange(
+            $event
+          )
+        "
+        (keyup.enter)="
+          onSubmit()
+        "
+        aria-label="Escribe tu consulta"
       />
 
-      <button class="composer-send" (click)="onSubmit()" [disabled]="loading">
-        <ng-icon name="heroPaperAirplane" class="send-icon"></ng-icon>
+
+      <button
+        type="button"
+        class="composer-send"
+        aria-label="Enviar consulta"
+        [disabled]="loading"
+        (click)="
+          $event.stopPropagation();
+          onSubmit()
+        "
+      >
+
+        <ng-icon
+          name="heroPaperAirplane"
+          class="send-icon"
+        >
+        </ng-icon>
+
       </button>
+
     </div>
+
   </div>
+
 </div>

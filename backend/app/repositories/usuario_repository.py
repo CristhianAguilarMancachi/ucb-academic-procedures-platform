@@ -2,11 +2,26 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import (
+    func,
+    select,
+)
+
+from sqlalchemy.orm import (
+    Session,
+    selectinload,
+)
 
 from app.models.usuario import Usuario
-from app.models.usuario_rol import UsuarioRol
+
+from app.models.usuario_rol import (
+    UsuarioRol,
+)
+
+
+# ============================================================
+# CREACIÓN
+# ============================================================
 
 
 def crear_usuario(
@@ -20,6 +35,9 @@ def crear_usuario(
     """
     Crea una cuenta de usuario y deja la transacción pendiente
     de confirmación por parte del servicio.
+
+    El teléfono no es obligatorio durante el registro inicial.
+    Puede completarse posteriormente desde el perfil.
     """
     usuario = Usuario(
         nombres=nombres,
@@ -28,21 +46,43 @@ def crear_usuario(
         estado=estado,
     )
 
-    db.add(usuario)
+    db.add(
+        usuario
+    )
+
     db.flush()
-    db.refresh(usuario)
+
+    db.refresh(
+        usuario
+    )
 
     return usuario
+
+
+# ============================================================
+# CONSULTA POR ID
+# ============================================================
 
 
 def obtener_usuario_por_id(
     db: Session,
     id_usuario: int,
+    *,
+    bloquear: bool = False,
 ) -> Usuario | None:
     """
     Obtiene un usuario sin cargar relaciones adicionales.
     """
-    return db.get(Usuario, id_usuario)
+    return db.get(
+        Usuario,
+        id_usuario,
+        with_for_update=(
+            bloquear
+        ),
+        populate_existing=(
+            bloquear
+        ),
+    )
 
 
 def obtener_usuario_por_id_completo(
@@ -51,28 +91,49 @@ def obtener_usuario_por_id_completo(
 ) -> Usuario | None:
     """
     Obtiene una cuenta con correos, roles y sesiones.
+
+    usuario_correo puede conservar registros históricos,
+    aunque la base de datos permite únicamente un correo
+    activo por usuario.
     """
     consulta = (
-        select(Usuario)
+        select(
+            Usuario
+        )
         .where(
-            Usuario.id_usuario == id_usuario,
+            Usuario.id_usuario
+            == id_usuario,
         )
         .options(
             selectinload(
                 Usuario.correos,
             ),
+
             selectinload(
-                Usuario.asignaciones_rol,
+                Usuario
+                .asignaciones_rol,
             ).selectinload(
                 UsuarioRol.rol,
             ),
+
             selectinload(
                 Usuario.sesiones,
             ),
         )
     )
 
-    return db.scalars(consulta).one_or_none()
+    return (
+        db
+        .scalars(
+            consulta
+        )
+        .one_or_none()
+    )
+
+
+# ============================================================
+# CONSULTA POR CORREO
+# ============================================================
 
 
 def obtener_usuario_por_correo(
@@ -82,43 +143,73 @@ def obtener_usuario_por_correo(
     solo_correo_activo: bool = True,
 ) -> Usuario | None:
     """
-    Busca una cuenta mediante cualquiera de sus correos.
+    Busca una cuenta mediante su correo.
 
     La comparación no distingue mayúsculas porque PostgreSQL
     utiliza CITEXT en usuario_correo.correo.
     """
-    from app.models.usuario_correo import UsuarioCorreo
+    from app.models.usuario_correo import (
+        UsuarioCorreo,
+    )
 
     consulta = (
-        select(Usuario)
+        select(
+            Usuario
+        )
         .join(
             UsuarioCorreo,
-            UsuarioCorreo.id_usuario == Usuario.id_usuario,
+            UsuarioCorreo.id_usuario
+            == Usuario.id_usuario,
         )
         .where(
-            UsuarioCorreo.correo == correo.strip(),
+            UsuarioCorreo.correo
+            == correo.strip(),
         )
         .options(
             selectinload(
                 Usuario.correos,
             ),
+
             selectinload(
-                Usuario.asignaciones_rol,
+                Usuario
+                .asignaciones_rol,
             ).selectinload(
                 UsuarioRol.rol,
             ),
+
             selectinload(
                 Usuario.sesiones,
             ),
         )
     )
 
+
     if solo_correo_activo:
-        consulta = consulta.where(
-            UsuarioCorreo.activo.is_(True),
+        consulta = (
+            consulta
+            .where(
+                UsuarioCorreo
+                .activo
+                .is_(
+                    True
+                ),
+            )
         )
 
-    return db.scalars(consulta).unique().one_or_none()
+
+    return (
+        db
+        .scalars(
+            consulta
+        )
+        .unique()
+        .one_or_none()
+    )
+
+
+# ============================================================
+# EXISTENCIA
+# ============================================================
 
 
 def existe_usuario(
@@ -129,14 +220,26 @@ def existe_usuario(
     Indica si existe una cuenta con el identificador recibido.
     """
     consulta = select(
-        select(Usuario.id_usuario)
+        select(
+            Usuario.id_usuario
+        )
         .where(
-            Usuario.id_usuario == id_usuario,
+            Usuario.id_usuario
+            == id_usuario,
         )
         .exists()
     )
 
-    return bool(db.scalar(consulta))
+    return bool(
+        db.scalar(
+            consulta
+        )
+    )
+
+
+# ============================================================
+# LISTADO ADMINISTRATIVO
+# ============================================================
 
 
 def listar_usuarios(
@@ -146,31 +249,55 @@ def listar_usuarios(
     por_pagina: int = 20,
     estado: str | None = None,
     texto_busqueda: str | None = None,
-) -> tuple[Sequence[Usuario], int]:
+) -> tuple[
+    Sequence[Usuario],
+    int,
+]:
     """
     Devuelve usuarios paginados y el total de coincidencias.
 
     Permite filtrar por estado y buscar por nombres,
     apellidos o correo.
     """
-    from app.models.usuario_correo import UsuarioCorreo
+    from app.models.usuario_correo import (
+        UsuarioCorreo,
+    )
 
-    pagina = max(pagina, 1)
-    por_pagina = min(max(por_pagina, 1), 100)
+
+    pagina = max(
+        pagina,
+        1,
+    )
+
+    por_pagina = min(
+        max(
+            por_pagina,
+            1,
+        ),
+        100,
+    )
+
 
     filtros = []
 
+
     if estado is not None:
         filtros.append(
-            Usuario.estado == estado,
+            Usuario.estado
+            == estado,
         )
+
 
     consulta_ids = select(
         Usuario.id_usuario,
     )
 
+
     if texto_busqueda:
-        patron = f"%{texto_busqueda.strip()}%"
+
+        patron = (
+            f"%{texto_busqueda.strip()}%"
+        )
 
         consulta_ids = (
             consulta_ids
@@ -180,56 +307,109 @@ def listar_usuarios(
                 == Usuario.id_usuario,
             )
             .where(
-                Usuario.nombres.ilike(patron)
-                | Usuario.apellidos.ilike(patron)
-                | UsuarioCorreo.correo.ilike(patron)
+                Usuario.nombres.ilike(
+                    patron
+                )
+                | Usuario.apellidos.ilike(
+                    patron
+                )
+                | UsuarioCorreo.correo.ilike(
+                    patron
+                )
             )
             .distinct()
         )
 
+
     if filtros:
-        consulta_ids = consulta_ids.where(*filtros)
+        consulta_ids = (
+            consulta_ids
+            .where(
+                *filtros
+            )
+        )
 
-    subconsulta_ids = consulta_ids.subquery()
 
-    total = db.scalar(
-        select(func.count())
-        .select_from(subconsulta_ids)
-    ) or 0
+    subconsulta_ids = (
+        consulta_ids
+        .subquery()
+    )
+
+
+    total = (
+        db.scalar(
+            select(
+                func.count()
+            )
+            .select_from(
+                subconsulta_ids
+            )
+        )
+        or 0
+    )
+
 
     consulta_usuarios = (
-        select(Usuario)
+        select(
+            Usuario
+        )
         .join(
             subconsulta_ids,
-            subconsulta_ids.c.id_usuario
+            subconsulta_ids
+            .c
+            .id_usuario
             == Usuario.id_usuario,
         )
         .options(
             selectinload(
                 Usuario.correos,
             ),
+
             selectinload(
-                Usuario.asignaciones_rol,
+                Usuario
+                .asignaciones_rol,
             ).selectinload(
                 UsuarioRol.rol,
             ),
         )
         .order_by(
-            Usuario.fecha_creacion.desc(),
+            Usuario
+            .fecha_creacion
+            .desc(),
         )
         .offset(
-            (pagina - 1) * por_pagina,
+            (
+                pagina - 1
+            )
+            * por_pagina
         )
         .limit(
-            por_pagina,
+            por_pagina
         )
     )
 
-    usuarios = db.scalars(
-        consulta_usuarios
-    ).unique().all()
 
-    return usuarios, int(total)
+    usuarios = (
+        db
+        .scalars(
+            consulta_usuarios
+        )
+        .unique()
+        .all()
+    )
+
+
+    return (
+        usuarios,
+        int(
+            total
+        ),
+    )
+
+
+# ============================================================
+# ACTUALIZACIÓN DE DATOS PERSONALES
+# ============================================================
 
 
 def actualizar_datos_usuario(
@@ -238,20 +418,57 @@ def actualizar_datos_usuario(
     *,
     nombres: str | None = None,
     apellidos: str | None = None,
+    telefono: str | None = None,
+    actualizar_telefono: bool = False,
 ) -> Usuario:
     """
-    Actualiza nombres y apellidos de una cuenta.
+    Actualiza los datos personales de una cuenta.
+
+    actualizar_telefono permite distinguir entre:
+
+        telefono omitido
+            -> conservar el valor actual;
+
+        telefono=None + actualizar_telefono=True
+            -> eliminar el teléfono;
+
+        telefono="71234567" + actualizar_telefono=True
+            -> actualizarlo.
+
+    Esta distinción es necesaria porque telefono es opcional.
     """
+
     if nombres is not None:
-        usuario.nombres = nombres
+        usuario.nombres = (
+            nombres
+        )
+
 
     if apellidos is not None:
-        usuario.apellidos = apellidos
+        usuario.apellidos = (
+            apellidos
+        )
+
+
+    if actualizar_telefono:
+        usuario.telefono = (
+            telefono
+        )
+
 
     db.flush()
-    db.refresh(usuario)
+
+    db.refresh(
+        usuario
+    )
+
 
     return usuario
+
+
+# ============================================================
+# ESTADO
+# ============================================================
 
 
 def actualizar_estado_usuario(
@@ -263,12 +480,22 @@ def actualizar_estado_usuario(
     """
     Modifica el estado de una cuenta.
     """
-    usuario.estado = estado
+    usuario.estado = (
+        estado
+    )
 
     db.flush()
-    db.refresh(usuario)
+
+    db.refresh(
+        usuario
+    )
 
     return usuario
+
+
+# ============================================================
+# CONTRASEÑA
+# ============================================================
 
 
 def actualizar_contrasena(
@@ -280,12 +507,22 @@ def actualizar_contrasena(
     """
     Sustituye el hash de contraseña de una cuenta.
     """
-    usuario.contrasena_hash = contrasena_hash
+    usuario.contrasena_hash = (
+        contrasena_hash
+    )
 
     db.flush()
-    db.refresh(usuario)
+
+    db.refresh(
+        usuario
+    )
 
     return usuario
+
+
+# ============================================================
+# ÚLTIMO ACCESO
+# ============================================================
 
 
 def actualizar_ultimo_acceso(
@@ -297,8 +534,35 @@ def actualizar_ultimo_acceso(
     """
     Registra la fecha del último inicio de sesión exitoso.
     """
-    usuario.fecha_ultimo_acceso = fecha_ultimo_acceso
+    usuario.fecha_ultimo_acceso = (
+        fecha_ultimo_acceso
+    )
 
     db.flush()
 
     return usuario
+
+
+# ============================================================
+# VERIFICACIÓN DEL CORREO
+# ============================================================
+
+
+def tiene_correo_principal_verificado(
+    usuario: Usuario,
+) -> bool:
+    """
+    Condición compartida de acceso y activación de una cuenta.
+
+    Aunque puedan existir registros históricos de correo,
+    únicamente se considera el correo principal activo.
+    """
+    correo = (
+        usuario
+        .correo_principal
+    )
+
+    return (
+        correo is not None
+        and correo.verificado
+    )

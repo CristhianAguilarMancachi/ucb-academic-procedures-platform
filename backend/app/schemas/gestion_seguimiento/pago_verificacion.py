@@ -20,6 +20,8 @@ class PagoApiValidarRequest(BaseModel):
     externa de pagos/facturación.
     """
 
+    documento_identidad: str = Field(min_length=3, max_length=50)
+
     codigo: str = Field(
         min_length=1,
         max_length=100,
@@ -30,7 +32,7 @@ class PagoApiValidarRequest(BaseModel):
         max_length=150,
     )
 
-    @field_validator("codigo", "numero_factura")
+    @field_validator("codigo", "numero_factura", "documento_identidad")
     @classmethod
     def normalizar_texto(cls, valor: str) -> str:
         valor_normalizado = valor.strip()
@@ -53,6 +55,8 @@ class PagoApiRespuesta(BaseModel):
     pago_api_client.py será responsable de traducirlos a
     esta estructura.
     """
+
+    documento_identidad: str | None = None
 
     encontrada: bool
 

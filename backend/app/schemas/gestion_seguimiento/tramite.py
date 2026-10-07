@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
+from app.schemas.gestion_seguimiento.seguimiento import TipoFinalizacion, CondicionRequisito
 
 from pydantic import (
     BaseModel,
@@ -13,6 +14,13 @@ from pydantic import (
 
 
 class TramiteBase(BaseModel):
+    tiempo_estimado: str | None = Field(default=None, max_length=1000)
+    canales_atencion: str | None = Field(default=None, max_length=2000)
+    instrucciones: str | None = Field(default=None, max_length=5000)
+    condiciones: str | None = Field(default=None, max_length=5000)
+    tipo_finalizacion: TipoFinalizacion | None = None
+
+
     """
     Información general reutilizable de un trámite académico.
     """
@@ -63,6 +71,13 @@ class TramiteCrearRequest(TramiteBase):
 
 
 class TramiteActualizarRequest(BaseModel):
+    tiempo_estimado: str | None = Field(default=None, max_length=1000)
+    canales_atencion: str | None = Field(default=None, max_length=2000)
+    instrucciones: str | None = Field(default=None, max_length=5000)
+    condiciones: str | None = Field(default=None, max_length=5000)
+    tipo_finalizacion: TipoFinalizacion | None = None
+
+
     """
     Permite modificar la configuración general de un trámite.
     """
@@ -112,6 +127,13 @@ class TramiteActualizarRequest(BaseModel):
 
 
 class TramiteResumenResponse(BaseModel):
+    tiempo_estimado: str | None = Field(default=None, max_length=1000)
+    canales_atencion: str | None = Field(default=None, max_length=2000)
+    instrucciones: str | None = Field(default=None, max_length=5000)
+    condiciones: str | None = Field(default=None, max_length=5000)
+    tipo_finalizacion: TipoFinalizacion | None = None
+
+
     """
     Información resumida utilizada para mostrar el catálogo.
     """
@@ -155,6 +177,10 @@ class TramiteCatalogoEconomicoResponse(BaseModel):
 
 
 class TramiteCatalogoRequisitoResponse(BaseModel):
+    es_inicial: bool = True
+    requiere_presentacion_fisica: bool = False
+    condicion: CondicionRequisito | None = None
+
     """
     Requisito activo visible para el solicitante.
     """
@@ -194,6 +220,14 @@ class TramiteCatalogoCampoResponse(BaseModel):
 
 
 class TramiteCatalogoDetalleResponse(BaseModel):
+    tiempo_estimado: str | None = Field(default=None, max_length=1000)
+    canales_atencion: str | None = Field(default=None, max_length=2000)
+    instrucciones: str | None = Field(default=None, max_length=5000)
+    condiciones: str | None = Field(default=None, max_length=5000)
+    tipo_finalizacion: TipoFinalizacion | None = None
+
+    pasos: list[str] = Field(default_factory=list)
+
     """
     Detalle visible de un trámite publicado.
 

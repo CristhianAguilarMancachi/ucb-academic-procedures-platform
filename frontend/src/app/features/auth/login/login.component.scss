@@ -1,0 +1,49 @@
+:host {
+  display: block;
+}
+
+
+// ============================================================
+// OLVIDÓ SU CONTRASEÑA
+// ============================================================
+
+.auth-options {
+  justify-content: flex-end;
+}
+
+
+// ============================================================
+// GOOGLE IDENTITY SERVICES
+// ============================================================
+
+.auth-google-container {
+  display: flex;
+
+  width: 100%;
+
+  min-height: 44px;
+
+  align-items: center;
+  justify-content: center;
+}
+
+
+.auth-google-container > div {
+  width: 100% !important;
+}
+
+
+.auth-google-container iframe {
+  max-width: 100%;
+}
+
+
+// ============================================================
+// ESTADO DE CARGA
+// ============================================================
+
+.auth-google-container[aria-busy='true'] {
+  pointer-events: none;
+
+  opacity: 0.7;
+}

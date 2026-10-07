@@ -14,6 +14,7 @@ from app.repositories.usuario_repository import (
     listar_usuarios,
     obtener_usuario_por_id,
     obtener_usuario_por_id_completo,
+    tiene_correo_principal_verificado,
 )
 from app.schemas.usuario import (
     ListaUsuariosResponse,
@@ -58,7 +59,14 @@ ESTADOS_USUARIO_VALIDOS = {
 }
 
 
-def _obtener_roles_activos(usuario: Usuario) -> list:
+# ============================================================
+# UTILIDADES
+# ============================================================
+
+
+def _obtener_roles_activos(
+    usuario: Usuario,
+) -> list:
     """
     Obtiene los modelos Rol correspondientes a las
     asignaciones activas del usuario.
@@ -80,18 +88,36 @@ def construir_usuario_autenticado(
 ) -> UsuarioAutenticadoResponse:
     """
     Construye la respuesta segura del perfil del usuario.
+
+    Nunca expone contrasena_hash.
+
+    El correo continúa viniendo desde usuario_correo porque
+    mantiene su flujo independiente de verificación, aunque la
+    base de datos permita solamente un correo activo por cuenta.
     """
     return UsuarioAutenticadoResponse(
         id_usuario=usuario.id_usuario,
         nombres=usuario.nombres,
         apellidos=usuario.apellidos,
+        telefono=usuario.telefono,
         estado=usuario.estado,
         fecha_ultimo_acceso=usuario.fecha_ultimo_acceso,
         fecha_creacion=usuario.fecha_creacion,
         fecha_actualizacion=usuario.fecha_actualizacion,
+        tiene_contrasena=(
+            usuario.contrasena_hash
+            is not None
+        ),
         correos=usuario.correos,
-        roles=_obtener_roles_activos(usuario),
+        roles=_obtener_roles_activos(
+            usuario,
+        ),
     )
+
+
+# ============================================================
+# PERFIL DEL USUARIO
+# ============================================================
 
 
 def obtener_perfil_usuario(
@@ -112,7 +138,9 @@ def obtener_perfil_usuario(
             "No se encontró el usuario."
         )
 
-    return construir_usuario_autenticado(usuario)
+    return construir_usuario_autenticado(
+        usuario
+    )
 
 
 def actualizar_perfil_usuario(
@@ -121,13 +149,36 @@ def actualizar_perfil_usuario(
     usuario: Usuario,
     nombres: str | None = None,
     apellidos: str | None = None,
+    telefono: str | None = None,
+    actualizar_telefono: bool = False,
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> UsuarioAutenticadoResponse:
     """
-    Actualiza los nombres y apellidos del usuario autenticado.
+    Actualiza los datos personales básicos del usuario:
+
+        - nombres;
+        - apellidos;
+        - teléfono.
+
+    El correo no se modifica desde este flujo.
+
+    actualizar_telefono permite diferenciar entre:
+
+        campo omitido:
+            conservar el teléfono actual;
+
+        telefono=null:
+            eliminar el teléfono registrado;
+
+        telefono="71234567":
+            guardar el nuevo número.
     """
-    if nombres is None and apellidos is None:
+    if (
+        nombres is None
+        and apellidos is None
+        and not actualizar_telefono
+    ):
         raise ActualizacionUsuarioVaciaError(
             "Debe indicarse al menos un dato para actualizar."
         )
@@ -138,6 +189,8 @@ def actualizar_perfil_usuario(
             usuario,
             nombres=nombres,
             apellidos=apellidos,
+            telefono=telefono,
+            actualizar_telefono=actualizar_telefono,
         )
 
         registrar_accion_simple(
@@ -148,8 +201,15 @@ def actualizar_perfil_usuario(
             entidad="usuario",
             id_entidad=usuario.id_usuario,
             detalle={
-                "nombres_actualizados": nombres is not None,
-                "apellidos_actualizados": apellidos is not None,
+                "nombres_actualizados": (
+                    nombres is not None
+                ),
+                "apellidos_actualizados": (
+                    apellidos is not None
+                ),
+                "telefono_actualizado": (
+                    actualizar_telefono
+                ),
             },
             direccion_ip=direccion_ip,
             user_agent=user_agent,
@@ -157,9 +217,11 @@ def actualizar_perfil_usuario(
 
         db.commit()
 
-        usuario_actualizado = obtener_usuario_por_id_completo(
-            db,
-            usuario.id_usuario,
+        usuario_actualizado = (
+            obtener_usuario_por_id_completo(
+                db,
+                usuario.id_usuario,
+            )
         )
 
         if usuario_actualizado is None:
@@ -174,6 +236,11 @@ def actualizar_perfil_usuario(
     except Exception:
         db.rollback()
         raise
+
+
+# ============================================================
+# ADMINISTRACIÓN
+# ============================================================
 
 
 def obtener_usuario_administracion(
@@ -205,13 +272,22 @@ def obtener_usuario_administracion(
         id_usuario=usuario.id_usuario,
         nombres=usuario.nombres,
         apellidos=usuario.apellidos,
+        telefono=usuario.telefono,
         estado=usuario.estado,
-        fecha_ultimo_acceso=usuario.fecha_ultimo_acceso,
+        fecha_ultimo_acceso=(
+            usuario.fecha_ultimo_acceso
+        ),
         fecha_creacion=usuario.fecha_creacion,
-        fecha_actualizacion=usuario.fecha_actualizacion,
+        fecha_actualizacion=(
+            usuario.fecha_actualizacion
+        ),
         correos=usuario.correos,
-        roles=_obtener_roles_activos(usuario),
-        cantidad_sesiones_activas=cantidad_sesiones,
+        roles=_obtener_roles_activos(
+            usuario,
+        ),
+        cantidad_sesiones_activas=(
+            cantidad_sesiones
+        ),
     )
 
 
@@ -228,7 +304,8 @@ def listar_usuarios_administracion(
     """
     if (
         estado is not None
-        and estado not in ESTADOS_USUARIO_VALIDOS
+        and estado
+        not in ESTADOS_USUARIO_VALIDOS
     ):
         raise EstadoUsuarioInvalidoError(
             "El estado de usuario no es válido."
@@ -243,7 +320,9 @@ def listar_usuarios_administracion(
     )
 
     items = [
-        UsuarioResumenResponse.model_validate(usuario)
+        UsuarioResumenResponse.model_validate(
+            usuario
+        )
         for usuario in usuarios
     ]
 
@@ -271,7 +350,10 @@ def cambiar_estado_usuario(
     Cuando una cuenta se bloquea o desactiva, se revocan
     todas sus sesiones activas.
     """
-    if nuevo_estado not in ESTADOS_USUARIO_VALIDOS:
+    if (
+        nuevo_estado
+        not in ESTADOS_USUARIO_VALIDOS
+    ):
         raise EstadoUsuarioInvalidoError(
             "El estado de usuario no es válido."
         )
@@ -279,11 +361,25 @@ def cambiar_estado_usuario(
     usuario = obtener_usuario_por_id(
         db,
         id_usuario,
+        bloquear=True,
     )
 
     if usuario is None:
         raise UsuarioNoEncontradoError(
             "El usuario indicado no existe."
+        )
+
+    if (
+        nuevo_estado == "activo"
+        and not tiene_correo_principal_verificado(
+            usuario
+        )
+    ):
+        db.rollback()
+
+        raise EstadoUsuarioInvalidoError(
+            "El correo principal debe estar verificado "
+            "antes de activar la cuenta."
         )
 
     estado_anterior = usuario.estado
@@ -301,13 +397,15 @@ def cambiar_estado_usuario(
             "bloqueado",
             "inactivo",
         }:
-            sesiones_revocadas = revocar_sesiones_usuario(
-                db,
-                id_usuario=id_usuario,
-                fecha_revocacion=utc_now(),
-                motivo_revocacion=(
-                    f"cuenta_{nuevo_estado}"
-                ),
+            sesiones_revocadas = (
+                revocar_sesiones_usuario(
+                    db,
+                    id_usuario=id_usuario,
+                    fecha_revocacion=utc_now(),
+                    motivo_revocacion=(
+                        f"cuenta_{nuevo_estado}"
+                    ),
+                )
             )
 
         registrar_accion_simple(
@@ -318,10 +416,16 @@ def cambiar_estado_usuario(
             entidad="usuario",
             id_entidad=id_usuario,
             detalle={
-                "estado_anterior": estado_anterior,
-                "estado_nuevo": nuevo_estado,
+                "estado_anterior": (
+                    estado_anterior
+                ),
+                "estado_nuevo": (
+                    nuevo_estado
+                ),
                 "motivo": motivo,
-                "sesiones_revocadas": sesiones_revocadas,
+                "sesiones_revocadas": (
+                    sesiones_revocadas
+                ),
             },
             direccion_ip=direccion_ip,
             user_agent=user_agent,

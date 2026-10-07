@@ -99,3 +99,6 @@ api_router.include_router(
     prefix="/rag",
     tags=["RAG"],
 )
+
+from app.api.routes.gestion_seguimiento.seguimiento import router as seguimiento_router
+api_router.include_router(seguimiento_router)

@@ -1,38 +1,22 @@
-import asyncio
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import CORS_ORIGINS
+from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
-from app.services.rag.embeddings import get_embedding_model
+from app.core.config import CORS_ORIGINS
+from app.services.gestion_seguimiento.seguimiento_service import (
+    SeguimientoError,
+)
 
 
-rag_ready = False
-
-
-def prepare_rag() -> None:
-    global rag_ready
-
-    try:
-        print("[STARTUP] Preparando modelo de embeddings...")
-        get_embedding_model()
-        rag_ready = True
-        print("[STARTUP] Módulo RAG preparado.")
-    except Exception as exc:
-        rag_ready = False
-        print(f"[STARTUP] No se pudo preparar el RAG: {exc}")
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    asyncio.create_task(
-        asyncio.to_thread(prepare_rag)
-    )
-
-    yield
-
+# ============================================================
+# APLICACIÓN FASTAPI
+# ============================================================
+#
+# El RAG ya no necesita cargar un modelo de embeddings local
+# durante el arranque. Jina AI se consume mediante API cuando
+# una operación necesita generar embeddings.
+# ============================================================
 
 app = FastAPI(
     title="UCB Academic Procedures Platform API",
@@ -41,8 +25,12 @@ app = FastAPI(
         "Backend para gestión de trámites académicos "
         "y módulo informativo RAG."
     ),
-    lifespan=lifespan,
 )
+
+
+# ============================================================
+# CORS
+# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,22 +40,56 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# ============================================================
+# RUTAS DE LA API
+# ============================================================
+
 app.include_router(
     api_router,
     prefix="/api",
 )
 
 
-@app.get("/health", tags=["Health"])
+# ============================================================
+# HEALTH CHECKS
+# ============================================================
+
+@app.get(
+    "/health",
+    tags=["Health"],
+)
 def health():
     return {
-        "status": "ok"
+        "status": "ok",
     }
 
 
-@app.get("/ready", tags=["Health"])
+@app.get(
+    "/ready",
+    tags=["Health"],
+)
 def ready():
     return {
-        "status": "ready" if rag_ready else "loading",
-        "rag_ready": rag_ready,
+        "status": "ready",
+        "rag_ready": True,
     }
+
+
+# ============================================================
+# MANEJO GLOBAL DE ERRORES DE SEGUIMIENTO
+# ============================================================
+
+@app.exception_handler(
+    SeguimientoError
+)
+async def error_seguimiento(
+    request,
+    exc: SeguimientoError,
+):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": str(exc),
+        },
+    )

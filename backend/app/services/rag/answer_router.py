@@ -1,134 +1,282 @@
+from __future__ import annotations
+
 import re
+import unicodedata
 
-from app.services.rag.response_builder import build_structured_response
+from app.services.rag.response_builder import (
+    ANSWER_STATUS_ANSWERED,
+    build_structured_response,
+)
 
 
-def detect_answer_intent(question: str) -> str:
-    q = question.lower()
+# ============================================================
+# NORMALIZACIÓN
+# ============================================================
 
-    if (
-        "qué pasa si" in q
-        or "que pasa si" in q
-        or "qué ocurre si" in q
-        or "que ocurre si" in q
-        or "qué sucede si" in q
-        or "que sucede si" in q
-        or "repruebo" in q
-        or "reprueba" in q
-        or "reprobé" in q
-        or "reprobe" in q
+def normalize_text(
+    text: str,
+) -> str:
+    normalized = (
+        text
+        .lower()
+        .strip()
+    )
+
+    normalized = unicodedata.normalize(
+        "NFD",
+        normalized,
+    )
+
+    normalized = "".join(
+        character
+        for character in normalized
+        if unicodedata.category(character) != "Mn"
+    )
+
+    normalized = re.sub(
+        r"\s+",
+        " ",
+        normalized,
+    )
+
+    return normalized
+
+
+# ============================================================
+# ELEGIBILIDAD:
+# EXCELENCIA + INHABILITACIONES
+# ============================================================
+
+def try_excellence_eligibility_answer(
+    question: str,
+    documents: list[str],
+) -> dict | None:
+    q = normalize_text(
+        question,
+    )
+
+    if "excelencia" not in q:
+        return None
+
+    has_inhabilitation_term = any(
+        term in q
+        for term in [
+            "inhabilitacion",
+            "inhabilitaciones",
+            "inhabilitado",
+            "inhabilitada",
+            "inhabilitados",
+            "inhabilitadas",
+        ]
+    )
+
+    if not has_inhabilitation_term:
+        return None
+
+    combined = normalize_text(
+        "\n".join(
+            documents,
+        )
+    )
+
+    has_negative_evidence = any(
+        evidence in combined
+        for evidence in [
+            "la respuesta es negativa",
+            "no pueden postular",
+            "no puede postular",
+        ]
+    )
+
+    has_failure_equivalence = (
+        "inhabilitaciones cuentan como reprobaciones"
+        in combined
+        or (
+            "inhabilitaciones" in combined
+            and "reprobaciones" in combined
+        )
+    )
+
+    if not (
+        has_negative_evidence
+        and has_failure_equivalence
     ):
-        return "consequence"
+        return None
 
-    if "qué modalidades" in q or "que modalidades" in q:
-        return "list_modalities"
+    return build_structured_response(
+        answer_type="eligibility",
+        answer_text=(
+            "No. Un estudiante con inhabilitaciones "
+            "no puede postular a la modalidad de "
+            "Graduación por Excelencia, ya que las "
+            "inhabilitaciones cuentan como reprobaciones."
+        ),
+        grounded=True,
+        status=ANSWER_STATUS_ANSWERED,
+    )
 
-    if "puede" in q or "puedo" in q or "se puede" in q or "es posible" in q:
-        return "eligibility"
 
-    if "correo" in q or "contact" in q or "beca" in q or "posgrado" in q or "exterior" in q:
-        return "contact"
+# ============================================================
+# MODALIDADES DE GRADUACIÓN
+# ============================================================
 
-    return "general"
+def try_graduation_modalities_answer(
+    question: str,
+    documents: list[str],
+) -> dict | None:
+    q = normalize_text(
+        question,
+    )
 
+    asks_modalities = (
+        "modalidades de graduacion" in q
+        or (
+            "modalidades" in q
+            and "graduacion" in q
+        )
+    )
 
-def try_intent_based_answer(question: str, documents: list[str]) -> dict | None:
-    q = question.lower()
-    intent = detect_answer_intent(question)
-    combined = "\n".join(documents)
+    if not asks_modalities:
+        return None
 
-    if intent == "consequence":
-        consequence_patterns = [
-            r"no existe otra oportunidad",
-            r"solo una vez por asignatura",
-            r"deber[aá]\s+volver\s+a\s+cursar\s+la\s+asignatura",
-            r"equivale\s+a\s+la\s+reprobaci[oó]n\s+de\s+la\s+asignatura",
-        ]
+    combined = normalize_text(
+        "\n".join(
+            documents,
+        )
+    )
 
-        matches = []
-        for pattern in consequence_patterns:
-            match = re.search(pattern, combined, re.IGNORECASE)
-            if match:
-                matches.append(match.group(0).strip())
+    modality_patterns: list[
+        tuple[str, str]
+    ] = [
+        (
+            "Graduación Directa",
+            r"\bgraduacion directa\b",
+        ),
+        (
+            "Monografía",
+            r"\bmonografia\b",
+        ),
+        (
+            "Proyecto de Grado Técnico",
+            r"\bproyecto de grado tecnico\b",
+        ),
+        (
+            "Pasantía",
+            r"\bpasantia\b",
+        ),
+        (
+            "Tesis de Grado",
+            r"\btesis de grado\b",
+        ),
+        (
+            "Proyecto de Grado",
+            r"\bproyecto de grado\b(?!\s+tecnico)",
+        ),
+        (
+            "Trabajo Dirigido",
+            r"\btrabajo dirigido\b",
+        ),
+        (
+            "Examen de Grado",
+            r"\bexamen de grado\b",
+        ),
+        (
+            "Graduación por Excelencia",
+            r"\bgraduacion por excelencia\b",
+        ),
+        (
+            "Graduación Vía Diplomado",
+            r"\bgraduacion via diplomado\b",
+        ),
+        (
+            "Internado Rotatorio",
+            r"\binternado rotatorio\b",
+        ),
+    ]
 
-        if matches:
-            sentence = ". ".join(dict.fromkeys(m.capitalize() for m in matches))
-            if not sentence.endswith("."):
-                sentence += "."
-            return build_structured_response(
-                answer_type="consequence",
-                answer_text=sentence,
-                grounded=True
+    modalities: list[str] = []
+
+    for (
+        label,
+        pattern,
+    ) in modality_patterns:
+        if re.search(
+            pattern,
+            combined,
+            re.IGNORECASE,
+        ):
+            modalities.append(
+                label,
             )
 
-    if intent == "eligibility":
-        if "excelencia" in q and "inhabilit" in q:
-            if "inhabilitaciones cuentan como reprobaciones" in combined.lower():
-                return build_structured_response(
-                    answer_type="possibility",
-                    answer_text="No. Un estudiante no puede postular por excelencia si tiene inhabilitaciones, porque estas cuentan como reprobaciones.",
-                    grounded=True
-                )
+    if not modalities:
+        return None
 
-    if intent == "list_modalities":
-        modalities = []
+    lines = [
+        (
+            "Las modalidades de graduación "
+            "identificadas en el reglamento son:"
+        ),
+        "",
+    ]
 
-        patterns = [
-            r"graduaci[oó]n directa",
-            r"monograf[ií]a",
-            r"proyecto de grado t[eé]cnico",
-            r"pasant[ií]a",
-            r"tesis de grado",
-            r"proyecto de grado",
-            r"trabajo dirigido",
-            r"examen de grado",
-            r"graduaci[oó]n por excelencia",
-            r"graduaci[oó]n v[ií]a diplomado",
-            r"internado rotatorio",
-        ]
+    lines.extend(
+        f"{index}. {modality}"
+        for (
+            index,
+            modality,
+        )
+        in enumerate(
+            modalities,
+            start=1,
+        )
+    )
 
-        lowered = combined.lower()
-        seen = set()
+    return build_structured_response(
+        answer_type="list_modalities",
+        answer_text="\n".join(
+            lines,
+        ),
+        grounded=True,
+        status=ANSWER_STATUS_ANSWERED,
+    )
 
-        for pattern in patterns:
-            match = re.search(pattern, lowered, re.IGNORECASE)
-            if match:
-                item = match.group(0).strip()
-                item = re.sub(r"\s+", " ", item)
 
-                replacements = {
-                    "graduacion directa": "Graduación Directa",
-                    "monografia": "Monografía",
-                    "proyecto de grado técnico": "Proyecto de Grado Técnico",
-                    "pasantia": "Pasantía",
-                    "tesis de grado": "Tesis de Grado",
-                    "proyecto de grado": "Proyecto de Grado",
-                    "trabajo dirigido": "Trabajo Dirigido",
-                    "examen de grado": "Examen de Grado",
-                    "graduacion por excelencia": "Graduación por Excelencia",
-                    "graduación por excelencia": "Graduación por Excelencia",
-                    "graduacion vía diplomado": "Graduación Vía Diplomado",
-                    "graduación vía diplomado": "Graduación Vía Diplomado",
-                    "graduacion via diplomado": "Graduación Vía Diplomado",
-                    "graduación via diplomado": "Graduación Vía Diplomado",
-                    "internado rotatorio": "Internado Rotatorio",
-                }
+# ============================================================
+# ROUTER DE RESPUESTAS DETERMINÍSTICAS
+# ============================================================
 
-                normalized_item = replacements.get(item.lower(), item.title())
+def try_intent_based_answer(
+    question: str,
+    documents: list[str],
+) -> dict | None:
+    """
+    Construye una respuesta determinística únicamente cuando
+    la evidencia necesaria está explícitamente contenida en
+    los documentos recuperados.
 
-                if normalized_item not in seen:
-                    seen.add(normalized_item)
-                    modalities.append(normalized_item)
+    Si ninguna regla segura aplica, devuelve None y el pipeline
+    continúa normalmente hacia el generador RAG.
+    """
 
-        if modalities:
-            answer = "Las modalidades de graduación identificadas en los documentos son:\n\n"
-            for idx, item in enumerate(modalities, start=1):
-                answer += f"{idx}. {item}\n"
+    excellence_answer = (
+        try_excellence_eligibility_answer(
+            question=question,
+            documents=documents,
+        )
+    )
 
-            return build_structured_response(
-                answer_type="list_modalities",
-                answer_text=answer.strip(),
-                grounded=True
-            )
+    if excellence_answer:
+        return excellence_answer
+
+    modalities_answer = (
+        try_graduation_modalities_answer(
+            question=question,
+            documents=documents,
+        )
+    )
+
+    if modalities_answer:
+        return modalities_answer
 
     return None

@@ -1,17 +1,19 @@
 import {
   Component,
+  computed,
   inject,
+  signal,
 } from '@angular/core';
 
 import {
   NgFor,
-  KeyValuePipe,
   NgIf,
   NgSwitch,
   NgSwitchCase,
 } from '@angular/common';
 
 import {
+  Router,
   RouterLink,
   RouterLinkActive,
 } from '@angular/router';
@@ -24,8 +26,11 @@ import {
 import {
   heroPlusCircle,
   heroFolderOpen,
-  heroExclamationCircle,
   heroSparkles,
+  heroUserCircle,
+  heroChevronUp,
+  heroArrowRightOnRectangle,
+  heroLockClosed,
 } from '@ng-icons/heroicons/outline';
 
 import {
@@ -41,12 +46,19 @@ import {
 } from '../../../core/auth/auth.service';
 
 
+interface MenuSection {
+  nombre: string;
+
+  items: MenuItem[];
+}
+
+
 @Component({
-  selector: 'app-app-sidebar',
+  selector:
+    'app-app-sidebar',
 
   imports: [
     NgFor,
-    KeyValuePipe,
     NgIf,
     NgSwitch,
     NgSwitchCase,
@@ -59,47 +71,296 @@ import {
     provideIcons({
       heroPlusCircle,
       heroFolderOpen,
-      heroExclamationCircle,
       heroSparkles,
+      heroUserCircle,
+      heroChevronUp,
+      heroArrowRightOnRectangle,
+      heroLockClosed,
     }),
   ],
 
-  templateUrl: './app-sidebar.html',
-  styleUrl: './app-sidebar.scss',
+  templateUrl:
+    './app-sidebar.html',
+
+  styleUrl:
+    './app-sidebar.scss',
 })
 export class AppSidebar {
 
   readonly authService =
     inject(AuthService);
 
+  private readonly router =
+    inject(Router);
 
-  get menuItems(): MenuItem[] {
 
-    return SIDEBAR_MENU.filter(
-      item => this.puedeVer(item),
+  readonly menuCuentaAbierto =
+    signal(false);
+
+  readonly cerrandoSesion =
+    signal(false);
+
+
+  readonly exactRouteOptions = {
+    exact: true,
+  };
+
+
+  readonly menuSections =
+    computed<MenuSection[]>(
+      () => {
+
+        const secciones =
+          new Map<
+            string,
+            MenuItem[]
+          >();
+
+
+        for (
+          const item
+          of SIDEBAR_MENU
+        ) {
+
+          if (
+            !this.puedeVer(
+              item,
+            )
+          ) {
+            continue;
+          }
+
+
+          const nombre =
+            item.section
+            ?? 'GENERAL';
+
+
+          const items =
+            secciones.get(
+              nombre,
+            );
+
+
+          if (items) {
+
+            items.push(
+              item,
+            );
+
+          } else {
+
+            secciones.set(
+              nombre,
+              [item],
+            );
+          }
+        }
+
+
+        return Array
+          .from(
+            secciones.entries(),
+          )
+          .map(
+            ([
+              nombre,
+              items,
+            ]) => ({
+              nombre,
+              items,
+            }),
+          );
+      },
     );
+
+
+  readonly nombreUsuario =
+    computed(
+      () => {
+
+        const usuario =
+          this.authService
+            .usuarioActual();
+
+
+        if (!usuario) {
+          return '';
+        }
+
+
+        return [
+          usuario.nombres,
+          usuario.apellidos,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+      },
+    );
+
+
+  readonly inicialUsuario =
+    computed(
+      () => {
+
+        const nombre =
+          this.nombreUsuario();
+
+
+        if (!nombre) {
+          return 'U';
+        }
+
+
+        return nombre
+          .charAt(0)
+          .toUpperCase();
+      },
+    );
+
+
+  readonly rolUsuario =
+    computed(
+      () => {
+
+        const usuario =
+          this.authService
+            .usuarioActual();
+
+
+        const rol =
+          usuario?.roles
+            ?.find(
+              item =>
+                item.activo,
+            );
+
+
+        if (!rol) {
+          return '';
+        }
+
+
+        switch (
+          rol.nombre
+        ) {
+
+          case 'solicitante':
+            return 'Solicitante';
+
+          case 'personal_administrativo':
+            return 'Personal administrativo';
+
+          case 'administrador':
+            return 'Administrador';
+
+          default:
+            return rol.nombre;
+        }
+      },
+    );
+
+
+  alternarMenuCuenta():
+    void {
+
+    this.menuCuentaAbierto
+      .update(
+        abierto =>
+          !abierto,
+      );
   }
 
 
-  get groupedMenu(): Record<string, MenuItem[]> {
+  cerrarMenuCuenta():
+    void {
 
-    return this.menuItems.reduce(
-      (acc, item) => {
+    this.menuCuentaAbierto
+      .set(false);
+  }
 
-        const section =
-          item.section ?? 'GENERAL';
 
-        if (!acc[section]) {
-          acc[section] = [];
-        }
+  irAIniciarSesion():
+    void {
 
-        acc[section].push(item);
+    this.cerrarMenuCuenta();
 
-        return acc;
-      },
+    this.router
+      .navigate([
+        '/login',
+      ]);
+  }
 
-      {} as Record<string, MenuItem[]>,
-    );
+
+  irAPerfil():
+    void {
+
+    this.cerrarMenuCuenta();
+
+    this.router
+      .navigate([
+        '/perfil',
+      ]);
+  }
+
+
+  irASeguridad():
+    void {
+
+    this.cerrarMenuCuenta();
+
+    this.router
+      .navigate([
+        '/cambiar-contrasena',
+      ]);
+  }
+
+
+  cerrarSesion():
+    void {
+
+    if (
+      this.cerrandoSesion()
+    ) {
+      return;
+    }
+
+
+    this.cerrandoSesion
+      .set(true);
+
+
+    this.authService
+      .logout()
+      .subscribe({
+
+        next: () => {
+
+          this.cerrandoSesion
+            .set(false);
+
+          this.cerrarMenuCuenta();
+
+          this.router
+            .navigate([
+              '/login',
+            ]);
+        },
+
+        error: () => {
+
+          this.cerrandoSesion
+            .set(false);
+
+          this.cerrarMenuCuenta();
+
+          this.router
+            .navigate([
+              '/login',
+            ]);
+        },
+      });
   }
 
 
@@ -109,7 +370,8 @@ export class AppSidebar {
 
     if (
       item.requiresAuth
-      && !this.authService.autenticado()
+      && !this.authService
+        .autenticado()
     ) {
       return false;
     }
@@ -118,9 +380,10 @@ export class AppSidebar {
     if (
       item.roles
       && item.roles.length > 0
-      && !this.authService.tieneAlgunoDeLosRoles(
-        item.roles,
-      )
+      && !this.authService
+        .tieneAlgunoDeLosRoles(
+          item.roles,
+        )
     ) {
       return false;
     }

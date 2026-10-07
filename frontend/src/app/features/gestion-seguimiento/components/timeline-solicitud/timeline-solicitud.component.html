@@ -1,0 +1,177 @@
+<div
+  class="process-tracking"
+  [class.process-tracking--administrative]="administrativo()"
+  [class.process-tracking--applicant]="!administrativo()"
+>
+  <h2 class="process-tracking__title">
+    <app-gestion-icon tipo="proceso" />
+
+    {{
+      administrativo()
+        ? 'Flujo del proceso del trámite'
+        : 'Seguimiento del trámite'
+    }}
+  </h2>
+
+  <ol class="process-timeline">
+    <!-- =====================================================
+         EVENTOS YA OCURRIDOS
+         ===================================================== -->
+
+    @for (h of historial(); track h.id_historial) {
+      <li
+        class="process-event"
+        [class.process-event--completed]="
+          tipoEvento(h.evento) === 'completado'
+        "
+        [class.process-event--informative]="
+          tipoEvento(h.evento) === 'informativo'
+        "
+        [class.process-event--warning]="
+          tipoEvento(h.evento) === 'advertencia'
+        "
+        [class.process-event--closed]="
+          tipoEvento(h.evento) === 'cierre'
+        "
+      >
+        <div class="process-event__rail">
+          <span
+            class="process-dot"
+            [attr.aria-label]="descripcionTipoEvento(h.evento)"
+          >
+            {{ simboloEvento(h.evento) }}
+          </span>
+        </div>
+
+        <div class="process-event__content">
+          <strong>
+            {{ etiquetaEvento(h.evento) }}
+          </strong>
+
+          <p>
+            {{ h.detalle }}
+          </p>
+
+          @if (administrativo()) {
+            <small class="process-event__meta">
+              {{
+                h.visible_solicitante
+                  ? 'Visible al solicitante'
+                  : 'Interno'
+              }}
+
+              @if (h.id_usuario_actor) {
+                · Usuario #{{ h.id_usuario_actor }}
+              }
+            </small>
+          }
+        </div>
+
+        <time>
+          <span>
+            {{ h.fecha_evento | date: 'dd/MM/yyyy' }}
+          </span>
+
+          <span>
+            {{ h.fecha_evento | date: 'HH:mm' }}
+          </span>
+        </time>
+      </li>
+    }
+
+    <!-- =====================================================
+         ETAPAS DEL PROCESO
+         ===================================================== -->
+
+    @for (e of etapas(); track e.id_solicitud_etapa) {
+      <li
+        class="process-event process-event--stage"
+        [class.process-event--completed]="
+          e.estado === 'completada'
+        "
+        [class.process-event--current]="
+          e.estado === 'en_curso' &&
+          !detenida()
+        "
+        [class.process-event--pending]="
+          e.estado === 'pendiente' &&
+          !detenida()
+        "
+        [class.process-event--stopped]="
+          detenida() &&
+          e.estado !== 'completada'
+        "
+      >
+        <div class="process-event__rail">
+          <span class="process-dot">
+            {{
+              e.estado === 'completada'
+                ? '✓'
+                : detenida() &&
+                    e.estado !== 'completada'
+                  ? '×'
+                  : e.estado === 'en_curso'
+                    ? '•'
+                    : ''
+            }}
+          </span>
+        </div>
+
+        <div class="process-event__content">
+          <strong>
+            {{ e.nombre }}
+          </strong>
+
+          <p>
+            {{
+              detenida() &&
+              e.estado !== 'completada'
+                ? 'Sin continuidad: solicitud cerrada.'
+                : descripcionEstadoEtapa(e.estado)
+            }}
+          </p>
+        </div>
+
+        <time>
+          @if (
+            e.fecha_finalizacion ||
+            e.fecha_inicio
+          ) {
+            <span>
+              {{
+                (
+                  e.fecha_finalizacion ||
+                  e.fecha_inicio
+                )
+                  | date: 'dd/MM/yyyy'
+              }}
+            </span>
+
+            <span>
+              {{
+                (
+                  e.fecha_finalizacion ||
+                  e.fecha_inicio
+                )
+                  | date: 'HH:mm'
+              }}
+            </span>
+          } @else {
+            <span class="process-event__pending-label">
+              Pendiente
+            </span>
+          }
+        </time>
+      </li>
+    }
+
+    @if (
+      !historial().length &&
+      !etapas().length
+    ) {
+      <li class="process-timeline__empty">
+        No hay eventos registrados todavía.
+      </li>
+    }
+  </ol>
+</div>

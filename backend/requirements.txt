@@ -7,7 +7,6 @@ python-dotenv
 python-multipart
 requests
 pymupdf
-sentence-transformers
 pgvector
 pytesseract
 pdf2image
@@ -15,3 +14,5 @@ Pillow
 email-validator
 pwdlib[argon2]
 PyJWT
+groq
+google-auth

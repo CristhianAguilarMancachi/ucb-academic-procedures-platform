@@ -11,6 +11,8 @@ from pydantic import (
 
 
 class TramiteEtapaCrearRequest(BaseModel):
+    visible_solicitante: bool = False
+
     """
     Configuración de una etapa perteneciente a un trámite.
 
@@ -65,6 +67,8 @@ class TramiteEtapaCrearRequest(BaseModel):
 
 
 class TramiteEtapaActualizarRequest(BaseModel):
+    visible_solicitante: bool | None = None
+
     """
     Permite modificar una etapa previamente configurada.
 
@@ -123,6 +127,8 @@ class TramiteEtapaActualizarRequest(BaseModel):
 
 
 class TramiteEtapaResponse(BaseModel):
+    visible_solicitante: bool
+
     """
     Información de una etapa configurada para un trámite.
     """

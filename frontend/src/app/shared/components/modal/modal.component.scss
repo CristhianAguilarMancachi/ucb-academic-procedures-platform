@@ -1,0 +1,540 @@
+dialog {
+  width: min(580px, calc(100vw - 32px));
+
+  height: auto;
+  min-height: 0;
+  max-height: 90dvh;
+
+  padding: 0;
+
+  color: #edf2fa;
+
+  background:
+    linear-gradient(
+      145deg,
+      #071d35 0%,
+      #06182d 100%
+    );
+
+  border: 1px solid #244365;
+  border-radius: 12px;
+
+  box-shadow:
+    0 28px 100px rgba(0, 0, 0, 0.68);
+
+  overflow: hidden;
+}
+
+dialog[open] {
+  display: grid;
+
+  grid-template-rows:
+    auto
+    minmax(0, 1fr);
+}
+
+/* =========================================================
+   VARIANTE AMPLIA
+   ========================================================= */
+
+dialog.amplio {
+  width: min(850px, calc(100vw - 36px));
+}
+
+/* =========================================================
+   VARIANTE LATERAL
+   Requisitos detallados
+   ========================================================= */
+
+dialog.lateral {
+  width: min(780px, calc(100vw - 270px));
+
+  height: calc(100dvh - 28px);
+  min-height: 0;
+  max-height: calc(100dvh - 28px);
+
+  margin:
+    14px
+    14px
+    14px
+    auto;
+
+  border-radius: 12px;
+
+  grid-template-rows:
+    auto
+    minmax(0, 1fr);
+
+  transform: translateX(0);
+}
+
+/* =========================================================
+   FONDO
+   ========================================================= */
+
+dialog::backdrop {
+  background: rgba(0, 7, 16, 0.79);
+
+  backdrop-filter: blur(2px);
+}
+
+/* =========================================================
+   HEADER NORMAL
+   ========================================================= */
+
+.modal-header {
+  min-height: 84px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 1rem;
+
+  padding:
+    1rem
+    1.45rem;
+
+  border-bottom:
+    1px solid
+    rgba(255, 255, 255, 0.09);
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(8, 31, 57, 0.99),
+      rgba(7, 27, 50, 0.99)
+    );
+}
+
+.modal-heading {
+  min-width: 0;
+}
+
+.modal-heading h2 {
+  margin: 0;
+
+  color: #f8fbff;
+
+  font-size: 1.25rem;
+  font-weight: 700;
+
+  line-height: 1.15;
+}
+
+.modal-heading p {
+  margin:
+    0.25rem
+    0
+    0;
+
+  color: #c4d0dd;
+
+  font-size: 0.72rem;
+
+  line-height: 1.25;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+/* =========================================================
+   BOTÓN CERRAR
+   ========================================================= */
+
+.modal-close {
+  width: 36px !important;
+  height: 36px !important;
+
+  flex: 0 0 36px;
+
+  display: inline-flex !important;
+
+  align-items: center;
+  justify-content: center;
+
+  margin: 0 !important;
+
+  padding: 0 !important;
+
+  border: 0 !important;
+
+  border-radius: 7px !important;
+
+  background:
+    transparent !important;
+
+  color:
+    #e2eaf3 !important;
+
+  font-size:
+    1.55rem !important;
+
+  font-weight:
+    300 !important;
+
+  line-height:
+    1 !important;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.modal-close:hover:not(:disabled) {
+  color:
+    #ffffff !important;
+
+  background:
+    rgba(255, 255, 255, 0.06) !important;
+}
+
+.modal-close:disabled {
+  opacity: 0.4;
+
+  cursor: not-allowed;
+}
+
+/* =========================================================
+   BODY NORMAL
+   ========================================================= */
+
+.modal-body {
+  min-height: 0;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  padding: 0;
+
+  scrollbar-width: thin;
+
+  scrollbar-color:
+    rgba(179, 197, 216, 0.45)
+    transparent;
+}
+
+dialog.lateral .modal-body {
+  overflow: hidden;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+
+  background:
+    rgba(179, 197, 216, 0.48);
+}
+
+/* =========================================================
+   MODAL COMPACTO
+   Cancelación / rechazo
+   ========================================================= */
+
+dialog.compacto {
+  width:
+    min(
+      500px,
+      calc(100vw - 32px)
+    ) !important;
+
+  height:
+    fit-content !important;
+
+  min-height:
+    0 !important;
+
+  max-height:
+    calc(100dvh - 48px) !important;
+
+  margin:
+    auto !important;
+
+  overflow:
+    hidden !important;
+
+  border-radius: 10px;
+}
+
+dialog.compacto[open] {
+  display:
+    flex !important;
+
+  flex-direction: column;
+
+  align-items: stretch;
+
+  justify-content: flex-start;
+
+  height:
+    fit-content !important;
+
+  min-height:
+    0 !important;
+}
+
+/* =========================================================
+   MODAL OPERATIVO
+   Recepción / observación / finalización / entrega
+   ========================================================= */
+
+dialog.operativo {
+  width:
+    min(
+      560px,
+      calc(100vw - 32px)
+    ) !important;
+
+  height:
+    fit-content !important;
+
+  min-height:
+    0 !important;
+
+  max-height:
+    calc(100dvh - 44px) !important;
+
+  margin:
+    auto !important;
+
+  overflow:
+    hidden !important;
+
+  border-radius: 10px;
+}
+
+dialog.operativo[open] {
+  display:
+    flex !important;
+
+  flex-direction: column;
+
+  align-items: stretch;
+
+  justify-content: flex-start;
+
+  height:
+    fit-content !important;
+
+  min-height:
+    0 !important;
+}
+
+/* =========================================================
+   HEADER FLOTANTE
+   Compacto / operativo
+   ========================================================= */
+
+dialog.compacto .modal-header,
+dialog.operativo .modal-header {
+  position: absolute;
+
+  top: 0.75rem;
+  right: 0.75rem;
+
+  z-index: 10;
+
+  width: auto;
+  height: auto;
+
+  min-height: 0;
+
+  display: block;
+
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+}
+
+dialog.compacto .modal-heading,
+dialog.operativo .modal-heading {
+  position: absolute;
+
+  width: 1px;
+  height: 1px;
+
+  padding: 0;
+
+  margin: -1px;
+
+  overflow: hidden;
+
+  clip:
+    rect(0, 0, 0, 0);
+
+  white-space: nowrap;
+
+  border: 0;
+}
+
+dialog.compacto .modal-close,
+dialog.operativo .modal-close {
+  width:
+    32px !important;
+
+  height:
+    32px !important;
+
+  flex:
+    0
+    0
+    32px;
+
+  border:
+    0 !important;
+
+  background:
+    transparent !important;
+
+  color:
+    #dce6f0 !important;
+
+  font-size:
+    1.25rem !important;
+}
+
+dialog.compacto .modal-close:hover:not(:disabled),
+dialog.operativo .modal-close:hover:not(:disabled) {
+  background:
+    rgba(255, 255, 255, 0.055) !important;
+}
+
+dialog.compacto .modal-body,
+dialog.operativo .modal-body {
+  width: 100%;
+
+  height:
+    auto !important;
+
+  min-height:
+    0 !important;
+
+  flex:
+    0
+    0
+    auto;
+
+  overflow-y: auto;
+
+  overflow-x: hidden;
+
+  padding: 0;
+}
+
+/* =========================================================
+   FOCUS
+   ========================================================= */
+
+:focus-visible {
+  outline:
+    2px solid
+    #ffcf13;
+
+  outline-offset: 3px;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1000px) {
+  dialog.lateral {
+    width:
+      calc(100vw - 24px);
+
+    height:
+      calc(100dvh - 24px);
+
+    max-height:
+      calc(100dvh - 24px);
+
+    margin: 12px;
+
+    border-radius: 10px;
+  }
+
+  dialog.lateral .modal-body {
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 700px) {
+  dialog:not(.lateral) {
+    width:
+      calc(100vw - 24px);
+
+    height:
+      fit-content !important;
+
+    min-height:
+      0 !important;
+
+    max-height:
+      calc(100dvh - 24px);
+
+    margin: auto;
+  }
+
+  dialog.lateral {
+    width:
+      calc(100vw - 16px);
+
+    height:
+      calc(100dvh - 16px);
+
+    max-height:
+      calc(100dvh - 16px);
+
+    margin: 8px;
+  }
+
+  .modal-header {
+    min-height: 72px;
+
+    padding:
+      0.85rem
+      1rem;
+  }
+
+  .modal-heading h2 {
+    font-size: 1.05rem;
+  }
+
+  .modal-heading p {
+    font-size: 0.68rem;
+  }
+
+  dialog.compacto,
+  dialog.operativo {
+    width:
+      calc(100vw - 24px) !important;
+
+    height:
+      fit-content !important;
+
+    max-height:
+      calc(100dvh - 24px) !important;
+  }
+
+  dialog.compacto .modal-header,
+  dialog.operativo .modal-header {
+    min-height: 0;
+
+    padding: 0;
+  }
+}

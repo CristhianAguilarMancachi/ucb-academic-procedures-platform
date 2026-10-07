@@ -69,8 +69,12 @@ def _convertir_error_servicio(
         ),
     ):
         return HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=str(
+                exc
+            ),
         )
 
     if isinstance(
@@ -83,8 +87,12 @@ def _convertir_error_servicio(
         ),
     ):
         return HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=str(
+                exc
+            ),
         )
 
     if isinstance(
@@ -99,23 +107,36 @@ def _convertir_error_servicio(
         ),
     ):
         return HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(
+                exc
+            ),
         )
 
     return HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        status_code=(
+            status.HTTP_500_INTERNAL_SERVER_ERROR
+        ),
         detail=(
-            "Ocurrió un error inesperado al procesar "
-            "la solicitud."
+            "Ocurrió un error inesperado "
+            "al procesar la solicitud."
         ),
     )
+
+
+# ============================================================
+# CREAR BORRADOR
+# ============================================================
 
 
 @router.post(
     "",
     response_model=SolicitudResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=(
+        status.HTTP_201_CREATED
+    ),
 )
 def crear_borrador_solicitud(
     datos: SolicitudCrearRequest,
@@ -129,13 +150,19 @@ def crear_borrador_solicitud(
     try:
         return crear_solicitud(
             db,
-            id_solicitante=usuario.id_usuario,
-            datos=datos,
-            direccion_ip=_obtener_direccion_ip(
-                request
+            id_solicitante=(
+                usuario.id_usuario
             ),
-            user_agent=request.headers.get(
-                "user-agent"
+            datos=datos,
+            direccion_ip=(
+                _obtener_direccion_ip(
+                    request
+                )
+            ),
+            user_agent=(
+                request.headers.get(
+                    "user-agent"
+                )
             ),
         )
 
@@ -147,17 +174,28 @@ def crear_borrador_solicitud(
                 TramiteNoDisponibleParaSolicitudError,
             ),
         ):
-            raise _convertir_error_servicio(
-                exc
+            raise (
+                _convertir_error_servicio(
+                    exc
+                )
             ) from exc
 
         raise
 
 
+# ============================================================
+# LISTAR MIS SOLICITUDES
+# ============================================================
+
+
 @router.get(
     "/mias",
-    response_model=ListaSolicitudesResponse,
-    status_code=status.HTTP_200_OK,
+    response_model=(
+        ListaSolicitudesResponse
+    ),
+    status_code=(
+        status.HTTP_200_OK
+    ),
 )
 def consultar_mis_solicitudes(
     db: DatabaseSession,
@@ -181,17 +219,26 @@ def consultar_mis_solicitudes(
     """
     return listar_mis_solicitudes(
         db,
-        id_solicitante=usuario.id_usuario,
+        id_solicitante=(
+            usuario.id_usuario
+        ),
         estado=estado,
         pagina=pagina,
         por_pagina=por_pagina,
     )
 
 
+# ============================================================
+# CONSULTAR SOLICITUD
+# ============================================================
+
+
 @router.get(
     "/{id_solicitud}",
     response_model=SolicitudResponse,
-    status_code=status.HTTP_200_OK,
+    status_code=(
+        status.HTTP_200_OK
+    ),
 )
 def consultar_solicitud(
     id_solicitud: int,
@@ -205,19 +252,32 @@ def consultar_solicitud(
         return obtener_solicitud(
             db,
             id_solicitud=id_solicitud,
-            id_solicitante=usuario.id_usuario,
+            id_solicitante=(
+                usuario.id_usuario
+            ),
         )
 
-    except SolicitudNoEncontradaError as exc:
-        raise _convertir_error_servicio(
-            exc
+    except (
+        SolicitudNoEncontradaError
+    ) as exc:
+        raise (
+            _convertir_error_servicio(
+                exc
+            )
         ) from exc
+
+
+# ============================================================
+# ACTUALIZAR BORRADOR
+# ============================================================
 
 
 @router.patch(
     "/{id_solicitud}",
     response_model=SolicitudResponse,
-    status_code=status.HTTP_200_OK,
+    status_code=(
+        status.HTTP_200_OK
+    ),
 )
 def actualizar_borrador_solicitud(
     id_solicitud: int,
@@ -234,13 +294,19 @@ def actualizar_borrador_solicitud(
         return actualizar_solicitud(
             db,
             id_solicitud=id_solicitud,
-            id_solicitante=usuario.id_usuario,
-            datos=datos,
-            direccion_ip=_obtener_direccion_ip(
-                request
+            id_solicitante=(
+                usuario.id_usuario
             ),
-            user_agent=request.headers.get(
-                "user-agent"
+            datos=datos,
+            direccion_ip=(
+                _obtener_direccion_ip(
+                    request
+                )
+            ),
+            user_agent=(
+                request.headers.get(
+                    "user-agent"
+                )
             ),
         )
 
@@ -252,14 +318,23 @@ def actualizar_borrador_solicitud(
         ValorCampoInvalidoError,
         ConfiguracionCampoInvalidaError,
     ) as exc:
-        raise _convertir_error_servicio(
-            exc
+        raise (
+            _convertir_error_servicio(
+                exc
+            )
         ) from exc
+
+
+# ============================================================
+# ELIMINAR BORRADOR
+# ============================================================
 
 
 @router.delete(
     "/{id_solicitud}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=(
+        status.HTTP_204_NO_CONTENT
+    ),
 )
 def eliminar_borrador_solicitud(
     id_solicitud: int,
@@ -275,32 +350,49 @@ def eliminar_borrador_solicitud(
         eliminar_solicitud(
             db,
             id_solicitud=id_solicitud,
-            id_solicitante=usuario.id_usuario,
-            direccion_ip=_obtener_direccion_ip(
-                request
+            id_solicitante=(
+                usuario.id_usuario
             ),
-            user_agent=request.headers.get(
-                "user-agent"
+            direccion_ip=(
+                _obtener_direccion_ip(
+                    request
+                )
+            ),
+            user_agent=(
+                request.headers.get(
+                    "user-agent"
+                )
             ),
         )
 
         return Response(
-            status_code=status.HTTP_204_NO_CONTENT
+            status_code=(
+                status.HTTP_204_NO_CONTENT
+            )
         )
 
     except (
         SolicitudNoEncontradaError,
         SolicitudNoEsBorradorError,
     ) as exc:
-        raise _convertir_error_servicio(
-            exc
+        raise (
+            _convertir_error_servicio(
+                exc
+            )
         ) from exc
+
+
+# ============================================================
+# ENVIAR SOLICITUD
+# ============================================================
 
 
 @router.post(
     "/{id_solicitud}/enviar",
     response_model=SolicitudResponse,
-    status_code=status.HTTP_200_OK,
+    status_code=(
+        status.HTTP_200_OK
+    ),
 )
 def enviar_borrador_solicitud(
     id_solicitud: int,
@@ -310,24 +402,38 @@ def enviar_borrador_solicitud(
     usuario: SolicitanteActual,
 ) -> SolicitudResponse:
     """
-    Envía formalmente una solicitud en borrador.
+    Registra formalmente una solicitud en borrador.
 
-    Para los requisitos económicos, el solicitante
-    proporciona el número de factura correspondiente.
+    El body se conserva temporalmente para compatibilidad
+    con el cliente actual, pero la operación de envío NO
+    procesa información de pago ni declaraciones físicas.
 
-    La factura todavía no se valida contra la API externa.
+    Pago y documentación se gestionan posteriormente desde
+    el seguimiento de la solicitud.
     """
+    # El modelo de entrada está intencionalmente vacío.
+    #
+    # Una versión anterior del frontend puede seguir enviando
+    # propiedades de facturas o entrega física. El schema las
+    # ignora y nunca llegan a la lógica de negocio.
+    _ = datos
+
     try:
         return enviar_solicitud(
             db,
             id_solicitud=id_solicitud,
-            id_solicitante=usuario.id_usuario,
-            datos=datos,
-            direccion_ip=_obtener_direccion_ip(
-                request
+            id_solicitante=(
+                usuario.id_usuario
             ),
-            user_agent=request.headers.get(
-                "user-agent"
+            direccion_ip=(
+                _obtener_direccion_ip(
+                    request
+                )
+            ),
+            user_agent=(
+                request.headers.get(
+                    "user-agent"
+                )
             ),
         )
 
@@ -340,9 +446,10 @@ def enviar_borrador_solicitud(
         ConfiguracionCampoInvalidaError,
         CamposObligatoriosFaltantesError,
         ConfiguracionEconomicaIncompletaError,
-        FacturaSolicitudInvalidaError,
         SolicitudInconsistenteError,
     ) as exc:
-        raise _convertir_error_servicio(
-            exc
+        raise (
+            _convertir_error_servicio(
+                exc
+            )
         ) from exc

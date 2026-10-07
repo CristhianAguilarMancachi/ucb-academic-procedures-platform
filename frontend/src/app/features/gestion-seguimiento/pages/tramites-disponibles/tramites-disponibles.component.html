@@ -1,0 +1,412 @@
+<div class="tramites-page">
+  <header class="tramites-heading">
+    <h1>Nueva solicitud de trámite</h1>
+
+    <p>
+      Selecciona el trámite que deseas solicitar y completa la información requerida.
+    </p>
+  </header>
+
+  @if (error()) {
+    <div class="page-message error" role="alert">
+      {{ error() }}
+    </div>
+  }
+
+  @if (ocupado()) {
+    <div class="page-message loading" role="status">
+      Cargando…
+    </div>
+  }
+
+  <div class="tramites-content">
+    <!-- =====================================================
+         SELECCIÓN DEL TRÁMITE
+         ===================================================== -->
+    <section class="selector-card">
+      <h2>Selecciona el trámite</h2>
+
+      <div
+        class="catalog-listbox"
+        role="listbox"
+        aria-label="Trámites disponibles"
+      >
+        <div class="catalog-listbox__header">
+          <span class="catalog-listbox__current">
+            {{ tramite()?.nombre || 'Selecciona un trámite' }}
+          </span>
+
+          <span
+            class="catalog-listbox__count"
+            [attr.aria-label]="items().length + ' trámites disponibles'"
+          >
+            {{ items().length }}
+          </span>
+        </div>
+
+        <div class="catalog-listbox__body">
+          @for (t of items(); track t.id_tramite) {
+            <button
+              type="button"
+              role="option"
+              class="catalog-option"
+              [class.is-selected]="tramite()?.id_tramite === t.id_tramite"
+              [attr.aria-selected]="tramite()?.id_tramite === t.id_tramite"
+              [disabled]="ocupado()"
+              (click)="seleccionar(t.id_tramite)"
+            >
+              <span class="catalog-option__text">
+                {{ t.nombre }}
+              </span>
+
+              @if (tramite()?.id_tramite === t.id_tramite) {
+                <span
+                  class="catalog-option__check"
+                  aria-hidden="true"
+                >
+                  ✓
+                </span>
+              }
+            </button>
+          } @empty {
+            <div class="catalog-listbox__empty">
+              No hay trámites publicados.
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         INFORMACIÓN DEL TRÁMITE
+         ===================================================== -->
+    <div class="information-column">
+      @if (tramite(); as t) {
+        <section class="stats-card">
+          <div class="stat-block">
+            <app-gestion-icon
+              tipo="reloj"
+              class="stat-icon"
+            />
+
+            <div>
+              <span class="stat-label">
+                Duración aproximada
+              </span>
+
+              <strong class="stat-value">
+                {{ t.tiempo_estimado || 'No informada' }}
+              </strong>
+            </div>
+          </div>
+
+          <div class="stats-divider"></div>
+
+          <div class="stat-block">
+            <app-gestion-icon
+              tipo="precio"
+              class="stat-icon"
+            />
+
+            <div>
+              <span class="stat-label">
+                Costo del trámite
+              </span>
+
+              <div class="cost-values">
+                @for (r of costosInformativos(t); track r.id_requisito) {
+                  @if (r.informacion_economica; as c) {
+                    <div class="cost-item">
+                      <strong class="stat-value">
+                        {{ c.monto }} {{ c.moneda }}
+                      </strong>
+
+                      <small>
+                        {{ c.concepto }}
+                      </small>
+                    </div>
+                  }
+                } @empty {
+                  <strong class="stat-value stat-value--neutral">
+                    Sin costo registrado
+                  </strong>
+                }
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="requirements-card">
+          <div class="section-title">
+            <app-gestion-icon tipo="documento" />
+
+            <h2>Documentos requeridos</h2>
+          </div>
+
+          <ul class="requirements-list">
+            @for (r of t.requisitos; track r.id_requisito) {
+              <li>{{ r.nombre }}</li>
+            } @empty {
+              <li>No hay requisitos publicados.</li>
+            }
+          </ul>
+        </section>
+      } @else {
+        <section class="information-empty">
+          <app-gestion-icon tipo="documento" />
+
+          <p>
+            Selecciona un trámite para consultar sus requisitos e información.
+          </p>
+        </section>
+      }
+    </div>
+  </div>
+
+  <!-- =======================================================
+       DESCRIPCIÓN Y ACCIÓN
+       ======================================================= -->
+  @if (tramite(); as t) {
+    <section class="description-card">
+      <div class="description-content">
+        <div class="section-title">
+          <app-gestion-icon tipo="descripcion" />
+
+          <h2>Descripción breve</h2>
+        </div>
+
+        <p class="description-text">
+          {{ t.descripcion || 'Sin descripción publicada.' }}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        class="detail-button"
+        (click)="detalleAbierto = true"
+      >
+        <app-gestion-icon tipo="detalle" />
+
+        <span>
+          Ver requisitos detallados
+        </span>
+      </button>
+    </section>
+
+    <div class="request-actions">
+      @if (t.permite_solicitudes) {
+        @if (auth.tieneAlgunoDeLosRoles(['solicitante', 'administrador'])) {
+          <button
+            type="button"
+            class="request-button"
+            [disabled]="ocupado()"
+            (click)="crear(t)"
+          >
+            Solicitar trámite
+          </button>
+        } @else if (!auth.autenticado()) {
+          <a
+            class="request-button request-link"
+            routerLink="/login"
+            [queryParams]="{
+              returnUrl: '/tramites/' + t.id_tramite
+            }"
+          >
+            Ingresar para solicitar
+          </a>
+        }
+      } @else {
+        <p class="disabled-message">
+          Este trámite todavía no recibe solicitudes.
+        </p>
+      }
+    </div>
+
+    <!-- =====================================================
+         PANEL LATERAL DE DETALLE
+         ===================================================== -->
+    @if (detalleAbierto) {
+      <app-gestion-modal
+        titulo="Requisitos detallados del trámite"
+        [subtitulo]="t.nombre"
+        [amplio]="true"
+        [lateral]="true"
+        (cerrar)="detalleAbierto = false"
+      >
+        <div class="tramite-detail-panel">
+          <!-- =================================================
+               DESCRIPCIÓN + COSTO / TIEMPO
+               ================================================= -->
+          <section class="detail-overview">
+            <div class="detail-description">
+              <div class="detail-heading">
+                <app-gestion-icon tipo="descripcion" />
+
+                <h3>Descripción</h3>
+              </div>
+
+              <p>
+                {{ t.descripcion || 'Sin descripción publicada.' }}
+              </p>
+            </div>
+
+            <div class="detail-summary">
+              <div class="summary-item">
+                <app-gestion-icon tipo="precio" />
+
+                <div>
+                  <span>Costo informativo</span>
+
+                  @for (r of costosInformativos(t); track r.id_requisito) {
+                    @if (r.informacion_economica; as c) {
+                      <strong>
+                        {{ c.monto }} {{ c.moneda }}
+                      </strong>
+                    }
+                  } @empty {
+                    <strong class="summary-neutral">
+                      Sin costo
+                    </strong>
+                  }
+                </div>
+              </div>
+
+              <div class="summary-item">
+                <app-gestion-icon tipo="reloj" />
+
+                <div>
+                  <span>Tiempo estimado</span>
+
+                  <strong>
+                    {{ t.tiempo_estimado || 'No informado' }}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- =================================================
+               REQUISITOS
+               ================================================= -->
+          <section class="detail-section detail-requirements-section">
+            <div class="detail-heading">
+              <app-gestion-icon tipo="documento" />
+
+              <h3>Requisitos</h3>
+            </div>
+
+            <ul class="detail-requirements-list">
+              @for (r of t.requisitos; track r.id_requisito) {
+                <li>
+                  {{ r.nombre }}
+
+                  @if (r.condicion) {
+                    <span>
+                      — {{ condicion(r.condicion) }}
+                    </span>
+                  }
+                </li>
+              } @empty {
+                <li>No hay requisitos publicados.</li>
+              }
+            </ul>
+          </section>
+
+          <!-- =================================================
+               PASOS
+               ================================================= -->
+          @if (t.pasos.length) {
+            <section class="detail-section detail-steps-section">
+              <div class="detail-heading">
+                <app-gestion-icon tipo="proceso" />
+
+                <h3>Pasos del trámite</h3>
+              </div>
+
+              <ol class="detail-steps">
+                @for (paso of t.pasos; track $index) {
+                  <li>
+                    <span class="step-number">
+                      {{ $index + 1 }}
+                    </span>
+
+                    <span>
+                      {{ paso }}
+                    </span>
+                  </li>
+                }
+              </ol>
+            </section>
+          }
+
+          <!-- =================================================
+               CANAL + CONDICIONES
+               ================================================= -->
+          @if (t.canales_atencion || t.condiciones) {
+            <div class="detail-two-columns">
+              @if (t.canales_atencion) {
+                <section class="detail-small-card">
+                  <div class="detail-heading">
+                    <app-gestion-icon tipo="documento" />
+
+                    <h3>
+                      Canal u oficina de atención
+                    </h3>
+                  </div>
+
+                  <p>
+                    {{ t.canales_atencion }}
+                  </p>
+                </section>
+              }
+
+              @if (t.condiciones) {
+                <section class="detail-small-card">
+                  <div class="detail-heading">
+                    <app-gestion-icon tipo="proceso" />
+
+                    <h3>Condiciones</h3>
+                  </div>
+
+                  <p>
+                    {{ t.condiciones }}
+                  </p>
+                </section>
+              }
+            </div>
+          }
+
+          <!-- =================================================
+               OBSERVACIONES
+               ================================================= -->
+          @if (t.instrucciones) {
+            <section class="detail-observations">
+              <div class="detail-heading">
+                <app-gestion-icon tipo="observacion" />
+
+                <h3>Observaciones importantes</h3>
+              </div>
+
+              <p>
+                {{ t.instrucciones }}
+              </p>
+            </section>
+          }
+
+          <!-- =================================================
+               ACCIÓN FINAL
+               ================================================= -->
+          <div class="detail-footer">
+            <button
+              type="button"
+              class="detail-understood"
+              (click)="detalleAbierto = false"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      </app-gestion-modal>
+    }
+  }
+</div>

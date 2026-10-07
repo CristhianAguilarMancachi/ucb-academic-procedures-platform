@@ -42,3 +42,10 @@ __all__ = [
     "SolicitudRecepcion",
     "SolicitudPagoVerificacion",
 ]
+from app.models.gestion_seguimiento.solicitud_etapa import SolicitudEtapa
+from app.models.gestion_seguimiento.solicitud_historial import SolicitudHistorial
+from app.models.gestion_seguimiento.solicitud_observacion import SolicitudObservacion
+from app.models.gestion_seguimiento.solicitud_resultado import SolicitudResultado
+from app.models.gestion_seguimiento.solicitud_entrega import SolicitudEntrega
+
+__all__ += ['SolicitudEtapa', 'SolicitudHistorial', 'SolicitudObservacion', 'SolicitudResultado', 'SolicitudEntrega']

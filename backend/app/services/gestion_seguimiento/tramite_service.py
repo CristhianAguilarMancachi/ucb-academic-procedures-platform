@@ -5,6 +5,8 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from app.repositories.gestion_seguimiento import tramite_repository
+from app.services.gestion_seguimiento.configuracion_flujo_service import validar_condicion
 
 from app.repositories.gestion_seguimiento.tramite_repository import (
     actualizar_campo,
@@ -153,6 +155,35 @@ class UnidadNoEncontradaError(TramiteServiceError):
 
 class UnidadInactivaError(TramiteServiceError):
     pass
+
+
+CAMPOS_ATENCION = ('tiempo_estimado', 'canales_atencion', 'instrucciones', 'condiciones', 'tipo_finalizacion')
+
+
+def _aplicar_extension(db, entidad, datos, campos):
+    cambios = datos.model_dump(mode='json', exclude_unset=True)
+    for campo in campos:
+        if campo in cambios:
+            valor = cambios[campo]
+            if campo in ('visible_solicitante', 'requiere_presentacion_fisica') and valor is None:
+                raise ConfiguracionTramiteInvalidaError(f'{campo} no puede ser nulo.')
+            setattr(entidad, campo, valor)
+    db.flush()
+
+
+def _validar_extension_requisito(db, id_tramite, datos, requisito=None):
+    valores = datos.model_dump(mode='json', exclude_unset=True)
+    activo = valores.get('activo')
+    if activo is None:
+        activo = getattr(requisito, 'activo', True)
+    etapa = valores.get('id_etapa', getattr(requisito, 'id_etapa', None))
+    if etapa is not None:
+        configurada = _obtener_etapa_del_tramite(db, id_tramite=id_tramite, id_etapa=etapa)
+        if activo and not configurada.activo:
+            raise ConfiguracionTramiteInvalidaError('La etapa del requisito debe estar activa.')
+    condicion = valores.get('condicion', getattr(requisito, 'condicion', None))
+    if activo:
+        validar_condicion(condicion, tramite_repository.listar_campos_tramite(db, id_tramite, solo_activos=True))
 
 
 # ============================================================
@@ -344,6 +375,8 @@ def crear_tramite_catalogo(
             permite_solicitudes=datos.permite_solicitudes,
         )
 
+        _aplicar_extension(db, tramite, datos, CAMPOS_ATENCION)
+
         registrar_accion_simple(
             db,
             id_usuario_actor=id_usuario_actor,
@@ -532,6 +565,8 @@ def actualizar_tramite_catalogo(
             ),
         )
 
+        _aplicar_extension(db, tramite, datos, CAMPOS_ATENCION)
+
         registrar_accion_simple(
             db,
             id_usuario_actor=id_usuario_actor,
@@ -612,7 +647,7 @@ def obtener_tramite_catalogo_publico(
     - información económica vigente;
     - campos configurables activos.
 
-    No expone etapas ni unidades administrativas.
+    Expone únicamente los pasos marcados como visibles al solicitante.
     """
     tramite = obtener_tramite_por_id_completo(
         db,
@@ -694,6 +729,9 @@ def obtener_tramite_catalogo_publico(
                 descripcion=requisito.descripcion,
                 obligatorio=requisito.obligatorio,
                 orden=requisito.orden,
+                es_inicial=requisito.id_etapa is None,
+                requiere_presentacion_fisica=requisito.requiere_presentacion_fisica,
+                condicion=requisito.condicion,
                 es_economico=(
                     tiene_configuracion_economica
                 ),
@@ -734,6 +772,8 @@ def obtener_tramite_catalogo_publico(
         permite_solicitudes=(
             tramite.permite_solicitudes
         ),
+        **{campo: getattr(tramite, campo) for campo in CAMPOS_ATENCION},
+        pasos=[e.nombre for e in sorted(tramite.etapas, key=lambda e: e.orden) if e.activo and e.visible_solicitante],
         requisitos=requisitos_visibles,
         campos=campos_visibles,
     )
@@ -773,6 +813,8 @@ def agregar_requisito_tramite(
             "para el trámite."
         )
 
+    _validar_extension_requisito(db, id_tramite, datos)
+
     try:
         requisito = crear_requisito(
             db,
@@ -783,6 +825,8 @@ def agregar_requisito_tramite(
             orden=datos.orden,
             activo=datos.activo,
         )
+
+        _aplicar_extension(db, requisito, datos, ('id_etapa', 'requiere_presentacion_fisica', 'condicion'))
 
         registrar_accion_simple(
             db,
@@ -865,6 +909,8 @@ def actualizar_requisito_tramite(
                 "Ya existe un requisito con ese nombre."
             )
 
+    _validar_extension_requisito(db, id_tramite, datos, requisito)
+
     try:
         actualizar_requisito(
             db,
@@ -878,6 +924,8 @@ def actualizar_requisito_tramite(
                 "descripcion" in datos.model_fields_set
             ),
         )
+
+        _aplicar_extension(db, requisito, datos, ('id_etapa', 'requiere_presentacion_fisica', 'condicion'))
 
         registrar_accion_simple(
             db,
@@ -1402,6 +1450,8 @@ def agregar_etapa_tramite(
             activo=datos.activo,
         )
 
+        _aplicar_extension(db, etapa, datos, ('visible_solicitante',))
+
         registrar_accion_simple(
             db,
             id_usuario_actor=id_usuario_actor,
@@ -1560,6 +1610,8 @@ def actualizar_etapa_tramite(
                 "descripcion" in datos.model_fields_set
             ),
         )
+
+        _aplicar_extension(db, etapa, datos, ('visible_solicitante',))
 
         registrar_accion_simple(
             db,

@@ -1,0 +1,249 @@
+<h1>Configuración de trámites</h1>
+<p>
+  Configura únicamente información y recorridos institucionales confirmados. Las etapas se ejecutan
+  linealmente por orden.
+</p>
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}
+@if (mensaje()) {
+  <p class="success" role="status">{{ mensaje() }}</p>
+}
+<fieldset [disabled]="ocupado()">
+  <legend>Trámites configurados</legend>
+  <label>Buscar por nombre<input [(ngModel)]="busqueda" /></label
+  ><button (click)="pagina = 1; cargarLista()">Buscar</button
+  ><button (click)="nuevo()">Nuevo trámite</button>
+  @for (t of lista(); track t.id_tramite) {
+    <p>
+      <button (click)="limpiarEditores(); seleccionar(t.id_tramite)">{{ t.nombre }}</button>
+      {{ t.activo ? 'Activo' : 'Inactivo' }} · {{ t.publicado ? 'Publicado' : 'Sin publicar' }}
+    </p>
+  }
+  <button [disabled]="pagina === 1" (click)="mover(-1)">Anterior</button
+  ><span>Página {{ pagina }}</span
+  ><button [disabled]="pagina * 20 >= total()" (click)="mover(1)">Siguiente</button>
+</fieldset>
+<fieldset [disabled]="ocupado()">
+  <legend>{{ id ? 'Editar trámite' : 'Crear trámite' }}</legend>
+  <label>Nombre<input maxlength="200" [(ngModel)]="general.nombre" /></label
+  ><label>Descripción<textarea [(ngModel)]="general.descripcion"></textarea></label>
+  <label><input type="checkbox" [(ngModel)]="general.activo" /> Activo</label
+  ><label><input type="checkbox" [(ngModel)]="general.publicado" /> Publicado</label
+  ><label
+    ><input type="checkbox" [(ngModel)]="general.permite_solicitudes" /> Permitir solicitudes</label
+  >
+  <p>Para desactivar, desmarca también publicación y recepción de solicitudes.</p>
+  <label
+    >Modalidad de finalización<select [(ngModel)]="general.tipo_finalizacion">
+      <option value="">Pendiente de configurar</option>
+      <option value="entrega">Entrega/recojo</option>
+      <option value="resultado_registrado">Resultado registrado</option>
+      <option value="externo">Externo</option>
+    </select></label
+  >
+  <label>Tiempo estimado<input maxlength="1000" [(ngModel)]="general.tiempo_estimado" /></label
+  ><label
+    >Canales de atención<textarea
+      maxlength="2000"
+      [(ngModel)]="general.canales_atencion"
+    ></textarea>
+  </label>
+  <label
+    >Instrucciones<textarea maxlength="5000" [(ngModel)]="general.instrucciones"></textarea></label
+  ><label
+    >Condiciones<textarea maxlength="5000" [(ngModel)]="general.condiciones"></textarea>
+  </label>
+  <button [disabled]="general.nombre.trim().length < 3" (click)="guardarGeneral()">
+    Guardar trámite
+  </button>
+</fieldset>
+@if (actual(); as t) {
+  <h2>Configuración de {{ t.nombre }}</h2>
+  <details>
+    <summary>Campos del formulario</summary>
+    <fieldset [disabled]="ocupado()">
+      @for (c of t.campos; track c.id_campo) {
+        <p>
+          {{ c.etiqueta }} · {{ c.tipo_dato }} · {{ c.activo ? 'Activo' : 'Inactivo' }}
+          <button (click)="editarCampo(c)">Editar</button>
+        </p>
+      }
+      <h3>{{ idCampo ? 'Editar campo' : 'Agregar campo' }}</h3>
+      <label>Clave<input [(ngModel)]="campo.clave" /></label
+      ><label>Etiqueta<input [(ngModel)]="campo.etiqueta" /></label
+      ><label>Descripción<textarea [(ngModel)]="campo.descripcion"></textarea></label>
+      <label
+        >Tipo<select [(ngModel)]="campo.tipo_dato">
+          @for (
+            tipo of ['texto', 'texto_largo', 'entero', 'decimal', 'fecha', 'booleano', 'seleccion'];
+            track tipo
+          ) {
+            <option [value]="tipo">{{ tipo }}</option>
+          }
+        </select></label
+      >
+      @if (campo.tipo_dato === 'seleccion') {
+        <label>Opciones (una por línea)<textarea [(ngModel)]="opcionesCampo"></textarea></label>
+      }
+      <label>Orden<input type="number" min="1" [(ngModel)]="campo.orden" /></label
+      ><label><input type="checkbox" [(ngModel)]="campo.obligatorio" /> Obligatorio</label
+      ><label><input type="checkbox" [(ngModel)]="campo.activo" /> Activo</label>
+      <button (click)="guardarCampo()">Guardar campo</button
+      ><button (click)="idCampo = 0; campo = nuevoCampo(); opcionesCampo = ''">Nuevo campo</button>
+    </fieldset>
+  </details>
+  <details>
+    <summary>Etapas del flujo</summary>
+    <fieldset [disabled]="ocupado()">
+      <p>
+        La primera etapa activa debe ser inicial y la última final. Una sola etapa puede tener ambas
+        marcas. El orden debe ser único.
+      </p>
+      @for (e of t.etapas; track e.id_etapa) {
+        <p>
+          {{ e.orden }}. {{ e.nombre }} · {{ e.activo ? 'Activa' : 'Inactiva' }}
+          <button (click)="editarEtapa(e)">Editar</button>
+        </p>
+      }
+      <h3>{{ idEtapa ? 'Editar etapa' : 'Agregar etapa' }}</h3>
+      <label>Nombre<input [(ngModel)]="etapa.nombre" /></label
+      ><label>Descripción<textarea [(ngModel)]="etapa.descripcion"></textarea></label>
+      <label>Orden<input type="number" min="1" [(ngModel)]="etapa.orden" /></label
+      ><label
+        >ID de unidad (opcional)<input type="number" min="1" [(ngModel)]="etapa.id_unidad"
+      /></label>
+      <label><input type="checkbox" [(ngModel)]="etapa.es_inicial" /> Inicial</label
+      ><label><input type="checkbox" [(ngModel)]="etapa.es_final" /> Final</label
+      ><label
+        ><input type="checkbox" [(ngModel)]="etapa.visible_solicitante" /> Visible al
+        solicitante</label
+      ><label><input type="checkbox" [(ngModel)]="etapa.activo" /> Activa</label>
+      <button (click)="guardarEtapa()">Guardar etapa</button
+      ><button (click)="idEtapa = 0; etapa = nuevaEtapa()">Nueva etapa</button>
+    </fieldset>
+  </details>
+  <details>
+    <summary>Requisitos y condiciones</summary>
+    <fieldset [disabled]="ocupado()">
+      @for (r of t.requisitos; track r.id_requisito) {
+        <p>
+          {{ r.nombre }} · {{ r.activo ? 'Activo' : 'Inactivo' }}
+          <button (click)="editarRequisito(r)">Editar</button>
+        </p>
+      }
+      <h3>{{ idRequisito ? 'Editar requisito' : 'Agregar requisito' }}</h3>
+      <label>Nombre<input [(ngModel)]="requisito.nombre" /></label
+      ><label>Descripción<textarea [(ngModel)]="requisito.descripcion"></textarea></label
+      ><label>Orden<input type="number" min="1" [(ngModel)]="requisito.orden" /></label>
+      <label
+        >Momento requerido<select [(ngModel)]="requisito.id_etapa">
+          <option [ngValue]="null">Inicial, antes del procesamiento</option>
+          @for (e of t.etapas; track e.id_etapa) {
+            <option [ngValue]="e.id_etapa">
+              Etapa: {{ e.nombre }} {{ e.activo ? '' : '(inactiva)' }}
+            </option>
+          }
+        </select></label
+      >
+      <label><input type="checkbox" [(ngModel)]="requisito.obligatorio" /> Obligatorio</label
+      ><label><input type="checkbox" [(ngModel)]="requisito.activo" /> Activo</label
+      ><label
+        ><input type="checkbox" [(ngModel)]="requisito.requiere_presentacion_fisica" /> Requiere
+        presentación física</label
+      >
+      <label
+        >Condición<select
+          [(ngModel)]="condicionOrigen"
+          (ngModelChange)="condicionCampo = ''; condicionValor = ''"
+        >
+          <option value="">Siempre aplica</option>
+          <option value="solicitud_dato">Dato del formulario</option>
+          <option value="perfil_academico">Perfil académico</option>
+        </select></label
+      >
+      @if (condicionOrigen) {
+        <label
+          >Campo<select [(ngModel)]="condicionCampo">
+            <option value="">Selecciona</option>
+            @if (condicionOrigen === 'solicitud_dato') {
+              @for (c of t.campos; track c.id_campo) {
+                @if (c.activo) {
+                  <option [value]="c.clave">{{ c.etiqueta }}</option>
+                }
+              }
+            } @else {
+              @for (c of camposPerfil; track c) {
+                <option [value]="c">{{ c }}</option>
+              }
+            }
+          </select></label
+        >
+        @if (condicionOrigen === 'solicitud_dato') {
+          <label
+            >Tipo del valor<select
+              [(ngModel)]="condicionTipo"
+              (ngModelChange)="condicionValor = ''"
+            >
+              <option value="texto">Texto o fecha</option>
+              <option value="numero">Número</option>
+              <option value="booleano">Sí/no</option>
+            </select></label
+          >
+        }
+        <label
+          >Debe ser igual a
+          @if (condicionOrigen === 'solicitud_dato' && condicionTipo === 'booleano') {
+            <select [(ngModel)]="condicionValor">
+              <option value="">Selecciona</option>
+              <option value="true">Sí</option>
+              <option value="false">No</option>
+            </select>
+          } @else {
+            <input [(ngModel)]="condicionValor" />
+          }
+        </label>
+      }
+      <button (click)="guardarRequisito()">Guardar requisito</button
+      ><button (click)="idRequisito = 0; requisito = nuevoRequisito(); condicionOrigen = ''">
+        Nuevo requisito
+      </button>
+    </fieldset>
+  </details>
+  <details>
+    <summary>Configuración económica</summary>
+    <fieldset [disabled]="ocupado()">
+      @for (r of t.requisitos; track r.id_requisito) {
+        <article>
+          <h3>{{ r.nombre }}</h3>
+          <button (click)="editarEconomico(r.id_requisito)">Agregar gestión económica</button>
+          @for (e of r.configuraciones_economicas; track e.id_requisito_economico) {
+            <p>
+              {{ e.gestion }} · {{ e.monto }} {{ e.moneda }} ·
+              {{ e.activo ? 'Activa' : 'Inactiva' }}
+              <button (click)="editarEconomico(r.id_requisito, e)">Editar costo</button>
+            </p>
+          }
+        </article>
+      }
+      @if (requisitoPago) {
+        <h3>Configurar costo del requisito #{{ requisitoPago }}</h3>
+        <label>Concepto<input [(ngModel)]="economico.concepto" /></label
+        ><label
+          >Monto<input type="number" min="0.01" step="0.01" [(ngModel)]="economico.monto" /></label
+        ><label>Moneda<input maxlength="3" [(ngModel)]="economico.moneda" /></label
+        ><label
+          >Gestión<input
+            type="number"
+            min="2000"
+            max="2100"
+            [(ngModel)]="economico.gestion" /></label
+        ><label
+          >Código de concepto externo<input
+            [(ngModel)]="economico.codigo_concepto_externo" /></label
+        ><label><input type="checkbox" [(ngModel)]="economico.activo" /> Activo</label>
+        <button (click)="guardarEconomico()">Guardar configuración económica</button>
+      }
+    </fieldset>
+  </details>
+}

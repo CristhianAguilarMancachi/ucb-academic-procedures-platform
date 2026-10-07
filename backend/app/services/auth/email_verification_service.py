@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+from datetime import timedelta
+
 from sqlalchemy.orm import Session
 
 from app.core.config import FRONTEND_BASE_URL
@@ -11,6 +14,8 @@ from app.core.security import (
 from app.models.usuario_correo import UsuarioCorreo
 from app.repositories.token_verificacion_repository import (
     crear_token_verificacion,
+    listar_tokens_correo,
+    obtener_token_verificacion_por_hash,
     marcar_token_verificacion_utilizado,
     obtener_token_verificacion_disponible,
     revocar_tokens_pendientes_correo,
@@ -18,18 +23,26 @@ from app.repositories.token_verificacion_repository import (
 from app.repositories.usuario_correo_repository import (
     marcar_correo_verificado,
     obtener_correo_activo_por_direccion,
+    obtener_correo_por_id,
 )
 from app.repositories.usuario_repository import (
     actualizar_estado_usuario,
+    obtener_usuario_por_id,
 )
 from app.services.auth.audit_service import (
     registrar_accion_simple,
     registrar_evento_simple,
 )
+from app.schemas.tokens import TokenGenerado
 from app.services.email.email_service import (
     EmailServiceError,
     enviar_correo,
 )
+
+
+logger = logging.getLogger(__name__)
+REENVIO_ESPERA_SEGUNDOS = 60
+MAX_EMISIONES_POR_HORA = 5
 
 
 class EmailVerificationServiceError(Exception):
@@ -107,81 +120,53 @@ def _enviar_correo_verificacion(
     )
 
 
-def emitir_verificacion_correo(
+def preparar_verificacion_correo(
     db: Session,
     *,
     usuario_correo: UsuarioCorreo,
     direccion_ip: str | None = None,
     user_agent: str | None = None,
-) -> None:
-    """
-    Genera un token de verificación y envía el enlace.
+) -> TokenGenerado:
+    """Persiste el token sin commit ni SMTP; participa en la transacción del llamador.
 
-    La creación del token se confirma antes de intentar enviar
-    el correo. Así, si el servidor SMTP falla, la cuenta y el
-    token no se pierden y se puede solicitar un reenvío.
+    Los enlaces anteriores siguen válidos hasta su expiración o hasta confirmar
+    el correo. Así un fallo de envío no invalida un enlace ya recibido.
     """
     if not usuario_correo.activo:
-        raise CorreoNoEncontradoError(
-            "El correo indicado se encuentra inactivo."
-        )
-
+        raise CorreoNoEncontradoError("El correo se encuentra inactivo.")
     if usuario_correo.verificado:
-        raise CorreoYaVerificadoError(
-            "El correo ya se encuentra verificado."
-        )
+        raise CorreoYaVerificadoError("El correo ya se encuentra verificado.")
 
-    ahora = utc_now()
-    token_generado = crear_token_verificacion_correo()
+    token = crear_token_verificacion_correo()
+    crear_token_verificacion(
+        db,
+        id_usuario_correo=usuario_correo.id_usuario_correo,
+        token_hash=token.hash,
+        fecha_expiracion=token.fecha_expiracion,
+        direccion_ip_solicitud=direccion_ip,
+    )
+    registrar_accion_simple(
+        db,
+        accion="emitir_token_verificacion",
+        modulo="autenticacion",
+        entidad="usuario_correo",
+        id_entidad=usuario_correo.id_usuario_correo,
+        direccion_ip=direccion_ip,
+        user_agent=user_agent,
+    )
+    return token
 
+
+def enviar_verificacion_preparada(*, destinatario: str, token: str) -> None:
+    """Solo SMTP: invocar tras commit, sin abrir una transacción de BD."""
     try:
-        revocar_tokens_pendientes_correo(
-            db,
-            id_usuario_correo=(
-                usuario_correo.id_usuario_correo
-            ),
-            fecha_revocacion=ahora,
-        )
-
-        crear_token_verificacion(
-            db,
-            id_usuario_correo=(
-                usuario_correo.id_usuario_correo
-            ),
-            token_hash=token_generado.hash,
-            fecha_expiracion=(
-                token_generado.fecha_expiracion
-            ),
-            direccion_ip_solicitud=direccion_ip,
-        )
-
-        registrar_evento_simple(
-            db,
-            id_usuario=usuario_correo.id_usuario,
-            correo_intentado=str(usuario_correo.correo),
-            tipo_evento="verificacion_correo",
-            exitoso=True,
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
-        )
-
-        db.commit()
-
-    except Exception:
-        db.rollback()
-        raise
-
-    try:
-        _enviar_correo_verificacion(
-            destinatario=str(usuario_correo.correo),
-            token=token_generado.valor,
-        )
-
+        _enviar_correo_verificacion(destinatario=destinatario, token=token)
     except EmailServiceError as exc:
+        logger.warning("No fue posible enviar el correo de verificación por SMTP.")
         raise EnvioVerificacionCorreoError(
-            "El token fue generado, pero no fue posible "
-            "enviar el correo de verificación."
+            "No fue posible enviar el correo de verificación."
         ) from exc
+    logger.info("Correo de verificación aceptado por SMTP; pendiente de confirmación.")
 
 
 def reenviar_verificacion_correo(
@@ -191,25 +176,45 @@ def reenviar_verificacion_correo(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> None:
-    """
-    Genera un nuevo token para un correo pendiente.
-    """
-    usuario_correo = obtener_correo_activo_por_direccion(
-        db,
-        correo,
-    )
+    """Respuesta neutra para inexistentes, verificados y límites alcanzados.
 
-    if usuario_correo is None:
-        raise CorreoNoEncontradoError(
-            "No se encontró el correo indicado."
+    El bloqueo del correo serializa reenvíos incluso desde distintos procesos.
+    Se cuentan también emisiones cuyo envío falló para impedir intentos continuos.
+    """
+    try:
+        encontrado = obtener_correo_activo_por_direccion(db, correo.strip().lower())
+        if encontrado is None:
+            db.rollback()
+            return
+        usuario_correo = obtener_correo_por_id(
+            db, encontrado.id_usuario_correo, bloquear=True,
         )
+        if usuario_correo is None or not usuario_correo.activo or usuario_correo.verificado:
+            db.rollback()
+            return
 
-    emitir_verificacion_correo(
-        db,
-        usuario_correo=usuario_correo,
-        direccion_ip=direccion_ip,
-        user_agent=user_agent,
-    )
+        ahora = utc_now()
+        recientes = listar_tokens_correo(
+            db, usuario_correo.id_usuario_correo, desde=ahora - timedelta(hours=1),
+        )
+        if len(recientes) >= MAX_EMISIONES_POR_HORA or any(
+            token.fecha_creacion > ahora - timedelta(seconds=REENVIO_ESPERA_SEGUNDOS)
+            for token in recientes
+        ):
+            db.rollback()
+            return
+
+        token = preparar_verificacion_correo(
+            db, usuario_correo=usuario_correo,
+            direccion_ip=direccion_ip, user_agent=user_agent,
+        )
+        destinatario = str(usuario_correo.correo)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    enviar_verificacion_preparada(destinatario=destinatario, token=token.valor)
 
 
 def verificar_correo(
@@ -223,40 +228,34 @@ def verificar_correo(
     Valida el token, verifica el correo y activa la cuenta
     cuando todavía estaba pendiente de verificación.
     """
-    ahora = utc_now()
     token_hash = generar_hash_token(token)
-
-    token_registrado = obtener_token_verificacion_disponible(
-        db,
-        token_hash=token_hash,
-        fecha_actual=ahora,
-    )
-
-    if token_registrado is None:
-        raise TokenVerificacionInvalidoError(
-            "El token de verificación no es válido o expiró."
-        )
-
-    usuario_correo = token_registrado.usuario_correo
-
-    if usuario_correo is None or not usuario_correo.activo:
-        raise CorreoNoEncontradoError(
-            "No se encontró el correo asociado al token."
-        )
-
-    if usuario_correo.verificado:
-        raise CorreoYaVerificadoError(
-            "El correo ya se encuentra verificado."
-        )
-
-    usuario = usuario_correo.usuario
-
-    if usuario is None:
-        raise EmailVerificationServiceError(
-            "No se encontró la cuenta asociada al correo."
-        )
-
     try:
+        referencia = obtener_token_verificacion_por_hash(db, token_hash)
+        if referencia is None or referencia.usuario_correo is None:
+            raise TokenVerificacionInvalidoError("El enlace no es válido o expiró.")
+
+        # Orden estable: usuario -> correo -> token. También protege contra una
+        # activación concurrente mientras administración bloquea la cuenta.
+        usuario = obtener_usuario_por_id(
+            db, referencia.usuario_correo.id_usuario, bloquear=True,
+        )
+        usuario_correo = obtener_correo_por_id(
+            db, referencia.id_usuario_correo, bloquear=True,
+        )
+        token_registrado = obtener_token_verificacion_disponible(
+            db, token_hash=token_hash, fecha_actual=utc_now(), bloquear=True,
+        )
+        ahora = utc_now()
+        if (token_registrado is None
+                or token_registrado.fecha_utilizacion is not None
+                or token_registrado.fecha_revocacion is not None
+                or token_registrado.fecha_expiracion <= ahora):
+            raise TokenVerificacionInvalidoError("El enlace no es válido o expiró.")
+        if usuario_correo is None or not usuario_correo.activo or usuario is None:
+            raise CorreoNoEncontradoError("No se encontró el correo asociado al enlace.")
+        if usuario_correo.verificado:
+            raise CorreoYaVerificadoError("El correo ya se encuentra verificado.")
+
         marcar_correo_verificado(
             db,
             usuario_correo,
@@ -269,7 +268,15 @@ def verificar_correo(
             fecha_utilizacion=ahora,
         )
 
-        if usuario.estado == "pendiente_verificacion":
+        revocar_tokens_pendientes_correo(
+            db, id_usuario_correo=usuario_correo.id_usuario_correo,
+            fecha_revocacion=ahora,
+        )
+
+        cuenta_activada = (
+            usuario.estado == "pendiente_verificacion" and usuario_correo.es_principal
+        )
+        if cuenta_activada:
             actualizar_estado_usuario(
                 db,
                 usuario,
@@ -297,9 +304,7 @@ def verificar_correo(
             ),
             detalle={
                 "correo": str(usuario_correo.correo),
-                "cuenta_activada": (
-                    usuario.estado == "activo"
-                ),
+                "cuenta_activada": cuenta_activada,
             },
             direccion_ip=direccion_ip,
             user_agent=user_agent,

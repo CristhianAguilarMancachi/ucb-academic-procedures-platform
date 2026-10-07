@@ -1,0 +1,2432 @@
+/* =========================================================
+   SEGUIMIENTO DE SOLICITUD
+   PERSONAL ADMINISTRATIVO
+   =========================================================
+   - Escala alineada con lista-solicitudes
+   - Colorimetría institucional
+   - 3 pestañas con escala coherente
+   - Requisitos como structured list
+   - Historial como timeline vertical
+   ========================================================= */
+
+
+/* =========================================================
+   PÁGINA
+   ========================================================= */
+
+.admin-review-page {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  padding:
+    1rem
+    2rem
+    0.7rem;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 0.7rem;
+
+  overflow: hidden;
+
+  color: var(--ucb-text);
+
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(0, 166, 200, 0.035),
+      transparent 26%
+    ),
+    linear-gradient(
+      180deg,
+      var(--ucb-surface),
+      var(--ucb-surface-soft) 55%,
+      var(--ucb-bg)
+    );
+}
+
+
+.admin-review-v2 {
+  min-width: 0;
+  min-height: 0;
+}
+
+
+/* =========================================================
+   BREADCRUMB
+   ========================================================= */
+
+.admin-review-breadcrumb {
+  flex:
+    0
+    0
+    auto;
+
+  min-height: 29px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  color: var(--ucb-text-muted);
+
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+
+.admin-review-breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+
+  gap: 7px;
+
+  color: var(--ucb-text-muted) !important;
+
+  text-decoration: none !important;
+
+  transition:
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+
+.admin-review-breadcrumb a:hover {
+  color: var(--ucb-text-strong) !important;
+
+  transform: translateX(-1px);
+}
+
+
+.admin-review-breadcrumb a ng-icon {
+  font-size: 16px;
+}
+
+
+.admin-review-breadcrumb > span {
+  color: var(--ucb-text-muted);
+}
+
+
+.admin-review-breadcrumb strong {
+  color: var(--ucb-text-strong);
+
+  font-weight: 650;
+}
+
+
+/* =========================================================
+   RESUMEN SUPERIOR
+   ========================================================= */
+
+.admin-summary-card {
+  flex:
+    0
+    0
+    116px;
+
+  min-width: 0;
+  min-height: 116px;
+
+  display: grid;
+
+  grid-template-columns:
+    1.18fr
+    0.82fr
+    1fr
+    1fr
+    1.08fr;
+
+  overflow: hidden;
+
+  border:
+    1px solid
+    var(--ucb-border);
+
+  border-radius: 9px;
+
+  background: var(--ucb-surface-soft);
+}
+
+
+.admin-summary-item {
+  min-width: 0;
+
+  padding:
+    0.9rem
+    1rem;
+
+  display: flex;
+  flex-direction: column;
+
+  justify-content: center;
+
+  border-right:
+    1px solid
+    var(--ucb-border-soft);
+}
+
+
+.admin-summary-item:last-child {
+  border-right: 0;
+}
+
+
+.admin-summary-item > span,
+.admin-summary-item > div > span {
+  color: var(--ucb-text-muted);
+
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+
+.admin-summary-item > strong,
+.admin-summary-item > div > strong {
+  margin-top: 0.28rem;
+
+  color: var(--ucb-text-strong);
+
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+
+  overflow-wrap: anywhere;
+}
+
+
+.admin-summary-item--request {
+  display: grid;
+
+  grid-template-columns:
+    56px
+    minmax(0, 1fr);
+
+  align-items: center;
+
+  gap: 0.9rem;
+}
+
+
+.admin-summary-item--request > div:last-child {
+  min-width: 0;
+}
+
+
+.admin-summary-icon {
+  width: 56px;
+  height: 56px;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 8px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #0871e4,
+      #075bc2
+    );
+
+  color: #ffffff;
+}
+
+
+.admin-summary-icon ng-icon {
+  font-size: 25px;
+}
+
+
+.admin-request-number {
+  color: var(--ucb-yellow) !important;
+
+  font-size: 27px !important;
+  font-weight: 750 !important;
+  line-height: 1 !important;
+
+  letter-spacing: 0.025em;
+}
+
+
+/* =========================================================
+   ESTADOS
+   ========================================================= */
+
+.admin-summary-card .tracking-status {
+  width: fit-content;
+  min-height: 32px;
+
+  padding:
+    0.32rem
+    0.72rem;
+
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 5px;
+
+  color: #ffffff;
+
+  font-size: 13px;
+  font-weight: 650;
+
+  white-space: nowrap;
+}
+
+
+.admin-summary-card
+.tracking-status[data-state='pendiente_recepcion'] {
+  background: #956000;
+}
+
+
+.admin-summary-card
+.tracking-status[data-state='en_revision'] {
+  background: #6840a4;
+}
+
+
+.admin-summary-card
+.tracking-status[data-state='en_proceso'] {
+  background: #08734e;
+}
+
+
+.admin-summary-card
+.tracking-status[data-state='lista_para_entrega'] {
+  background: #9d7600;
+}
+
+
+.admin-summary-card
+.tracking-status[data-state='finalizada'] {
+  background: #1855b8;
+}
+
+
+.admin-summary-card
+.tracking-status[data-state='cancelada'],
+.admin-summary-card
+.tracking-status[data-state='rechazada'] {
+  background: #bd2939;
+}
+
+
+/* =========================================================
+   PESTAÑAS
+   ========================================================= */
+
+.admin-tabs {
+  flex:
+    0
+    0
+    61px;
+
+  min-width: 0;
+  min-height: 61px;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+
+  overflow: hidden;
+
+  border:
+    1px solid
+    var(--ucb-border);
+
+  border-radius: 9px;
+
+  background: var(--ucb-surface-soft);
+}
+
+
+.admin-tabs button {
+  position: relative;
+
+  min-width: 0;
+  min-height: 60px;
+
+  margin: 0 !important;
+
+  padding:
+    0
+    1rem !important;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 10px;
+
+  border: 0 !important;
+
+  border-radius: 0 !important;
+
+  background: transparent !important;
+
+  color: var(--ucb-text-soft) !important;
+
+  font-family: inherit;
+
+  font-size: 15px !important;
+  font-weight: 600 !important;
+
+  cursor: pointer;
+
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+
+.admin-tabs button::after {
+  content: '';
+
+  position: absolute;
+
+  left: 8%;
+  right: 8%;
+  bottom: 0;
+
+  height: 3px;
+
+  border-radius:
+    999px
+    999px
+    0
+    0;
+
+  background: transparent;
+
+  transition:
+    background 150ms ease;
+}
+
+
+.admin-tabs button:hover {
+  color: var(--ucb-text-strong) !important;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.018
+    ) !important;
+}
+
+
+.admin-tabs button.admin-tab--active {
+  color: var(--ucb-yellow) !important;
+}
+
+
+.admin-tabs button.admin-tab--active::after {
+  background: var(--ucb-yellow);
+}
+
+
+.admin-tabs button app-gestion-icon {
+  width: 19px;
+  height: 19px;
+
+  flex:
+    0
+    0
+    19px;
+}
+
+
+/* =========================================================
+   CERRADA
+   ========================================================= */
+
+.admin-closed-banner {
+  flex:
+    0
+    0
+    auto;
+
+  min-height: 50px;
+
+  padding:
+    0.65rem
+    0.85rem;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  border:
+    1px solid
+    rgba(
+      232,
+      70,
+      91,
+      0.28
+    );
+
+  border-radius: 7px;
+
+  background:
+    rgba(
+      103,
+      23,
+      38,
+      0.16
+    );
+
+  color: var(--ucb-text);
+}
+
+
+.admin-closed-banner ng-icon {
+  color: #ed6175;
+
+  font-size: 18px;
+}
+
+
+.admin-closed-banner strong {
+  color: var(--ucb-text-strong);
+
+  font-size: 13.5px;
+}
+
+
+.admin-closed-banner p {
+  margin:
+    0.12rem
+    0
+    0;
+
+  color: var(--ucb-text-muted);
+
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   CONTENIDO DE PESTAÑA
+   ========================================================= */
+
+.admin-tab-content {
+  flex:
+    1
+    1
+    auto;
+
+  min-width: 0;
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   PANELES
+   ========================================================= */
+
+.admin-v2-panel,
+.admin-v2-flow-card {
+  min-width: 0;
+  min-height: 0;
+
+  border:
+    1px solid
+    var(--ucb-border);
+
+  border-radius: 9px;
+
+  background: var(--ucb-surface-soft);
+}
+
+
+.admin-v2-panel {
+  padding:
+    1rem
+    1.1rem;
+}
+
+
+/* =========================================================
+   ENCABEZADOS
+   ========================================================= */
+
+.admin-v2-section-heading {
+  min-width: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+
+.admin-v2-section-heading > div {
+  min-width: 0;
+}
+
+
+.admin-v2-section-heading app-gestion-icon {
+  width: 19px;
+  height: 19px;
+
+  flex:
+    0
+    0
+    19px;
+}
+
+
+.admin-v2-section-heading h2 {
+  margin: 0;
+
+  color: var(--ucb-text-strong);
+
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+
+.admin-v2-section-heading p {
+  margin:
+    0.2rem
+    0
+    0;
+
+  color: var(--ucb-text-muted);
+
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+
+.admin-v2-section-heading--between {
+  justify-content: space-between;
+
+  gap: 1rem;
+}
+
+
+.admin-v2-section-heading--between > div {
+  min-width: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+
+/* =========================================================
+   RESUMEN Y FLUJO
+   ========================================================= */
+
+.admin-v2-flow-card {
+  flex:
+    0
+    0
+    auto;
+
+  padding:
+    0.9rem
+    1.1rem
+    0.85rem;
+
+  margin-bottom: 0.65rem;
+}
+
+
+.admin-v2-flow-card
+.admin-v2-section-heading {
+  margin-bottom: 0.55rem;
+}
+
+
+.admin-v2-stepper {
+  --admin-step-count: 4;
+
+  min-width: 0;
+
+  padding:
+    0.2rem
+    0.55rem
+    0;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      var(--admin-step-count),
+      minmax(0, 1fr)
+    );
+}
+
+
+.admin-v2-step {
+  position: relative;
+
+  min-width: 0;
+
+  text-align: center;
+}
+
+
+.admin-v2-step__track {
+  position: relative;
+
+  width: 100%;
+
+  margin-bottom: 0.4rem;
+
+  display: flex;
+
+  justify-content: center;
+}
+
+
+.admin-v2-step__point {
+  position: relative;
+
+  z-index: 2;
+
+  width: 42px;
+  height: 42px;
+
+  min-width: 42px;
+
+  display: grid;
+
+  place-items: center;
+
+  border:
+    4px solid
+    #60768e;
+
+  border-radius: 50%;
+
+  background: var(--ucb-surface-soft);
+
+  color: #8498ab;
+
+  font-size: 17px;
+  font-weight: 750;
+
+  box-shadow:
+    0
+    0
+    0
+    4px
+    var(--ucb-surface-soft);
+}
+
+
+.admin-v2-step__line {
+  position: absolute;
+
+  top: 20px;
+  left: 50%;
+
+  width: 100%;
+  height: 2px;
+
+  z-index: 0;
+
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #60768e 0,
+      #60768e 7px,
+      transparent 7px,
+      transparent 13px
+    );
+}
+
+
+.admin-v2-step > strong {
+  display: block;
+
+  color: var(--ucb-text-strong);
+
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+
+.admin-v2-step > small {
+  display: block;
+
+  margin-top: 0.18rem;
+
+  color: var(--ucb-text-muted);
+
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+
+.admin-v2-step[data-state='completado']
+.admin-v2-step__point {
+  border-color: #0aa36d;
+
+  background: #099b68;
+
+  color: #ffffff;
+}
+
+
+.admin-v2-step[data-state='completado']
+.admin-v2-step__line {
+  background: #0ca777;
+}
+
+
+.admin-v2-step[data-state='actual']
+.admin-v2-step__point {
+  border-color: var(--ucb-yellow);
+
+  background: var(--ucb-surface-soft);
+
+  color: var(--ucb-yellow);
+}
+
+
+.admin-v2-step[data-state='actual']
+.admin-v2-step__line {
+  background:
+    linear-gradient(
+      90deg,
+      var(--ucb-yellow),
+      #60768e 62%
+    );
+}
+
+
+.admin-v2-step[data-state='actual']
+> strong,
+.admin-v2-step[data-state='actual']
+> small {
+  color: var(--ucb-yellow);
+}
+
+
+/* =========================================================
+   RESUMEN INFERIOR
+   ========================================================= */
+
+.admin-v2-summary-grid {
+  flex:
+    1
+    1
+    auto;
+
+  min-width: 0;
+  min-height: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(0, 1fr);
+
+  gap: 0.65rem;
+}
+
+
+.admin-v2-summary-grid
+> .admin-v2-panel {
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  scrollbar-width: thin;
+
+  scrollbar-color:
+    rgba(
+      160,
+      181,
+      203,
+      0.28
+    )
+    transparent;
+}
+
+
+/* =========================================================
+   PASO ACTUAL
+   ========================================================= */
+
+.admin-v2-current {
+  margin-top: 0.65rem;
+
+  padding:
+    0.7rem
+    0.8rem;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  border:
+    1px solid
+    var(--ucb-border);
+
+  border-radius: 7px;
+
+  background:
+    rgba(
+      0,
+      166,
+      200,
+      0.018
+    );
+}
+
+
+.admin-v2-current__icon {
+  width: 32px;
+  height: 32px;
+
+  min-width: 32px;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 50%;
+
+  background: var(--ucb-yellow);
+
+  color: var(--ucb-bg-deep);
+
+  font-size: 16px;
+  font-weight: 750;
+}
+
+
+.admin-v2-current p {
+  margin: 0;
+
+  color: var(--ucb-text);
+
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.35;
+}
+
+
+.admin-v2-facts {
+  margin-top: 0.55rem;
+}
+
+
+.admin-v2-facts > div {
+  min-height: 43px;
+
+  padding:
+    0.52rem
+    0.1rem;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+
+.admin-v2-facts > div + div {
+  border-top:
+    1px solid
+    var(--ucb-border-soft);
+}
+
+
+.admin-v2-facts app-gestion-icon {
+  width: 17px;
+  height: 17px;
+}
+
+
+.admin-v2-facts span {
+  color: var(--ucb-text-soft);
+
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+
+/* =========================================================
+   DATOS CLAVE
+   ========================================================= */
+
+.admin-v2-data-list {
+  margin:
+    0.45rem
+    0
+    0;
+}
+
+
+.admin-v2-data-list > div {
+  min-height: 45px;
+
+  padding:
+    0.52rem
+    0;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(
+      140px,
+      0.7fr
+    )
+    minmax(
+      0,
+      1.3fr
+    );
+
+  align-items: center;
+
+  gap: 0.9rem;
+}
+
+
+.admin-v2-data-list > div + div {
+  border-top:
+    1px solid
+    var(--ucb-border-soft);
+}
+
+
+.admin-v2-data-list dt {
+  color: var(--ucb-text-muted);
+
+  font-size: 12.5px;
+}
+
+
+.admin-v2-data-list dd {
+  min-width: 0;
+
+  margin: 0;
+
+  color: var(--ucb-text-strong);
+
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.3;
+
+  overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   REQUISITOS
+   STRUCTURED LIST
+   ========================================================= */
+
+.admin-v2-requirements-layout {
+  flex:
+    1
+    1
+    auto;
+
+  width: 100%;
+
+  min-width: 0;
+  min-height: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    310px;
+
+  gap: 0.7rem;
+}
+
+
+.admin-v2-panel--requirements,
+.admin-v2-auto-validations {
+  min-width: 0;
+  min-height: 0;
+}
+
+
+.admin-v2-panel--requirements {
+  display: flex;
+
+  flex-direction: column;
+
+  overflow: hidden;
+}
+
+
+/*
+ * Más aire entre título y contenido,
+ * sin crear una tarjeta por requisito.
+ */
+.admin-v2-panel--requirements
+> .admin-v2-section-heading {
+  flex:
+    0
+    0
+    auto;
+
+  padding-bottom: 0.55rem;
+}
+
+
+/* =========================================================
+   LISTA DE REQUISITOS
+   ========================================================= */
+
+.admin-v2-document-list {
+  min-width: 0;
+  min-height: 0;
+
+  flex:
+    1
+    1
+    auto;
+
+  margin-top: 0;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  border-top:
+    1px solid
+    var(--ucb-border-soft);
+
+  scrollbar-width: thin;
+
+  scrollbar-color:
+    rgba(
+      160,
+      181,
+      203,
+      0.28
+    )
+    transparent;
+}
+
+
+.admin-v2-document-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+
+.admin-v2-document-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+.admin-v2-document-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+
+  background:
+    rgba(
+      160,
+      181,
+      203,
+      0.28
+    );
+}
+
+
+/*
+ * Una fila limpia.
+ * El fondo es el mismo del panel.
+ * La jerarquía la dan alineación + divisor.
+ */
+.admin-v2-document-row {
+  position: relative;
+
+  min-width: 0;
+  min-height: 72px;
+
+  padding:
+    0.8rem
+    0.25rem;
+
+  display: grid;
+
+  grid-template-columns:
+    32px
+    minmax(0, 1fr);
+
+  align-items: center;
+
+  gap: 0.75rem;
+
+  background: transparent;
+
+  transition:
+    background 150ms ease;
+}
+
+
+.admin-v2-document-row:hover {
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.018
+    );
+}
+
+
+.admin-v2-document-row
++ .admin-v2-document-row {
+  border-top:
+    1px solid
+    var(--ucb-border-soft);
+}
+
+
+/*
+ * Icono institucional discreto.
+ * No parece una segunda tarjeta.
+ */
+.admin-v2-document-row
+> app-gestion-icon {
+  width: 30px;
+  height: 30px;
+
+  display: grid;
+
+  place-items: center;
+
+  align-self: center;
+
+  color: var(--ucb-yellow);
+}
+
+
+.admin-v2-document-row > div {
+  min-width: 0;
+}
+
+
+.admin-v2-document-row strong {
+  display: block;
+
+  color: var(--ucb-text-strong);
+
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+
+.admin-v2-document-row span {
+  display: block;
+
+  max-width: 95%;
+
+  margin-top: 0.22rem;
+
+  color: var(--ucb-text-muted);
+
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+
+/* =========================================================
+   VALIDACIONES AUTOMÁTICAS
+   ========================================================= */
+
+.admin-v2-auto-validations {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+
+.admin-v2-auto-validations
+.admin-v2-section-heading {
+  padding-bottom: 0.55rem;
+
+  border-bottom:
+    1px solid
+    var(--ucb-border-soft);
+}
+
+
+.admin-v2-auto-list {
+  margin-top: 0;
+}
+
+
+.admin-v2-auto-row {
+  min-height: 56px;
+
+  padding:
+    0.7rem
+    0.1rem;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 0.75rem;
+}
+
+
+.admin-v2-auto-row
++ .admin-v2-auto-row {
+  border-top:
+    1px solid
+    var(--ucb-border-soft);
+}
+
+
+.admin-v2-auto-row span {
+  color: var(--ucb-text-muted);
+
+  font-size: 12.5px;
+}
+
+
+.admin-v2-auto-row strong {
+  color: var(--ucb-yellow);
+
+  font-size: 12.5px;
+  font-weight: 650;
+
+  text-align: right;
+}
+
+
+.admin-v2-auto-row
+strong[data-state='cumple'] {
+  color: #43c58e;
+}
+
+
+.admin-v2-auto-row
+strong[data-state='no_cumple'] {
+  color: #eb6679;
+}
+
+
+/* =========================================================
+   BOTÓN REVISAR
+   ========================================================= */
+
+.admin-v2-primary-button {
+  min-height: 36px;
+
+  margin: 0 !important;
+
+  padding:
+    0
+    0.9rem !important;
+
+  border:
+    1px solid
+    rgba(
+      255,
+      204,
+      0,
+      0.58
+    ) !important;
+
+  border-radius:
+    6px !important;
+
+  background:
+    transparent !important;
+
+  color:
+    var(--ucb-text) !important;
+
+  font-size:
+    12.5px !important;
+
+  font-weight:
+    650 !important;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+
+.admin-v2-primary-button:hover:not(:disabled) {
+  transform:
+    translateY(-1px);
+
+  border-color:
+    var(--ucb-yellow) !important;
+
+  background:
+    rgba(
+      255,
+      204,
+      0,
+      0.055
+    ) !important;
+}
+
+
+/* =========================================================
+   HISTORIAL Y ACCIONES
+   ========================================================= */
+
+.admin-v2-history-layout {
+  flex:
+    1
+    1
+    auto;
+
+  width: 100%;
+
+  min-width: 0;
+  min-height: 0;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1.42fr)
+    minmax(330px, 0.58fr);
+
+  gap: 0.7rem;
+}
+
+
+/* =========================================================
+   HISTORIAL
+   ========================================================= */
+
+.admin-v2-history-card {
+  min-width: 0;
+  min-height: 0;
+
+  display: flex;
+
+  flex-direction: column;
+
+  overflow: hidden;
+}
+
+
+/*
+ * Igual que la referencia del solicitante:
+ * fondo limpio y una sola secuencia.
+ */
+.admin-v2-history-list {
+  position: relative;
+
+  min-width: 0;
+  min-height: 0;
+
+  margin-top: 0.75rem;
+
+  flex:
+    1
+    1
+    auto;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  scrollbar-width: thin;
+
+  scrollbar-color:
+    rgba(
+      160,
+      181,
+      203,
+      0.28
+    )
+    transparent;
+}
+
+
+.admin-v2-history-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+
+.admin-v2-history-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+.admin-v2-history-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+
+  background:
+    rgba(
+      160,
+      181,
+      203,
+      0.28
+    );
+}
+
+
+/*
+ * Ya no hay una tarjeta independiente
+ * rodeando cada evento.
+ */
+.admin-v2-history-item {
+  position: relative;
+
+  min-width: 0;
+  min-height: 88px;
+
+  padding:
+    0.7rem
+    0.25rem;
+
+  display: grid;
+
+  grid-template-columns:
+    36px
+    92px
+    minmax(0, 1fr);
+
+  align-items: start;
+
+  gap:
+    0.75rem;
+
+  border: 0;
+
+  border-radius: 0;
+
+  background: transparent;
+}
+
+
+/*
+ * Divisor horizontal desde el contenido,
+ * semejante al estilo de la tercera captura.
+ */
+.admin-v2-history-item:not(:last-child)::after {
+  content: '';
+
+  position: absolute;
+
+  left: 140px;
+  right: 0;
+  bottom: 0;
+
+  height: 1px;
+
+  background:
+    var(--ucb-border-soft);
+}
+
+
+/* =========================================================
+   LÍNEA VERTICAL
+   ========================================================= */
+
+.admin-v2-history-item:not(:last-child)::before {
+  content: '';
+
+  position: absolute;
+
+  left: 17px;
+  top: 39px;
+  bottom: -12px;
+
+  width: 3px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(
+        10,
+        163,
+        109,
+        0.85
+      ),
+      rgba(
+        0,
+        166,
+        200,
+        0.28
+      )
+    );
+}
+
+
+/* =========================================================
+   NODO
+   ========================================================= */
+
+.admin-v2-history-item__point {
+  position: relative;
+
+  z-index: 2;
+
+  width: 34px;
+  height: 34px;
+
+  min-width: 34px;
+
+  display: grid;
+
+  place-items: center;
+
+  border:
+    3px solid
+    #09a66f;
+
+  border-radius: 50%;
+
+  background:
+    #099b68;
+
+  color:
+    #ffffff;
+
+  font-size: 15px;
+  font-weight: 750;
+
+  box-shadow:
+    0
+    0
+    0
+    5px
+    rgba(
+      9,
+      155,
+      104,
+      0.1
+    );
+}
+
+
+/* =========================================================
+   FECHA
+   ========================================================= */
+
+.admin-v2-history-item time {
+  min-width: 0;
+
+  padding-top: 1px;
+
+  color: var(--ucb-text-soft);
+
+  font-size: 12.5px;
+  font-weight: 550;
+  line-height: 1.3;
+}
+
+
+.admin-v2-history-item time span {
+  display: block;
+
+  margin-top: 0.16rem;
+
+  color: var(--ucb-text-muted);
+
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   TEXTO DEL EVENTO
+   ========================================================= */
+
+.admin-v2-history-item__content {
+  min-width: 0;
+}
+
+
+.admin-v2-history-item__content strong {
+  display: block;
+
+  color: var(--ucb-text-strong);
+
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+
+.admin-v2-history-item__content p {
+  margin:
+    0.22rem
+    0
+    0;
+
+  color: var(--ucb-text-soft);
+
+  font-size: 12.5px;
+  line-height: 1.35;
+
+  overflow-wrap: anywhere;
+}
+
+
+.admin-v2-history-item__content small {
+  display: block;
+
+  margin-top: 0.25rem;
+
+  color: var(--ucb-text-muted);
+
+  font-size: 11.5px;
+}
+
+
+/* =========================================================
+   COLUMNA DERECHA
+   ========================================================= */
+
+.admin-v2-side {
+  min-width: 0;
+  min-height: 0;
+
+  display: grid;
+
+  grid-template-rows:
+    auto
+    minmax(0, 1fr);
+
+  gap: 0.7rem;
+
+  overflow: hidden;
+}
+
+
+.admin-v2-actions-panel,
+.admin-v2-observations-panel {
+  min-width: 0;
+  min-height: 0;
+}
+
+
+/* =========================================================
+   ACCIONES
+   ========================================================= */
+
+.admin-v2-actions-panel {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+
+.admin-v2-actions {
+  margin-top: 0.55rem;
+
+  display: grid;
+
+  gap: 0.5rem;
+}
+
+
+.admin-v2-action {
+  width: 100%;
+  min-height: 56px;
+
+  margin: 0 !important;
+
+  padding:
+    0.65rem
+    0.8rem !important;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 0.8rem;
+
+  border-radius:
+    6px !important;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+
+.admin-v2-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+
+.admin-v2-action__content {
+  min-width: 0;
+}
+
+
+.admin-v2-action__content strong {
+  display: block;
+
+  color: inherit;
+
+  font-size: 13px;
+  font-weight: 650;
+}
+
+
+.admin-v2-action__content small {
+  display: block;
+
+  margin-top: 0.18rem;
+
+  color: inherit;
+
+  opacity: 0.78;
+
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+
+.admin-v2-action__arrow {
+  font-size: 19px;
+}
+
+
+/* OBSERVACIÓN */
+
+.admin-v2-action--secondary {
+  border:
+    1px solid
+    rgba(
+      0,
+      166,
+      200,
+      0.48
+    ) !important;
+
+  background:
+    rgba(
+      0,
+      166,
+      200,
+      0.045
+    ) !important;
+
+  color: var(--ucb-text) !important;
+}
+
+
+.admin-v2-action--secondary:hover:not(:disabled) {
+  border-color:
+    var(--ucb-cyan) !important;
+
+  background:
+    rgba(
+      0,
+      166,
+      200,
+      0.075
+    ) !important;
+}
+
+
+/* PRIMARIA */
+
+.admin-v2-action--primary {
+  border:
+    1px solid
+    rgba(
+      255,
+      204,
+      0,
+      0.52
+    ) !important;
+
+  background:
+    rgba(
+      255,
+      204,
+      0,
+      0.04
+    ) !important;
+
+  color: var(--ucb-text) !important;
+}
+
+
+.admin-v2-action--primary:hover:not(:disabled) {
+  border-color:
+    var(--ucb-yellow) !important;
+
+  background:
+    rgba(
+      255,
+      204,
+      0,
+      0.07
+    ) !important;
+}
+
+
+/* FINALIZAR */
+
+.admin-v2-action--finish {
+  border:
+    1px solid
+    rgba(
+      32,
+      188,
+      124,
+      0.55
+    ) !important;
+
+  background:
+    rgba(
+      32,
+      188,
+      124,
+      0.06
+    ) !important;
+
+  color:
+    #dffbed !important;
+}
+
+
+/* =========================================================
+   RECHAZAR
+   ========================================================= */
+
+.admin-v2-danger-zone {
+  margin-top: 0.05rem;
+}
+
+
+.admin-v2-danger-action {
+  width: 100%;
+  min-height: 39px;
+
+  margin: 0 !important;
+
+  padding:
+    0
+    0.8rem !important;
+
+  border:
+    1px solid
+    rgba(
+      232,
+      70,
+      91,
+      0.55
+    ) !important;
+
+  border-radius:
+    6px !important;
+
+  background:
+    rgba(
+      139,
+      27,
+      47,
+      0.17
+    ) !important;
+
+  color:
+    #ffd9df !important;
+
+  font-size:
+    12.5px !important;
+  font-weight:
+    650 !important;
+}
+
+
+/* =========================================================
+   EMAIL
+   ========================================================= */
+
+.admin-v2-email-note {
+  margin-top: 0.55rem;
+
+  padding:
+    0.58rem
+    0.7rem;
+
+  border:
+    1px solid
+    var(--ucb-border-soft);
+
+  border-radius: 6px;
+
+  background: transparent;
+
+  color: var(--ucb-text-muted);
+
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+
+/* =========================================================
+   OBSERVACIONES
+   ========================================================= */
+
+.admin-v2-observations-panel {
+  display: flex;
+
+  flex-direction: column;
+
+  overflow: hidden;
+}
+
+
+.admin-v2-count {
+  min-width: 24px;
+  height: 24px;
+
+  padding:
+    0
+    0.42rem;
+
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 999px;
+
+  background:
+    rgba(
+      255,
+      204,
+      0,
+      0.1
+    );
+
+  color: var(--ucb-yellow);
+
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+
+.admin-v2-observations {
+  min-width: 0;
+  min-height: 0;
+
+  margin-top: 0.5rem;
+
+  flex:
+    1
+    1
+    auto;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+
+.admin-v2-observations article {
+  padding:
+    0.6rem
+    0.05rem;
+}
+
+
+.admin-v2-observations article
++ article {
+  border-top:
+    1px solid
+    var(--ucb-border-soft);
+}
+
+
+.admin-v2-observations article strong {
+  color: var(--ucb-text-strong);
+
+  font-size: 12.5px;
+}
+
+
+.admin-v2-observations article p {
+  margin:
+    0.22rem
+    0
+    0;
+
+  color: var(--ucb-text-soft);
+
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+
+/* =========================================================
+   VACÍO
+   ========================================================= */
+
+.admin-v2-empty {
+  min-height: 76px;
+
+  padding: 0.8rem;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border:
+    1px dashed
+    var(--ucb-border-soft);
+
+  border-radius: 6px;
+
+  color: var(--ucb-text-muted);
+
+  font-size: 12.5px;
+
+  text-align: center;
+}
+
+
+/* =========================================================
+   FOCUS
+   ========================================================= */
+
+.admin-tabs button:focus-visible,
+.admin-v2-primary-button:focus-visible,
+.admin-v2-action:focus-visible,
+.admin-v2-danger-action:focus-visible {
+  outline:
+    2px solid
+    rgba(
+      255,
+      204,
+      0,
+      0.72
+    );
+
+  outline-offset: 2px;
+}
+
+
+/* =========================================================
+   DESKTOP DE MENOR ALTURA
+   ========================================================= */
+
+@media (
+  max-height: 820px
+) and (
+  min-width: 1001px
+) {
+  .admin-review-page {
+    padding:
+      0.65rem
+      1.55rem
+      0.45rem;
+
+    gap: 0.5rem;
+  }
+
+
+  .admin-review-breadcrumb {
+    min-height: 25px;
+
+    font-size: 13px;
+  }
+
+
+  .admin-summary-card {
+    flex-basis: 98px;
+
+    min-height: 98px;
+  }
+
+
+  .admin-summary-item {
+    padding:
+      0.65rem
+      0.85rem;
+  }
+
+
+  .admin-summary-icon {
+    width: 47px;
+    height: 47px;
+  }
+
+
+  .admin-request-number {
+    font-size: 24px !important;
+  }
+
+
+  .admin-tabs {
+    flex-basis: 52px;
+
+    min-height: 52px;
+  }
+
+
+  .admin-tabs button {
+    min-height: 51px;
+
+    font-size: 14px !important;
+  }
+
+
+  .admin-v2-flow-card {
+    padding:
+      0.65rem
+      0.9rem;
+
+    margin-bottom: 0.5rem;
+  }
+
+
+  .admin-v2-section-heading h2 {
+    font-size: 16px;
+  }
+
+
+  .admin-v2-step__point {
+    width: 36px;
+    height: 36px;
+
+    min-width: 36px;
+
+    border-width: 3px;
+  }
+
+
+  .admin-v2-step__line {
+    top: 17px;
+  }
+
+
+  .admin-v2-step > strong {
+    font-size: 12.5px;
+  }
+
+
+  .admin-v2-step > small {
+    font-size: 11px;
+  }
+
+
+  .admin-v2-panel {
+    padding:
+      0.7rem
+      0.85rem;
+  }
+
+
+  .admin-v2-document-row {
+    min-height: 58px;
+
+    padding:
+      0.55rem
+      0.2rem;
+  }
+
+
+  .admin-v2-history-item {
+    min-height: 72px;
+
+    padding:
+      0.55rem
+      0.15rem;
+  }
+
+
+  .admin-v2-history-item:not(:last-child)::before {
+    top: 36px;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (
+  max-width: 1180px
+) {
+  .admin-review-page {
+    height: auto;
+    min-height: 100%;
+
+    padding:
+      1rem
+      1.25rem;
+
+    overflow-y: auto;
+  }
+
+
+  .admin-summary-card {
+    flex-basis: auto;
+
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+
+  .admin-summary-item:last-child {
+    grid-column:
+      1 / -1;
+  }
+
+
+  .admin-tab-content {
+    overflow: visible;
+  }
+
+
+  .admin-v2-summary-grid,
+  .admin-v2-requirements-layout,
+  .admin-v2-history-layout {
+    grid-template-columns: 1fr;
+  }
+
+
+  .admin-v2-stepper {
+    min-width: 700px;
+  }
+
+
+  .admin-v2-flow-card {
+    overflow-x: auto;
+  }
+
+
+  .admin-v2-side {
+    overflow: visible;
+  }
+}
+
+
+/* =========================================================
+   MÓVIL
+   ========================================================= */
+
+@media (
+  max-width: 720px
+) {
+  .admin-review-page {
+    padding: 0.8rem;
+  }
+
+
+  .admin-summary-card {
+    grid-template-columns: 1fr;
+  }
+
+
+  .admin-summary-item {
+    border-right: 0;
+  }
+
+
+  .admin-tabs {
+    display: flex;
+
+    overflow-x: auto;
+  }
+
+
+  .admin-tabs button {
+    min-width: 180px;
+
+    flex:
+      0
+      0
+      auto;
+  }
+
+
+  .admin-v2-section-heading--between {
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+
+  .admin-v2-primary-button {
+    width: 100%;
+  }
+
+
+  .admin-v2-data-list > div {
+    grid-template-columns: 1fr;
+
+    gap: 0.2rem;
+  }
+
+
+  .admin-v2-history-item {
+    grid-template-columns:
+      34px
+      minmax(0, 1fr);
+
+    gap: 10px;
+  }
+
+
+  .admin-v2-history-item time {
+    grid-column: 2;
+  }
+
+
+  .admin-v2-history-item__content {
+    grid-column: 2;
+  }
+
+
+  .admin-v2-history-item:not(:last-child)::after {
+    left: 44px;
+  }
+}

@@ -1,11 +1,77 @@
-<section>
-  <h1>Verificación de correo</h1>
-
-  <p>{{ mensaje }}</p>
-
-  @if (!cargando && exitoso) {
-    <a routerLink="/login">
-      Iniciar sesión
-    </a>
+<app-auth-layout variant="verify"
+  ><header class="auth-heading auth-heading--verification">
+    <div class="auth-mail-emblem">
+      <app-auth-icon name="heroEnvelope" /><span
+        ><app-auth-icon
+          [name]="cargando ? 'heroArrowPath' : exitoso ? 'heroCheck' : 'heroExclamationCircle'"
+      /></span>
+    </div>
+    <h1 id="auth-title">
+      {{
+        cargando
+          ? 'Verificando tu correo'
+          : exitoso
+            ? 'Correo verificado'
+            : 'Verifica tu correo electrónico'
+      }}
+    </h1>
+    <p role="status">{{ mensaje }}</p>
+  </header>
+  @if (!cargando && !exitoso) {
+    <form (submit)="$event.preventDefault(); reenviar()" [attr.aria-busy]="reenviando">
+      <label class="auth-email-label" for="correo-reenvio">Correo registrado</label>
+      <div class="auth-input auth-email-display">
+        <app-auth-icon name="heroEnvelope" /><input
+          id="correo-reenvio"
+          type="email"
+          autocomplete="email"
+          placeholder="Tu correo electrónico"
+          [formControl]="correoReenvio"
+        />
+      </div>
+      @if (correoReenvio.touched && correoReenvio.invalid) {
+        <p class="auth-validation" role="alert">Introduce un correo válido.</p>
+      }
+      <p class="auth-inbox">
+        Por favor, revisa tu <span>bandeja de entrada</span> y también<br
+          class="auth-desktop-break"
+        />
+        tu carpeta de <span>spam o correo no deseado</span>.
+      </p>
+      <button
+        class="auth-primary"
+        type="submit"
+        [disabled]="reenviando || esperandoReenvio || correoReenvio.invalid"
+      >
+        <app-auth-icon name="heroPaperAirplane" /><span>{{
+          reenviando ? 'Solicitando envío...' : 'Reenviar correo'
+        }}</span>
+      </button>
+      @if (esperandoReenvio) {
+        <p class="auth-help auth-centered" role="status">
+          Puedes volver a solicitarlo después de 60 segundos.
+        </p>
+      }
+      @if (mensajeReenvio) {
+        <p class="auth-message" role="status">{{ mensajeReenvio }}</p>
+      }
+      @if (errorReenvio) {
+        <p class="auth-message auth-message--error" role="alert">{{ errorReenvio }}</p>
+      }
+    </form>
   }
-</section>
+  <a class="auth-back" routerLink="/login"
+    ><app-auth-icon name="heroArrowLeft" />Volver al inicio de sesión</a
+  >
+  <div class="auth-note auth-expiry">
+    <app-auth-icon name="heroInformationCircle" />
+    <p>
+      @if (exitoso) {
+        Tu correo ha sido verificado.<br />Puedes volver al inicio de sesión.
+      } @else {
+        El enlace de verificación tiene una vigencia limitada.<br />Verifica tu correo para poder
+        acceder a tu cuenta.
+      }
+    </p>
+  </div></app-auth-layout
+>
