@@ -1,3 +1,4 @@
+import { PerfilAcademicoResponse } from '../../../core/account/account.models';
 import {
   Component,
   OnInit,
@@ -59,36 +60,7 @@ import {
 } from '../../../core/account/account.models';
 
 
-interface PerfilAcademicoResponse {
-  id_perfil?: number;
-  id_usuario?: number;
 
-  documento_identidad:
-    | string
-    | null;
-
-  carrera_programa?:
-    string
-    | null;
-
-  codigo_estudiante?:
-    string
-    | null;
-
-  sede?:
-    string
-    | null;
-
-  nivel_academico?:
-    string
-    | null;
-
-  fecha_creacion?:
-    string;
-
-  fecha_actualizacion?:
-    string;
-}
 
 
 @Component({

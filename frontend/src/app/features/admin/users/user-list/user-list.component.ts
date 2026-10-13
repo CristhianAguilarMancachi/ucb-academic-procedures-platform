@@ -16,6 +16,7 @@ import {
   Router,
 } from '@angular/router';
 
+import { RolResponse } from '../../../../core/account/account.models';
 import { HttpErrorResponse } from '@angular/common/http';
 
 import {
@@ -48,6 +49,8 @@ export class UserListComponent implements OnInit {
   private readonly router = inject(Router);
 
 
+  readonly roles = signal<RolResponse[]>([]);
+
   readonly usuarios =
     signal<UsuarioResumenResponse[]>([]);
 
@@ -71,11 +74,16 @@ export class UserListComponent implements OnInit {
   readonly formulario = this.fb.nonNullable.group({
     busqueda: [''],
     estado: [''],
+    id_rol: [0],
   });
 
 
   ngOnInit(): void {
     this.cargarUsuarios();
+    this.adminUsersService.obtenerRoles().subscribe({
+      next: r => this.roles.set(r.items),
+      error: () => this.error.set('No fue posible cargar el catálogo de roles.'),
+    });
   }
 
 
@@ -96,6 +104,7 @@ export class UserListComponent implements OnInit {
       pagina: this.pagina(),
       por_pagina: this.porPagina(),
       estado,
+      id_rol: Number(filtros.id_rol) || undefined,
       busqueda:
         filtros.busqueda.trim() || undefined,
     }).subscribe({
@@ -148,6 +157,7 @@ export class UserListComponent implements OnInit {
     this.formulario.reset({
       busqueda: '',
       estado: '',
+      id_rol: 0,
     });
 
     this.pagina.set(1);

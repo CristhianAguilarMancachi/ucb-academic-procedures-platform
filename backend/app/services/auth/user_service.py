@@ -3,6 +3,11 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.security import utc_now
+from app.repositories.usuario_rol_repository import bloquear_administracion
+from app.repositories.auditoria_repository import actividad_reciente_usuario
+from app.repositories.gestion_seguimiento.perfil_academico_repository import obtener_perfil_por_usuario
+from app.repositories.gestion_seguimiento.unidad_repository import listar_unidades_usuario
+from app.services.auth.role_service import proteger_ultimo_administrador, UltimoAdministradorError
 from app.models.usuario import Usuario
 from app.repositories.sesion_usuario_repository import (
     contar_sesiones_vigentes,
@@ -281,6 +286,11 @@ def obtener_usuario_administracion(
         fecha_actualizacion=(
             usuario.fecha_actualizacion
         ),
+        tiene_contrasena=usuario.contrasena_hash is not None,
+        perfil_academico=obtener_perfil_por_usuario(db, id_usuario),
+        unidades=[a.unidad for a in listar_unidades_usuario(db, id_usuario, solo_activas=True)]
+            if any(r.nombre == "personal_administrativo" for r in _obtener_roles_activos(usuario)) else [],
+        actividad_reciente=actividad_reciente_usuario(db, id_usuario),
         correos=usuario.correos,
         roles=_obtener_roles_activos(
             usuario,
@@ -297,6 +307,7 @@ def listar_usuarios_administracion(
     pagina: int = 1,
     por_pagina: int = 20,
     estado: str | None = None,
+    id_rol: int | None = None,
     texto_busqueda: str | None = None,
 ) -> ListaUsuariosResponse:
     """
@@ -316,12 +327,20 @@ def listar_usuarios_administracion(
         pagina=pagina,
         por_pagina=por_pagina,
         estado=estado,
+        id_rol=id_rol,
         texto_busqueda=texto_busqueda,
     )
 
     items = [
-        UsuarioResumenResponse.model_validate(
-            usuario
+        UsuarioResumenResponse(
+            id_usuario=usuario.id_usuario,
+            nombres=usuario.nombres,
+            apellidos=usuario.apellidos,
+            estado=usuario.estado,
+            fecha_ultimo_acceso=usuario.fecha_ultimo_acceso,
+            fecha_creacion=usuario.fecha_creacion,
+            correo_principal=next((str(c.correo) for c in usuario.correos if c.activo and c.es_principal), None),
+            roles=_obtener_roles_activos(usuario),
         )
         for usuario in usuarios
     ]
@@ -358,6 +377,7 @@ def cambiar_estado_usuario(
             "El estado de usuario no es válido."
         )
 
+    bloquear_administracion(db)
     usuario = obtener_usuario_por_id(
         db,
         id_usuario,
@@ -381,6 +401,13 @@ def cambiar_estado_usuario(
             "El correo principal debe estar verificado "
             "antes de activar la cuenta."
         )
+
+    if nuevo_estado != "activo":
+        try:
+            proteger_ultimo_administrador(db, usuario)
+        except UltimoAdministradorError as exc:
+            db.rollback()
+            raise EstadoUsuarioInvalidoError(str(exc)) from exc
 
     estado_anterior = usuario.estado
 

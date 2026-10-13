@@ -16,6 +16,9 @@ from app.repositories.usuario_repository import (
     obtener_usuario_por_id,
 )
 from app.repositories.usuario_rol_repository import (
+    bloquear_administracion,
+    contar_otros_administradores,
+    usuario_tiene_rol,
     crear_asignacion_rol,
     obtener_asignacion,
     reactivar_asignacion,
@@ -60,6 +63,15 @@ class UltimoAdministradorError(RoleServiceError):
     """
     Impide revocar el rol al último administrador activo.
     """
+
+
+def proteger_ultimo_administrador(db: Session, usuario: Usuario) -> None:
+    if (usuario.estado == "activo"
+            and usuario_tiene_rol(db, id_usuario=usuario.id_usuario, nombre_rol="administrador")
+            and contar_otros_administradores(db, usuario.id_usuario) == 0):
+        raise UltimoAdministradorError(
+            "La operación dejaría el sistema sin un administrador activo con correo verificado."
+        )
 
 
 def obtener_rol_predeterminado(
@@ -130,9 +142,11 @@ def asignar_rol_usuario(
     """
     Asigna o reactiva un rol desde administración.
     """
+    bloquear_administracion(db)
     usuario = obtener_usuario_por_id(
         db,
         id_usuario,
+        bloquear=True,
     )
 
     if usuario is None:
@@ -226,9 +240,11 @@ def revocar_rol_usuario(
     """
     Revoca un rol asignado a un usuario.
     """
+    bloquear_administracion(db)
     usuario = obtener_usuario_por_id(
         db,
         id_usuario,
+        bloquear=True,
     )
 
     if usuario is None:
@@ -260,6 +276,13 @@ def revocar_rol_usuario(
         raise RolNoAsignadoError(
             "El usuario no tiene activo ese rol."
         )
+
+    if rol.nombre == "administrador":
+        try:
+            proteger_ultimo_administrador(db, usuario)
+        except UltimoAdministradorError:
+            db.rollback()
+            raise
 
     try:
         asignacion = revocar_asignacion(

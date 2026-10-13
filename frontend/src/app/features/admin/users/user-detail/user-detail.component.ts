@@ -1,3 +1,4 @@
+import { ModalComponent } from '../../../../shared/components/modal/modal.component';
 import {
   Component,
   OnInit,
@@ -38,6 +39,7 @@ import {
   selector: 'app-user-detail',
   standalone: true,
   imports: [
+    ModalComponent,
     CommonModule,
     ReactiveFormsModule,
   ],
@@ -58,6 +60,13 @@ export class UserDetailComponent implements OnInit {
   private readonly adminUsersService =
     inject(AdminUsersService);
 
+
+  readonly modalRoles = signal(false);
+  readonly confirmarEstado = signal(false);
+
+  correoPrincipal(): string {
+    return this.usuario()?.correos.find(c => c.activo && c.es_principal)?.correo || 'Sin correo principal';
+  }
 
   readonly usuario =
     signal<UsuarioAdministradorDetalleResponse | null>(null);
@@ -280,6 +289,8 @@ export class UserDetailComponent implements OnInit {
       return;
     }
 
+    if (!window.confirm(`Revocar el rol ${rol.nombre} de ${usuarioActual.nombres} ${usuarioActual.apellidos}?`)) return;
+
     this.procesando.set(true);
     this.error.set(null);
     this.mensaje.set(null);
@@ -356,9 +367,8 @@ export class UserDetailComponent implements OnInit {
             motivo: '',
           });
 
-          this.mensaje.set(
-            'El estado del usuario fue actualizado.',
-          );
+          this.confirmarEstado.set(false);
+          this.mensaje.set('El estado del usuario fue actualizado.');
 
           this.procesando.set(false);
         },

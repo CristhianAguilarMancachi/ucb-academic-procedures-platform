@@ -35,6 +35,14 @@ class Tramite(Base):
     administrativo interno que seguirá posteriormente.
     """
 
+    @property
+    def cantidad_requisitos_activos(self) -> int:
+        return sum(r.activo for r in self.requisitos)
+
+    @property
+    def cantidad_etapas_activas(self) -> int:
+        return sum(e.activo for e in self.etapas)
+
     __tablename__ = "tramite"
 
     tiempo_estimado: Mapped[str | None] = mapped_column(Text)

@@ -300,3 +300,25 @@ def contar_acciones(
     return int(
         db.scalar(consulta) or 0
     )
+
+def actividad_reciente_usuario(db: Session, id_usuario: int, limite: int = 30) -> list[dict]:
+    """Actividad propia y cambios administrativos sobre la cuenta, sin datos sensibles."""
+    from sqlalchemy import literal, union_all, or_
+    from app.models.evento_autenticacion import EventoAutenticacion
+    auditoria = select(
+        Auditoria.fecha_evento.label("fecha"), literal("auditoria").label("origen"),
+        Auditoria.accion.label("accion"), Auditoria.exitoso.label("exitoso"),
+    ).where(or_(
+        Auditoria.id_usuario_actor == id_usuario,
+        (Auditoria.entidad == "usuario") & (Auditoria.id_entidad == str(id_usuario)),
+        (Auditoria.entidad == "usuario_rol")
+        & (Auditoria.detalle["id_usuario"].as_string() == str(id_usuario)),
+    ))
+    autenticacion = select(
+        EventoAutenticacion.fecha_evento.label("fecha"), literal("autenticacion").label("origen"),
+        EventoAutenticacion.tipo_evento.label("accion"), EventoAutenticacion.exitoso.label("exitoso"),
+    ).where(EventoAutenticacion.id_usuario == id_usuario)
+    eventos = union_all(auditoria, autenticacion).subquery()
+    return [dict(row) for row in db.execute(
+        select(eventos).order_by(eventos.c.fecha.desc(), eventos.c.origen, eventos.c.accion).limit(limite)
+    ).mappings()]

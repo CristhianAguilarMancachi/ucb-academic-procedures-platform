@@ -58,3 +58,56 @@ export interface RagFeedbackDeleteResponse {
   deleted: boolean;
   message: string;
 }
+export interface VigenciaDocumento {
+  vigente_desde: string;
+  vigente_hasta: string | null;
+}
+
+export interface DocumentoCrear extends VigenciaDocumento {
+  titulo: string;
+  unidad_origen: string;
+  descripcion: string | null;
+  estado: 'activo' | 'inactivo';
+}
+
+export interface VersionCrear extends VigenciaDocumento {
+  observacion: string | null;
+}
+
+export interface VersionDocumento {
+  id_version_documento: number;
+  numero_version: string;
+  estado: string;
+  fecha_version: string;
+  vigente_desde: string | null;
+  vigente_hasta: string | null;
+  desde_efectivo: string;
+  vigente: boolean;
+  cantidad_chunks: number;
+  descargable: boolean;
+  observacion: string | null;
+}
+
+export interface DocumentoInstitucional {
+  id_documento_institucional: number;
+  titulo: string;
+  unidad_origen: string;
+  descripcion: string | null;
+  estado: string;
+  fecha_carga: string;
+  fecha_actualizacion: string;
+  id_version_actual: number | null;
+  version_actual: VersionDocumento | null;
+  utilizable_rag: boolean;
+}
+
+export interface DocumentoDetalle extends DocumentoInstitucional {
+  versiones: VersionDocumento[];
+}
+
+export interface ListaDocumentos {
+  items: DocumentoInstitucional[];
+  total: number;
+  pagina: number;
+  por_pagina: number;
+}

@@ -1,249 +1,395 @@
-<section>
 
-  <h1>Administración de usuarios</h1>
+<section class="users-page">
 
-  <p>
-    Consulta y administra las cuentas registradas
-    en el sistema.
-  </p>
+  <!-- ENCABEZADO -->
+  <header class="users-header">
+    <div class="users-header__content">
+      <h1>Usuarios y roles</h1>
+      <p>
+        Administra las cuentas registradas, consulta sus roles
+        y revisa la información de cada usuario.
+      </p>
+    </div>
 
+    <div class="users-header__summary">
+      <span class="users-header__summary-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </span>
 
+      <div class="users-header__summary-content">
+        <span>Usuarios registrados</span>
+        <strong>{{ total() }}</strong>
+      </div>
+    </div>
+  </header>
+
+  <!-- FILTROS -->
   <form
+    class="users-filters"
     [formGroup]="formulario"
     (ngSubmit)="buscar()"
   >
-
-    <div>
-
-      <label for="busqueda">
-        Buscar
-      </label>
+    <div class="filter-control filter-control--search">
+      <svg class="filter-control__icon"
+        viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"
+        aria-hidden="true">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
+      </svg>
 
       <input
         id="busqueda"
-        type="text"
+        type="search"
         formControlName="busqueda"
-        placeholder="Nombre o correo"
+        placeholder="Buscar por nombre o correo electrónico..."
+        aria-label="Buscar usuario por nombre o correo"
+        autocomplete="off"
+        [disabled]="cargando()"
       />
-
     </div>
 
+    <div class="filter-control filter-control--select">
+      <select
+        id="rol"
+        formControlName="id_rol"
+        aria-label="Filtrar usuarios por rol"
+        [disabled]="cargando()"
+      >
+        <option [ngValue]="0">Todos los roles</option>
 
-    <div>
+        @for (rol of roles(); track rol.id_rol) {
+          <option [ngValue]="rol.id_rol">
+            @switch (rol.nombre) {
+              @case ('solicitante') {
+                Solicitante
+              }
+              @case ('personal_administrativo') {
+                Personal administrativo
+              }
+              @case ('administrador') {
+                Administrador
+              }
+              @default {
+                {{ rol.nombre }}
+              }
+            }
+          </option>
+        }
+      </select>
 
-      <label for="estado">
-        Estado
-      </label>
+      <svg class="filter-control__chevron"
+        viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"
+        aria-hidden="true">
+        <path d="m6 9 6 6 6-6"/>
+      </svg>
+    </div>
 
+    <div class="filter-control filter-control--select">
       <select
         id="estado"
         formControlName="estado"
+        aria-label="Filtrar usuarios por estado"
+        [disabled]="cargando()"
       >
-
-        <option value="">
-          Todos
-        </option>
-
-        <option value="activo">
-          Activo
-        </option>
-
+        <option value="">Todos los estados</option>
+        <option value="activo">Activo</option>
         <option value="pendiente_verificacion">
           Pendiente de verificación
         </option>
-
-        <option value="bloqueado">
-          Bloqueado
-        </option>
-
-        <option value="inactivo">
-          Inactivo
-        </option>
-
+        <option value="bloqueado">Bloqueado</option>
+        <option value="inactivo">Inactivo</option>
       </select>
 
+      <svg class="filter-control__chevron"
+        viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round"
+        aria-hidden="true">
+        <path d="m6 9 6 6 6-6"/>
+      </svg>
     </div>
 
+    <div class="filter-actions">
+      <button
+        type="submit"
+        class="filter-button filter-button--primary"
+        [disabled]="cargando()"
+      >
+        Buscar
+      </button>
 
-    <button type="submit">
-      Buscar
-    </button>
-
-
-    <button
-      type="button"
-      (click)="limpiarFiltros()"
-    >
-      Limpiar
-    </button>
-
+      <button
+        type="button"
+        class="filter-button filter-button--secondary"
+        [disabled]="cargando()"
+        (click)="limpiarFiltros()"
+      >
+        Limpiar
+      </button>
+    </div>
   </form>
 
+  <!-- TABLA PRINCIPAL -->
+  <section class="users-table-card">
 
-  @if (cargando()) {
-
-    <p>
-      Cargando usuarios...
-    </p>
-
-  }
-
-
-  @if (error()) {
-
-    <p>
-      {{ error() }}
-    </p>
-
-  }
-
-
-  @if (!cargando() && !error()) {
-
-    <p>
-      Total de usuarios:
-      {{ total() }}
-    </p>
-
-
-    @if (usuarios().length === 0) {
-
-      <p>
-        No se encontraron usuarios.
-      </p>
-
+    @if (cargando()) {
+      <div class="users-table-loading" role="status">
+        <span class="loading-spinner"></span>
+        Actualizando usuarios...
+      </div>
     }
 
+    @if (!cargando() && error()) {
+      <div class="users-state users-state--error" role="alert">
+        <div class="users-state__icon">!</div>
 
-    @if (usuarios().length > 0) {
+        <h2>No se pudieron cargar los usuarios</h2>
+        <p>{{ error() }}</p>
 
-      <table>
+        <button
+          type="button"
+          class="state-button"
+          (click)="cargarUsuarios()"
+        >
+          Intentar nuevamente
+        </button>
+      </div>
+    }
 
-        <thead>
+    @if (!cargando() && !error() && usuarios().length === 0) {
+      <div class="users-state">
+        <div class="users-state__icon">
+          <svg viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="8" r="4"/>
+            <path d="M4 21v-2a7 7 0 0 1 14 0v2"/>
+            <path d="m18 8 4 4m0-4-4 4"/>
+          </svg>
+        </div>
 
-          <tr>
-            <th>
-              Nombre
-            </th>
+        <h2>No se encontraron usuarios</h2>
+        <p>
+          No existen resultados para los filtros seleccionados.
+          Prueba con otros criterios de búsqueda.
+        </p>
 
-            <th>
-              Estado
-            </th>
+        <button
+          type="button"
+          class="state-button"
+          (click)="limpiarFiltros()"
+        >
+          Limpiar filtros
+        </button>
+      </div>
+    }
 
-            <th>
-              Último acceso
-            </th>
-
-            <th>
-              Fecha de registro
-            </th>
-
-            <th>
-              Acciones
-            </th>
-          </tr>
-
-        </thead>
-
-
-        <tbody>
-
-          @for (
-            usuario of usuarios();
-            track usuario.id_usuario
-          ) {
-
+    @if (!error() && usuarios().length > 0) {
+      <div class="users-table-scroll">
+        <table class="users-table">
+          <thead>
             <tr>
-
-              <td>
-                {{
-                  usuario.nombres
-                }}
-                {{
-                  usuario.apellidos
-                }}
-              </td>
-
-              <td>
-                {{
-                  usuario.estado
-                }}
-              </td>
-
-              <td>
-
-                @if (
-                  usuario.fecha_ultimo_acceso
-                ) {
-
-                  {{
-                    usuario.fecha_ultimo_acceso
-                    | date:'dd/MM/yyyy HH:mm'
-                  }}
-
-                } @else {
-
-                  Sin acceso registrado
-
-                }
-
-              </td>
-
-              <td>
-                {{
-                  usuario.fecha_creacion
-                  | date:'dd/MM/yyyy HH:mm'
-                }}
-              </td>
-
-              <td>
-
-                <button
-                  type="button"
-                  (click)="verDetalle(usuario)"
-                >
-                  Ver detalle
-                </button>
-
-              </td>
-
+              <th class="col-user">Usuario</th>
+              <th class="col-email">Correo electrónico</th>
+              <th class="col-roles">Roles asignados</th>
+              <th class="col-status">Estado</th>
+              <th class="col-date">Fecha de registro</th>
+              <th class="col-action">Acción</th>
             </tr>
+          </thead>
 
-          }
+          <tbody>
+            @for (usuario of usuarios(); track usuario.id_usuario) {
+              <tr>
+                <!-- USUARIO -->
+                <td>
+                  <div class="user-identity">
+                    <div class="user-avatar" aria-hidden="true">
+                      {{ usuario.nombres | slice:0:1 }}{{ usuario.apellidos | slice:0:1 }}
+                    </div>
 
-        </tbody>
+                    <div class="user-identity__text">
+                      <strong>
+                        {{ usuario.nombres }} {{ usuario.apellidos }}
+                      </strong>
+                      <small>
+                        ID {{ usuario.id_usuario }}
+                      </small>
+                    </div>
+                  </div>
+                </td>
 
-      </table>
+                <!-- CORREO -->
+                <td>
+                  @if (usuario.correo_principal) {
+                    <span
+                      class="user-email"
+                      [title]="usuario.correo_principal"
+                    >
+                      {{ usuario.correo_principal }}
+                    </span>
+                  } @else {
+                    <span class="empty-value">
+                      No registrado
+                    </span>
+                  }
+                </td>
 
+                <!-- ROLES -->
+                <td>
+                  <div class="user-roles">
+                    @for (rol of usuario.roles; track rol.id_rol) {
+                      <span
+                        class="role-badge"
+                        [attr.data-role]="rol.nombre"
+                      >
+                        @switch (rol.nombre) {
+                          @case ('solicitante') {
+                            Solicitante
+                          }
+                          @case ('personal_administrativo') {
+                            Personal administrativo
+                          }
+                          @case ('administrador') {
+                            Administrador
+                          }
+                          @default {
+                            {{ rol.nombre }}
+                          }
+                        }
+                      </span>
+                    } @empty {
+                      <span class="empty-value">
+                        Sin roles asignados
+                      </span>
+                    }
+                  </div>
+                </td>
+
+                <!-- ESTADO -->
+                <td>
+                  <span
+                    class="user-status"
+                    [attr.data-status]="usuario.estado"
+                  >
+                    <span class="user-status__dot"></span>
+
+                    @switch (usuario.estado) {
+                      @case ('activo') {
+                        Activo
+                      }
+                      @case ('pendiente_verificacion') {
+                        Pendiente
+                      }
+                      @case ('bloqueado') {
+                        Bloqueado
+                      }
+                      @case ('inactivo') {
+                        Inactivo
+                      }
+                      @default {
+                        {{ usuario.estado }}
+                      }
+                    }
+                  </span>
+                </td>
+
+                <!-- REGISTRO -->
+                <td>
+                  <div class="user-date">
+                    <span>
+                      {{ usuario.fecha_creacion | date:'dd/MM/yyyy' }}
+                    </span>
+                    <small>
+                      {{ usuario.fecha_creacion | date:'HH:mm' }}
+                    </small>
+                  </div>
+                </td>
+
+                <!-- ACCIÓN -->
+                <td>
+                  <button
+                    type="button"
+                    class="user-detail-button"
+                    (click)="verDetalle(usuario)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.8"
+                      stroke-linecap="round" stroke-linejoin="round"
+                      aria-hidden="true">
+                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <span>Ver detalle</span>
+                    <svg class="user-detail-button__arrow"
+                      viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round"
+                      aria-hidden="true">
+                      <path d="m9 18 6-6-6-6"/>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     }
+  </section>
 
-
-    <div>
-
-      <button
-        type="button"
-        (click)="paginaAnterior()"
-        [disabled]="!hayPaginaAnterior()"
-      >
-        Anterior
-      </button>
-
-
-      <span>
-        Página {{ pagina() }}
-      </span>
-
-
-      <button
-        type="button"
-        (click)="paginaSiguiente()"
-        [disabled]="!hayPaginaSiguiente()"
-      >
-        Siguiente
-      </button>
-
+  <!-- PAGINACIÓN -->
+  <footer class="users-pagination">
+    <div class="users-pagination__info">
+      @if (total() > 0) {
+        <span>
+          Página {{ pagina() }}
+          · {{ total() }} usuario{{ total() === 1 ? '' : 's' }}
+        </span>
+      } @else {
+        <span>No hay usuarios para mostrar</span>
+      }
     </div>
 
-  }
+    <div class="users-pagination__controls">
+      <button
+        type="button"
+        class="page-button"
+        [disabled]="cargando() || !hayPaginaAnterior()"
+        (click)="paginaAnterior()"
+        aria-label="Página anterior"
+      >
+        ‹
+      </button>
+
+      <span class="page-current">
+        {{ pagina() }}
+      </span>
+
+      <button
+        type="button"
+        class="page-button"
+        [disabled]="cargando() || !hayPaginaSiguiente()"
+        (click)="paginaSiguiente()"
+        aria-label="Página siguiente"
+      >
+        ›
+      </button>
+    </div>
+
+    <div class="users-pagination__label">
+      Administración de usuarios
+    </div>
+  </footer>
 
 </section>

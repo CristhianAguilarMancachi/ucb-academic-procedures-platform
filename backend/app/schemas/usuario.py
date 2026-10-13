@@ -1,4 +1,6 @@
 from __future__ import annotations
+from app.schemas.gestion_seguimiento.perfil_academico import PerfilAcademicoResponse
+from app.schemas.gestion_seguimiento.unidad import UnidadResponse
 
 from datetime import datetime
 from typing import Any, Literal
@@ -246,6 +248,9 @@ class UsuarioEstadoActualizarRequest(BaseModel):
 
 
 class UsuarioResumenResponse(BaseModel):
+    correo_principal: str | None = None
+    roles: list[RolResponse] = Field(default_factory=list)
+
     """
     Datos básicos utilizados en listas administrativas.
     """
@@ -320,6 +325,13 @@ class UsuarioAutenticadoResponse(
     )
 
 
+class ActividadUsuarioResponse(BaseModel):
+    fecha: datetime
+    origen: str
+    accion: str
+    exitoso: bool
+
+
 class UsuarioAdministradorDetalleResponse(
     UsuarioAutenticadoResponse
 ):
@@ -328,6 +340,9 @@ class UsuarioAdministradorDetalleResponse(
     """
 
     cantidad_sesiones_activas: int = 0
+    perfil_academico: PerfilAcademicoResponse | None = None
+    unidades: list[UnidadResponse] = Field(default_factory=list)
+    actividad_reciente: list[ActividadUsuarioResponse] = Field(default_factory=list)
 
 
 class ListaUsuariosResponse(BaseModel):

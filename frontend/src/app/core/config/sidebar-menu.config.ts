@@ -5,6 +5,14 @@ import {
 
 export const SIDEBAR_MENU:
   MenuItem[] = [
+  {
+    label: 'Documentos institucionales',
+    route: '/admin/documentos',
+    section: 'ADMINISTRACIÓN',
+    icon: 'folder',
+    requiresAuth: true,
+    roles: ['administrador'],
+  },
 
   {
     label:

@@ -30,6 +30,7 @@ export class AdminUsersService {
   ): Observable<ListaUsuariosResponse> {
 
     let params = new HttpParams();
+    if (filtros.id_rol) params = params.set('id_rol', filtros.id_rol);
 
     if (filtros.pagina !== undefined) {
       params = params.set(

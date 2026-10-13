@@ -1,249 +1,1559 @@
-<h1>Configuración de trámites</h1>
-<p>
-  Configura únicamente información y recorridos institucionales confirmados. Las etapas se ejecutan
-  linealmente por orden.
-</p>
-@if (error()) {
-  <p class="error" role="alert">{{ error() }}</p>
-}
-@if (mensaje()) {
-  <p class="success" role="status">{{ mensaje() }}</p>
-}
-<fieldset [disabled]="ocupado()">
-  <legend>Trámites configurados</legend>
-  <label>Buscar por nombre<input [(ngModel)]="busqueda" /></label
-  ><button (click)="pagina = 1; cargarLista()">Buscar</button
-  ><button (click)="nuevo()">Nuevo trámite</button>
-  @for (t of lista(); track t.id_tramite) {
-    <p>
-      <button (click)="limpiarEditores(); seleccionar(t.id_tramite)">{{ t.nombre }}</button>
-      {{ t.activo ? 'Activo' : 'Inactivo' }} · {{ t.publicado ? 'Publicado' : 'Sin publicar' }}
-    </p>
-  }
-  <button [disabled]="pagina === 1" (click)="mover(-1)">Anterior</button
-  ><span>Página {{ pagina }}</span
-  ><button [disabled]="pagina * 20 >= total()" (click)="mover(1)">Siguiente</button>
-</fieldset>
-<fieldset [disabled]="ocupado()">
-  <legend>{{ id ? 'Editar trámite' : 'Crear trámite' }}</legend>
-  <label>Nombre<input maxlength="200" [(ngModel)]="general.nombre" /></label
-  ><label>Descripción<textarea [(ngModel)]="general.descripcion"></textarea></label>
-  <label><input type="checkbox" [(ngModel)]="general.activo" /> Activo</label
-  ><label><input type="checkbox" [(ngModel)]="general.publicado" /> Publicado</label
-  ><label
-    ><input type="checkbox" [(ngModel)]="general.permite_solicitudes" /> Permitir solicitudes</label
-  >
-  <p>Para desactivar, desmarca también publicación y recepción de solicitudes.</p>
-  <label
-    >Modalidad de finalización<select [(ngModel)]="general.tipo_finalizacion">
-      <option value="">Pendiente de configurar</option>
-      <option value="entrega">Entrega/recojo</option>
-      <option value="resultado_registrado">Resultado registrado</option>
-      <option value="externo">Externo</option>
-    </select></label
-  >
-  <label>Tiempo estimado<input maxlength="1000" [(ngModel)]="general.tiempo_estimado" /></label
-  ><label
-    >Canales de atención<textarea
-      maxlength="2000"
-      [(ngModel)]="general.canales_atencion"
-    ></textarea>
-  </label>
-  <label
-    >Instrucciones<textarea maxlength="5000" [(ngModel)]="general.instrucciones"></textarea></label
-  ><label
-    >Condiciones<textarea maxlength="5000" [(ngModel)]="general.condiciones"></textarea>
-  </label>
-  <button [disabled]="general.nombre.trim().length < 3" (click)="guardarGeneral()">
-    Guardar trámite
-  </button>
-</fieldset>
-@if (actual(); as t) {
-  <h2>Configuración de {{ t.nombre }}</h2>
-  <details>
-    <summary>Campos del formulario</summary>
-    <fieldset [disabled]="ocupado()">
-      @for (c of t.campos; track c.id_campo) {
+
+<section class="tramites-config" [class.is-editor]="vista === 'editor'">
+
+  @if (vista === 'listado') {
+
+    <!-- ===============================================
+         LISTADO APROBADO
+         =============================================== -->
+    <header class="config-heading">
+      <div>
+        <h1>Trámites configurados</h1>
         <p>
-          {{ c.etiqueta }} · {{ c.tipo_dato }} · {{ c.activo ? 'Activo' : 'Inactivo' }}
-          <button (click)="editarCampo(c)">Editar</button>
+          Administra la información, los requisitos y los
+          procesos de los trámites académicos.
         </p>
-      }
-      <h3>{{ idCampo ? 'Editar campo' : 'Agregar campo' }}</h3>
-      <label>Clave<input [(ngModel)]="campo.clave" /></label
-      ><label>Etiqueta<input [(ngModel)]="campo.etiqueta" /></label
-      ><label>Descripción<textarea [(ngModel)]="campo.descripcion"></textarea></label>
-      <label
-        >Tipo<select [(ngModel)]="campo.tipo_dato">
-          @for (
-            tipo of ['texto', 'texto_largo', 'entero', 'decimal', 'fecha', 'booleano', 'seleccion'];
-            track tipo
-          ) {
-            <option [value]="tipo">{{ tipo }}</option>
-          }
-        </select></label
-      >
-      @if (campo.tipo_dato === 'seleccion') {
-        <label>Opciones (una por línea)<textarea [(ngModel)]="opcionesCampo"></textarea></label>
-      }
-      <label>Orden<input type="number" min="1" [(ngModel)]="campo.orden" /></label
-      ><label><input type="checkbox" [(ngModel)]="campo.obligatorio" /> Obligatorio</label
-      ><label><input type="checkbox" [(ngModel)]="campo.activo" /> Activo</label>
-      <button (click)="guardarCampo()">Guardar campo</button
-      ><button (click)="idCampo = 0; campo = nuevoCampo(); opcionesCampo = ''">Nuevo campo</button>
-    </fieldset>
-  </details>
-  <details>
-    <summary>Etapas del flujo</summary>
-    <fieldset [disabled]="ocupado()">
-      <p>
-        La primera etapa activa debe ser inicial y la última final. Una sola etapa puede tener ambas
-        marcas. El orden debe ser único.
-      </p>
-      @for (e of t.etapas; track e.id_etapa) {
-        <p>
-          {{ e.orden }}. {{ e.nombre }} · {{ e.activo ? 'Activa' : 'Inactiva' }}
-          <button (click)="editarEtapa(e)">Editar</button>
-        </p>
-      }
-      <h3>{{ idEtapa ? 'Editar etapa' : 'Agregar etapa' }}</h3>
-      <label>Nombre<input [(ngModel)]="etapa.nombre" /></label
-      ><label>Descripción<textarea [(ngModel)]="etapa.descripcion"></textarea></label>
-      <label>Orden<input type="number" min="1" [(ngModel)]="etapa.orden" /></label
-      ><label
-        >ID de unidad (opcional)<input type="number" min="1" [(ngModel)]="etapa.id_unidad"
-      /></label>
-      <label><input type="checkbox" [(ngModel)]="etapa.es_inicial" /> Inicial</label
-      ><label><input type="checkbox" [(ngModel)]="etapa.es_final" /> Final</label
-      ><label
-        ><input type="checkbox" [(ngModel)]="etapa.visible_solicitante" /> Visible al
-        solicitante</label
-      ><label><input type="checkbox" [(ngModel)]="etapa.activo" /> Activa</label>
-      <button (click)="guardarEtapa()">Guardar etapa</button
-      ><button (click)="idEtapa = 0; etapa = nuevaEtapa()">Nueva etapa</button>
-    </fieldset>
-  </details>
-  <details>
-    <summary>Requisitos y condiciones</summary>
-    <fieldset [disabled]="ocupado()">
-      @for (r of t.requisitos; track r.id_requisito) {
-        <p>
-          {{ r.nombre }} · {{ r.activo ? 'Activo' : 'Inactivo' }}
-          <button (click)="editarRequisito(r)">Editar</button>
-        </p>
-      }
-      <h3>{{ idRequisito ? 'Editar requisito' : 'Agregar requisito' }}</h3>
-      <label>Nombre<input [(ngModel)]="requisito.nombre" /></label
-      ><label>Descripción<textarea [(ngModel)]="requisito.descripcion"></textarea></label
-      ><label>Orden<input type="number" min="1" [(ngModel)]="requisito.orden" /></label>
-      <label
-        >Momento requerido<select [(ngModel)]="requisito.id_etapa">
-          <option [ngValue]="null">Inicial, antes del procesamiento</option>
-          @for (e of t.etapas; track e.id_etapa) {
-            <option [ngValue]="e.id_etapa">
-              Etapa: {{ e.nombre }} {{ e.activo ? '' : '(inactiva)' }}
-            </option>
-          }
-        </select></label
-      >
-      <label><input type="checkbox" [(ngModel)]="requisito.obligatorio" /> Obligatorio</label
-      ><label><input type="checkbox" [(ngModel)]="requisito.activo" /> Activo</label
-      ><label
-        ><input type="checkbox" [(ngModel)]="requisito.requiere_presentacion_fisica" /> Requiere
-        presentación física</label
-      >
-      <label
-        >Condición<select
-          [(ngModel)]="condicionOrigen"
-          (ngModelChange)="condicionCampo = ''; condicionValor = ''"
-        >
-          <option value="">Siempre aplica</option>
-          <option value="solicitud_dato">Dato del formulario</option>
-          <option value="perfil_academico">Perfil académico</option>
-        </select></label
-      >
-      @if (condicionOrigen) {
-        <label
-          >Campo<select [(ngModel)]="condicionCampo">
-            <option value="">Selecciona</option>
-            @if (condicionOrigen === 'solicitud_dato') {
-              @for (c of t.campos; track c.id_campo) {
-                @if (c.activo) {
-                  <option [value]="c.clave">{{ c.etiqueta }}</option>
-                }
-              }
-            } @else {
-              @for (c of camposPerfil; track c) {
-                <option [value]="c">{{ c }}</option>
+      </div>
+
+      <button type="button"
+        class="config-button config-button--primary"
+        [disabled]="ocupado()"
+        (click)="abrirNuevo()">
+        <span class="button-symbol">＋</span>
+        Crear trámite
+      </button>
+    </header>
+
+    <div class="list-filters">
+      <div class="search-field">
+        <svg viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.3-4.3"/>
+        </svg>
+        <input type="search"
+          [(ngModel)]="busqueda"
+          placeholder="Buscar trámite por nombre..."
+          aria-label="Buscar trámite"
+          (keyup.enter)="buscarTramites()" />
+      </div>
+
+      <button type="button"
+        class="config-button config-button--outline"
+        [disabled]="ocupado()"
+        (click)="buscarTramites()">Buscar</button>
+
+      <button type="button"
+        class="config-button config-button--subtle"
+        [disabled]="ocupado()"
+        (click)="limpiarBusqueda()">Limpiar</button>
+
+      <span class="list-filters__total">
+        {{ total() }} trámites
+      </span>
+    </div>
+
+    <section class="config-table-card">
+      <div class="config-table-scroll">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th class="col-tramite">Trámite</th>
+              <th class="col-descripcion">Descripción</th>
+              <th class="col-estado">Estado</th>
+              <th class="col-cantidad">Requisitos</th>
+              <th class="col-cantidad">Etapas</th>
+              <th class="col-fecha">Última actualización</th>
+              <th class="col-acciones">Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            @for (t of lista(); track t.id_tramite) {
+              <tr>
+                <td>
+                  <div class="tramite-cell">
+                    <span class="tramite-cell__icon">
+                      <svg viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.7"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M8 3h7l5 5v13H4V3h4Z"/>
+                        <path d="M15 3v5h5M8 13h8M8 17h6"/>
+                      </svg>
+                    </span>
+                    <div>
+                      <strong [title]="t.nombre">{{ t.nombre }}</strong>
+                      <small>Trámite #{{ t.id_tramite }}</small>
+                    </div>
+                  </div>
+                </td>
+
+                <td>
+                  <span class="description-cell"
+                    [title]="t.descripcion || ''">
+                    {{ t.descripcion || 'Sin descripción' }}
+                  </span>
+                </td>
+
+                <td>
+                  <div class="status-stack">
+                    <span class="state-pill"
+                      [class.state-pill--active]="t.activo"
+                      [class.state-pill--inactive]="!t.activo">
+                      <span></span>
+                      {{ t.activo ? 'Activo' : 'Inactivo' }}
+                    </span>
+                    @if (t.activo) {
+                      <small>
+                        {{ t.publicado ? 'Publicado' : 'Sin publicar' }}
+                      </small>
+                    }
+                  </div>
+                </td>
+
+                <td class="numeric-cell">
+                  {{ t.cantidad_requisitos_activos }}
+                </td>
+
+                <td class="numeric-cell">
+                  {{ t.cantidad_etapas_activas }}
+                </td>
+
+                <td>
+                  <span class="date-cell">
+                    @if (t.fecha_actualizacion) {
+                      {{ t.fecha_actualizacion | date:'dd/MM/yyyy' }}
+                      <small>
+                        {{ t.fecha_actualizacion | date:'HH:mm' }}
+                      </small>
+                    } @else {
+                      Sin registro
+                    }
+                  </span>
+                </td>
+
+                <td>
+                  <div class="table-actions">
+                    <button type="button"
+                      class="table-action table-action--edit"
+                      [disabled]="ocupado()"
+                      (click)="abrirTramite(t.id_tramite)">
+                      <svg viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m16 5 3 3M4 20l4.5-1 11-11a2.12 2.12 0 0 0-3-3l-11 11L4 20Z"/>
+                      </svg>
+                      Configurar
+                    </button>
+
+                    <button type="button"
+                      class="table-action table-action--state"
+                      [class.table-action--danger]="t.activo"
+                      [disabled]="ocupado()"
+                      (click)="prepararCambioActivo(t)">
+                      {{ t.activo ? 'Desactivar' : 'Activar' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              @if (!ocupado()) {
+                <tr>
+                  <td colspan="7">
+                    <div class="table-empty">
+                      <strong>No se encontraron trámites</strong>
+                      <p>
+                        Prueba con otra búsqueda o crea un nuevo trámite.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
               }
             }
-          </select></label
-        >
-        @if (condicionOrigen === 'solicitud_dato') {
-          <label
-            >Tipo del valor<select
-              [(ngModel)]="condicionTipo"
-              (ngModelChange)="condicionValor = ''"
-            >
-              <option value="texto">Texto o fecha</option>
-              <option value="numero">Número</option>
-              <option value="booleano">Sí/no</option>
-            </select></label
-          >
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="list-pagination">
+      <span>
+        Página {{ pagina }} · {{ total() }} trámites registrados
+      </span>
+      <div>
+        <button type="button"
+          [disabled]="ocupado() || pagina === 1"
+          (click)="mover(-1)" aria-label="Página anterior">‹</button>
+        <strong>{{ pagina }}</strong>
+        <button type="button"
+          [disabled]="ocupado() || pagina * 20 >= total()"
+          (click)="mover(1)" aria-label="Página siguiente">›</button>
+      </div>
+    </footer>
+
+  } @else {
+
+    <!-- ===============================================
+         NAVEGACIÓN Y CABECERA DEL EDITOR
+         =============================================== -->
+    <header class="editor-header">
+      <div class="editor-breadcrumb">
+        <button type="button"
+          (click)="volverListado()"
+          [disabled]="ocupado()">
+          Trámites configurados
+        </button>
+        <span aria-hidden="true">›</span>
+        <strong>
+          {{ id ? 'Configurar trámite' : 'Crear trámite' }}
+        </strong>
+      </div>
+
+      <div class="editor-heading">
+        <div class="editor-heading__identity">
+          <h1>
+            {{ id ? 'Configurar trámite' : 'Crear trámite' }}
+          </h1>
+          <p>
+            @if (actual(); as t) {
+              {{ t.nombre }} <span>·</span> Trámite #{{ t.id_tramite }}
+            } @else {
+              Registra la información básica para comenzar.
+            }
+          </p>
+        </div>
+
+        @if (actual(); as t) {
+          <div class="editor-state-group">
+            <span class="editor-state"
+              [class.editor-state--yes]="t.activo"
+              [class.editor-state--no]="!t.activo">
+              <span class="state-dot"></span>
+              {{ t.activo ? 'Trámite activo' : 'Trámite inactivo' }}
+            </span>
+            <span class="editor-state"
+              [class.editor-state--yes]="t.publicado"
+              [class.editor-state--neutral]="!t.publicado">
+              <span class="state-dot"></span>
+              {{ t.publicado ? 'Publicado' : 'Sin publicar' }}
+            </span>
+          </div>
+        } @else {
+          <span class="editor-state editor-state--draft">
+            Borrador sin guardar
+          </span>
         }
-        <label
-          >Debe ser igual a
-          @if (condicionOrigen === 'solicitud_dato' && condicionTipo === 'booleano') {
-            <select [(ngModel)]="condicionValor">
-              <option value="">Selecciona</option>
-              <option value="true">Sí</option>
-              <option value="false">No</option>
-            </select>
-          } @else {
-            <input [(ngModel)]="condicionValor" />
-          }
-        </label>
-      }
-      <button (click)="guardarRequisito()">Guardar requisito</button
-      ><button (click)="idRequisito = 0; requisito = nuevoRequisito(); condicionOrigen = ''">
-        Nuevo requisito
+      </div>
+    </header>
+
+    <!-- ===============================================
+         PESTAÑAS
+         =============================================== -->
+    <nav class="editor-tabs" aria-label="Configuración del trámite">
+      <button type="button"
+        [class.active]="pestana === 'general'"
+        (click)="cambiarPestana('general')">
+        <span class="editor-tab__number">01</span>
+        <span>General</span>
+        @if (id) { <span class="tab-check">✓</span> }
       </button>
-    </fieldset>
-  </details>
-  <details>
-    <summary>Configuración económica</summary>
-    <fieldset [disabled]="ocupado()">
-      @for (r of t.requisitos; track r.id_requisito) {
-        <article>
-          <h3>{{ r.nombre }}</h3>
-          <button (click)="editarEconomico(r.id_requisito)">Agregar gestión económica</button>
-          @for (e of r.configuraciones_economicas; track e.id_requisito_economico) {
+
+      <button type="button"
+        [class.active]="pestana === 'atencion'"
+        (click)="cambiarPestana('atencion')">
+        <span class="editor-tab__number">02</span>
+        <span>Atención</span>
+        @if (tieneAtencionConfigurada()) {
+          <span class="tab-check">✓</span>
+        }
+      </button>
+
+      <button type="button"
+        [class.active]="pestana === 'requisitos'"
+        [disabled]="!id"
+        [title]="!id ? 'Guarda primero el trámite' : ''"
+        (click)="cambiarPestana('requisitos')">
+        <span class="editor-tab__number">03</span>
+        <span>Campos y requisitos</span>
+        @if (actual()) {
+          <span class="tab-count tab-count--detail">
+            {{ actual()?.campos?.length ?? 0 }}
+            {{ (actual()?.campos?.length ?? 0) === 1 ? 'campo' : 'campos' }}
+          </span>
+          <span class="tab-count tab-count--detail">
+            {{ actual()?.requisitos?.length ?? 0 }}
+            {{ (actual()?.requisitos?.length ?? 0) === 1 ? 'requisito' : 'requisitos' }}
+          </span>
+        }
+      </button>
+
+      <button type="button"
+        [class.active]="pestana === 'etapas'"
+        [disabled]="!id"
+        [title]="!id ? 'Guarda primero el trámite' : ''"
+        (click)="cambiarPestana('etapas')">
+        <span class="editor-tab__number">04</span>
+        <span>Flujo y etapas</span>
+        @if (actual()) {
+          <span class="tab-count tab-count--detail">
+            {{ actual()?.etapas?.length ?? 0 }}
+            {{ (actual()?.etapas?.length ?? 0) === 1 ? 'etapa' : 'etapas' }}
+          </span>
+        }
+      </button>
+    </nav>
+
+    @if (!id) {
+      <div class="editor-guidance">
+        <span class="guidance-icon">i</span>
+        <span>
+          <strong>Comienza por General.</strong>
+          Guarda el nombre del trámite para habilitar la
+          configuración de campos, requisitos y etapas.
+        </span>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="config-notice config-notice--error" role="alert">
+        {{ error() }}
+      </div>
+    }
+
+    @if (mensaje()) {
+      <div class="config-notice config-notice--success" role="status">
+        {{ mensaje() }}
+      </div>
+    }
+
+    <!-- ===============================================
+         CONTENIDO DE LAS CUATRO PESTAÑAS
+         =============================================== -->
+    <main class="editor-content">
+
+      <!-- =============================================
+           01. GENERAL
+           ============================================= -->
+      @if (pestana === 'general') {
+        <section class="workspace-card">
+
+          <div class="workspace-heading">
+            <span class="workspace-heading__icon">01</span>
+            <div>
+              <h2>Información general</h2>
+              <p>Identificación oficial y disponibilidad del trámite.</p>
+            </div>
+            @if (id) {
+              <span class="configured-label">Datos guardados</span>
+            }
+          </div>
+
+          <fieldset class="workspace-grid"
+            [disabled]="ocupado()">
+
+            <section class="workspace-panel">
+              <h3>Identificación</h3>
+
+              <div class="form-field">
+                <label for="tramite-nombre">
+                  Nombre del trámite
+                  <span class="required-mark">*</span>
+                </label>
+                <input id="tramite-nombre"
+                  type="text" maxlength="200"
+                  autocomplete="off"
+                  [(ngModel)]="general.nombre"
+                  placeholder="Ej. Certificado de Conclusión de Estudios"/>
+                <small class="field-help">
+                  Nombre oficial con el que se identifica el trámite.
+                </small>
+              </div>
+
+              <div class="form-field">
+                <label for="tramite-descripcion">Descripción</label>
+                <textarea id="tramite-descripcion" rows="3"
+                  [(ngModel)]="general.descripcion"
+                  placeholder="Indica para qué sirve este trámite..."></textarea>
+              </div>
+
+              <div class="form-field">
+                <label for="tipo-finalizacion">
+                  Modalidad de finalización
+                </label>
+                <div class="select-wrap">
+                  <select id="tipo-finalizacion"
+                    [(ngModel)]="general.tipo_finalizacion">
+                    <option value="">
+                      Seleccionar modalidad...
+                    </option>
+                    <option value="entrega">
+                      Entrega o recojo de documento
+                    </option>
+                    <option value="resultado_registrado">
+                      Resultado registrado
+                    </option>
+                    <option value="externo">
+                      Proceso externo
+                    </option>
+                  </select>
+                </div>
+                <small class="field-help">
+                  Define cómo se registra que el trámite terminó.
+                </small>
+              </div>
+            </section>
+
+            <section class="workspace-panel">
+              <h3>Disponibilidad</h3>
+              <p class="panel-intro">
+                Puedes configurar el trámite antes de hacerlo
+                visible o permitir nuevas solicitudes.
+              </p>
+
+              <label class="setting-row">
+                <input type="checkbox"
+                  [(ngModel)]="general.activo"/>
+                <span>
+                  <strong>Trámite activo</strong>
+                  <small>
+                    Mantiene habilitada esta configuración.
+                  </small>
+                </span>
+              </label>
+
+              <label class="setting-row">
+                <input type="checkbox"
+                  [(ngModel)]="general.publicado"/>
+                <span>
+                  <strong>Publicado en el catálogo</strong>
+                  <small>
+                    Controla su publicación para los solicitantes.
+                  </small>
+                </span>
+              </label>
+
+              <label class="setting-row">
+                <input type="checkbox"
+                  [(ngModel)]="general.permite_solicitudes"/>
+                <span>
+                  <strong>Admitir nuevas solicitudes</strong>
+                  <small>
+                    Permite iniciar el trámite desde la plataforma.
+                  </small>
+                </span>
+              </label>
+            </section>
+
+          </fieldset>
+        </section>
+      }
+
+      <!-- =============================================
+           02. ATENCIÓN
+           ============================================= -->
+      @if (pestana === 'atencion') {
+        <section class="workspace-card">
+          <div class="workspace-heading">
+            <span class="workspace-heading__icon">02</span>
+            <div>
+              <h2>Información de atención</h2>
+              <p>
+                Indicaciones que ayudan al solicitante a
+                realizar el trámite.
+              </p>
+            </div>
+            @if (tieneAtencionConfigurada()) {
+              <span class="configured-label">Información registrada</span>
+            }
+          </div>
+
+          <fieldset class="workspace-grid"
+            [disabled]="ocupado()">
+
+            <section class="workspace-panel">
+              <h3>Tiempo y canales</h3>
+
+              <div class="form-field">
+                <label for="tiempo-atencion">
+                  Tiempo estimado de atención
+                </label>
+                <input id="tiempo-atencion"
+                  type="text" maxlength="1000"
+                  [(ngModel)]="general.tiempo_estimado"
+                  placeholder="Ej. 5 días hábiles o según confirmación de Kardex"/>
+                <small class="field-help">
+                  Plazo habitual o unidad que confirma la duración.
+                </small>
+              </div>
+
+              <div class="form-field">
+                <label for="canales-atencion">
+                  Canales o lugares de atención
+                </label>
+                <textarea id="canales-atencion"
+                  rows="5" maxlength="2000"
+                  [(ngModel)]="general.canales_atencion"
+                  placeholder="Ej. Atención en Kardex y pagos en Caja UCB..."></textarea>
+                <small class="field-help">
+                  Indica dónde debe dirigirse el solicitante.
+                </small>
+              </div>
+            </section>
+
+            <section class="workspace-panel">
+              <h3>Orientación al solicitante</h3>
+
+              <div class="form-field">
+                <label for="instrucciones-tramite">
+                  Instrucciones
+                </label>
+                <textarea id="instrucciones-tramite"
+                  rows="4" maxlength="5000"
+                  [(ngModel)]="general.instrucciones"
+                  placeholder="Describe los pasos que debe seguir el solicitante..."></textarea>
+                <small class="field-help">
+                  Explica las acciones principales en orden.
+                </small>
+              </div>
+
+              <div class="form-field">
+                <label for="condiciones-tramite">
+                  Condiciones y consideraciones
+                </label>
+                <textarea id="condiciones-tramite"
+                  rows="4" maxlength="5000"
+                  [(ngModel)]="general.condiciones"
+                  placeholder="Ej. Requisitos especiales para el recojo o entrega..."></textarea>
+              </div>
+            </section>
+          </fieldset>
+
+          <div class="workspace-note">
+            <span class="note-icon">i</span>
+            Esta información orienta al solicitante y no
+            reemplaza la atención ni los procedimientos físicos.
+          </div>
+        </section>
+      }
+
+      <!-- =============================================
+           03. CAMPOS Y REQUISITOS
+           ============================================= -->
+      @if (pestana === 'requisitos' && actual(); as t) {
+        <div class="requirements-layout">
+
+          <section class="collection-card">
+            <div class="collection-heading">
+              <div class="collection-heading__text">
+                <div class="collection-title">
+                  <span class="collection-icon collection-icon--cyan">⌗</span>
+                  <h2>Datos adicionales del formulario</h2>
+                  <span class="count-pill">{{ t.campos.length }}</span>
+                </div>
+                <p>
+                  Datos que el solicitante completa dentro del sistema.
+                  No es obligatorio agregarlos.
+                </p>
+              </div>
+
+              <button type="button"
+                class="config-button config-button--outline"
+                [disabled]="ocupado()"
+                (click)="abrirNuevoCampo()">
+                <span class="button-symbol">＋</span>
+                Agregar campo
+              </button>
+            </div>
+
+            <div class="collection-body">
+              @for (c of t.campos; track c.id_campo) {
+                <div class="collection-row">
+                  <div class="collection-row__main">
+                    <strong>{{ c.etiqueta }}</strong>
+                    <small>
+                      {{ nombreTipoCampo(c.tipo_dato) }}
+                      · {{ c.obligatorio ? 'Obligatorio' : 'Opcional' }}
+                    </small>
+                  </div>
+
+                  <span class="compact-status"
+                    [class.compact-status--off]="!c.activo">
+                    {{ c.activo ? 'Activo' : 'Inactivo' }}
+                  </span>
+
+                  <button type="button"
+                    class="row-edit-button"
+                    [disabled]="ocupado()"
+                    (click)="editarCampo(c)">
+                    <svg viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.8"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m16 5 3 3M4 20l4.5-1 11-11a2.12 2.12 0 0 0-3-3l-11 11L4 20Z"/>
+                    </svg>
+                    Editar campo
+                  </button>
+                </div>
+              } @empty {
+                <div class="collection-empty">
+                  <strong>Sin campos adicionales</strong>
+                  <p>
+                    Este trámite no tiene preguntas adicionales
+                    para el solicitante.
+                  </p>
+                </div>
+              }
+            </div>
+          </section>
+
+          <section class="collection-card">
+            <div class="collection-heading">
+              <div class="collection-heading__text">
+                <div class="collection-title">
+                  <span class="collection-icon">☑</span>
+                  <h2>Requisitos del trámite</h2>
+                  <span class="count-pill">{{ t.requisitos.length }}</span>
+                </div>
+                <p>
+                  Documentos, pagos y condiciones necesarios
+                  para presentar la solicitud.
+                </p>
+              </div>
+
+              <button type="button"
+                class="config-button config-button--outline"
+                [disabled]="ocupado()"
+                (click)="abrirNuevoRequisito()">
+                <span class="button-symbol">＋</span>
+                Agregar requisito
+              </button>
+            </div>
+
+            <div class="collection-body">
+              @for (r of t.requisitos; track r.id_requisito) {
+                <div class="requirement-row">
+                  <div class="requirement-row__main">
+                    <strong>{{ r.nombre }}</strong>
+
+                    <div class="requirement-meta">
+                      <span>
+                        {{ r.obligatorio ? 'Obligatorio' : 'Opcional' }}
+                      </span>
+                      @if (r.requiere_presentacion_fisica) {
+                        <span>Presentación física</span>
+                      }
+                      <span class="compact-status"
+                        [class.compact-status--off]="!r.activo">
+                        {{ r.activo ? 'Activo' : 'Inactivo' }}
+                      </span>
+                    </div>
+
+                    @if ((r.configuraciones_economicas?.length ?? 0)) {
+                      <div class="payment-details">
+                        @for (e of r.configuraciones_economicas;
+                              track e.id_requisito_economico) {
+                          <span>
+                            {{ e.concepto }} · {{ e.gestion }} ·
+                            {{ e.monto }} {{ e.moneda }}
+                          </span>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  <button type="button"
+                    class="row-edit-button"
+                    [disabled]="ocupado()"
+                    (click)="editarRequisito(r)">
+                    <svg viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.8"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m16 5 3 3M4 20l4.5-1 11-11a2.12 2.12 0 0 0-3-3l-11 11L4 20Z"/>
+                    </svg>
+                    Editar requisito
+                  </button>
+                </div>
+              } @empty {
+                <div class="collection-empty">
+                  <strong>Sin requisitos registrados</strong>
+                  <p>
+                    Agrega la documentación o condiciones
+                    que solicita la institución.
+                  </p>
+                </div>
+              }
+            </div>
+          </section>
+
+        </div>
+      }
+
+      <!-- =============================================
+           04. FLUJO Y ETAPAS
+           ============================================= -->
+      @if (pestana === 'etapas' && actual(); as t) {
+        <section class="collection-card collection-card--flow">
+          <div class="collection-heading">
+            <div class="collection-heading__text">
+              <div class="collection-title">
+                <span class="collection-icon collection-icon--cyan">⇢</span>
+                <h2>Recorrido del trámite</h2>
+                <span class="count-pill">{{ (t.etapas?.length ?? 0) }}</span>
+              </div>
+              <p>
+                Etapas administrativas que permiten
+                dar seguimiento a la solicitud.
+              </p>
+            </div>
+
+            <button type="button"
+              class="config-button config-button--outline"
+              [disabled]="ocupado()"
+              (click)="abrirNuevaEtapa()">
+              <span class="button-symbol">＋</span>
+              Agregar etapa
+            </button>
+          </div>
+
+          <div class="flow-list">
+            @for (e of etapasOrdenadas();
+                  track e.id_etapa; let i = $index) {
+              <div class="flow-stage">
+                <div class="flow-stage__marker">
+                  <span>{{ i + 1 }}</span>
+                  @if (i < etapasOrdenadas().length - 1) {
+                    <div class="flow-stage__line"></div>
+                  }
+                </div>
+
+                <div class="flow-stage__content">
+                  <div class="flow-stage__description">
+                    <strong>{{ e.nombre }}</strong>
+                    <span>{{ nombreUnidad(e.id_unidad) }}</span>
+
+                    @if (e.descripcion) {
+                      <p>{{ e.descripcion }}</p>
+                    }
+                  </div>
+
+                  <div class="flow-stage__tags">
+                    @if (e.es_inicial) {
+                      <span class="stage-tag stage-tag--start">Inicial</span>
+                    }
+                    @if (e.es_final) {
+                      <span class="stage-tag stage-tag--final">Final</span>
+                    }
+                    @if (e.visible_solicitante) {
+                      <span class="stage-tag">Visible al solicitante</span>
+                    }
+                    @if (!e.activo) {
+                      <span class="stage-tag stage-tag--off">Inactiva</span>
+                    }
+                  </div>
+
+                  <div class="flow-stage__actions">
+                    <button type="button" class="move-button"
+                      [disabled]="ocupado() || i === 0"
+                      [attr.aria-label]="'Subir ' + e.nombre"
+                      title="Mover hacia arriba"
+                      (click)="moverEtapa(i, -1)">↑</button>
+                    <button type="button" class="move-button"
+                      [disabled]="ocupado() || i === etapasOrdenadas().length - 1"
+                      [attr.aria-label]="'Bajar ' + e.nombre"
+                      title="Mover hacia abajo"
+                      (click)="moverEtapa(i, 1)">↓</button>
+                    <button type="button"
+                      class="row-edit-button"
+                      [disabled]="ocupado()"
+                      (click)="editarEtapa(e)">
+                      <svg viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m16 5 3 3M4 20l4.5-1 11-11a2.12 2.12 0 0 0-3-3l-11 11L4 20Z"/>
+                      </svg>
+                      Editar etapa
+                    </button>
+                  </div>
+                </div>
+              </div>
+            } @empty {
+              <div class="collection-empty">
+                <strong>Este trámite todavía no tiene etapas</strong>
+                <p>
+                  Agrega una etapa y asigna la unidad responsable
+                  de su seguimiento.
+                </p>
+              </div>
+            }
+          </div>
+
+          <div class="flow-guidance">
+            <span class="note-icon">i</span>
+            El orden define la secuencia de seguimiento.
+            La primera etapa activa debe ser inicial y la
+            última, final. Una única etapa puede ser ambas.
+          </div>
+        </section>
+      }
+    </main>
+
+    <!-- ===============================================
+         ACCIONES FIJAS
+         =============================================== -->
+    <footer class="editor-footer">
+      <span class="editor-footer__info">
+        @if (id) {
+          <span class="footer-dot footer-dot--saved"></span>
+          Trámite #{{ id }}
+        } @else {
+          <span class="footer-dot"></span>
+          Guarda el trámite para continuar.
+        }
+      </span>
+
+      <div class="editor-footer__actions">
+        <button type="button"
+          class="config-button config-button--subtle"
+          [disabled]="ocupado()"
+          (click)="volverListado()">
+          Volver al listado
+        </button>
+
+        @if (pestana === 'general' || pestana === 'atencion') {
+          <button type="button"
+            class="config-button config-button--primary"
+            [disabled]="ocupado() || general.nombre.trim().length < 3"
+            (click)="guardarGeneral()">
+            {{ ocupado()
+              ? 'Guardando...'
+              : id ? 'Guardar cambios' : 'Guardar trámite'
+            }}
+          </button>
+        }
+      </div>
+    </footer>
+  }
+
+  <!-- ===============================================
+       MENSAJES DEL LISTADO
+       =============================================== -->
+  @if (vista === 'listado' && error()) {
+    <div class="config-notice config-notice--error" role="alert">
+      {{ error() }}
+    </div>
+  }
+
+  @if (vista === 'listado' && mensaje()) {
+    <div class="config-notice config-notice--success" role="status">
+      {{ mensaje() }}
+    </div>
+  }
+
+  <!-- ===============================================
+       MODAL: CAMPO DEL FORMULARIO
+       =============================================== -->
+  @if (modalEditor === 'campo') {
+    <app-gestion-modal
+      [titulo]="idCampo ? 'Editar campo' : 'Agregar campo'"
+      [operativo]="true"
+      [ocupado]="ocupado()"
+      (cerrar)="cerrarModalEditor()">
+
+      <div class="config-dialog config-dialog--form">
+        <header class="config-dialog__header">
+          <span class="dialog-icon dialog-icon--cyan">⌗</span>
+          <div>
+            <h2>{{ idCampo ? 'Editar campo' : 'Nuevo campo del formulario' }}</h2>
             <p>
-              {{ e.gestion }} · {{ e.monto }} {{ e.moneda }} ·
-              {{ e.activo ? 'Activa' : 'Inactiva' }}
-              <button (click)="editarEconomico(r.id_requisito, e)">Editar costo</button>
+              Un dato que el solicitante completa al registrar
+              su solicitud.
             </p>
+          </div>
+        </header>
+
+        <div class="config-dialog__body">
+          @if (error()) {
+            <div class="modal-error" role="alert">{{ error() }}</div>
           }
-        </article>
-      }
-      @if (requisitoPago) {
-        <h3>Configurar costo del requisito #{{ requisitoPago }}</h3>
-        <label>Concepto<input [(ngModel)]="economico.concepto" /></label
-        ><label
-          >Monto<input type="number" min="0.01" step="0.01" [(ngModel)]="economico.monto" /></label
-        ><label>Moneda<input maxlength="3" [(ngModel)]="economico.moneda" /></label
-        ><label
-          >Gestión<input
-            type="number"
-            min="2000"
-            max="2100"
-            [(ngModel)]="economico.gestion" /></label
-        ><label
-          >Código de concepto externo<input
-            [(ngModel)]="economico.codigo_concepto_externo" /></label
-        ><label><input type="checkbox" [(ngModel)]="economico.activo" /> Activo</label>
-        <button (click)="guardarEconomico()">Guardar configuración económica</button>
-      }
-    </fieldset>
-  </details>
-}
+
+          <div class="dialog-grid">
+            <div class="form-field">
+              <label for="campo-etiqueta">Pregunta visible *</label>
+              <input id="campo-etiqueta"
+                [(ngModel)]="campo.etiqueta"
+                placeholder="Ej. Motivo de la solicitud"/>
+              <small class="field-help">
+                Es el texto que verá el estudiante.
+              </small>
+            </div>
+
+            <div class="form-field">
+              <label for="campo-clave">Identificador interno *</label>
+              <input id="campo-clave"
+                [(ngModel)]="campo.clave"
+                placeholder="Ej. motivo_solicitud"/>
+              <small class="field-help">
+                Clave técnica sin espacios.
+              </small>
+            </div>
+
+            <div class="form-field">
+              <label for="campo-tipo">Tipo de respuesta</label>
+              <div class="select-wrap">
+                <select id="campo-tipo"
+                  [(ngModel)]="campo.tipo_dato">
+                  @for (tipo of tiposCampo; track tipo.valor) {
+                    <option [value]="tipo.valor">
+                      {{ tipo.nombre }}
+                    </option>
+                  }
+                </select>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label for="campo-orden">Orden de presentación</label>
+              <input id="campo-orden" type="number" min="1"
+                [(ngModel)]="campo.orden"/>
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label for="campo-descripcion">
+              Aclaración para el solicitante
+            </label>
+            <textarea id="campo-descripcion" rows="2"
+              [(ngModel)]="campo.descripcion"
+              placeholder="Ej. Explica brevemente el motivo de tu solicitud..."></textarea>
+          </div>
+
+          @if (campo.tipo_dato === 'seleccion') {
+            <div class="form-field">
+              <label for="campo-opciones">Opciones de respuesta *</label>
+              <textarea id="campo-opciones" rows="4"
+                [(ngModel)]="opcionesCampo"
+                placeholder="Primera opción&#10;Segunda opción&#10;Tercera opción"></textarea>
+              <small class="field-help">
+                Escribe una opción por línea.
+              </small>
+            </div>
+          }
+
+          <div class="dialog-settings">
+            <label class="dialog-check">
+              <input type="checkbox"
+                [(ngModel)]="campo.obligatorio"/>
+              <span>
+                <strong>Respuesta obligatoria</strong>
+                <small>El solicitante debe completar este dato.</small>
+              </span>
+            </label>
+
+            <label class="dialog-check">
+              <input type="checkbox"
+                [(ngModel)]="campo.activo"/>
+              <span>
+                <strong>Campo activo</strong>
+                <small>Se incluye entre los datos configurados.</small>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <footer class="config-dialog__footer">
+          <button type="button"
+            class="config-button config-button--subtle"
+            [disabled]="ocupado()"
+            (click)="cerrarModalEditor()">Cancelar</button>
+          <button type="button"
+            class="config-button config-button--primary"
+            [disabled]="ocupado() || !campo.etiqueta.trim() || !campo.clave.trim()"
+            (click)="guardarCampo()">
+            {{ ocupado() ? 'Guardando...' : 'Guardar campo' }}
+          </button>
+        </footer>
+      </div>
+    </app-gestion-modal>
+  }
+
+  <!-- ===============================================
+       MODAL: REQUISITO
+       =============================================== -->
+  @if (modalEditor === 'requisito') {
+    <app-gestion-modal
+      [titulo]="idRequisito ? 'Editar requisito' : 'Agregar requisito'"
+      [operativo]="true"
+      [ocupado]="ocupado()"
+      (cerrar)="cerrarModalEditor()">
+
+      <div class="config-dialog config-dialog--form">
+        <header class="config-dialog__header">
+          <span class="dialog-icon">☑</span>
+          <div>
+            <h2>
+              {{ idRequisito ? 'Editar requisito' : 'Nuevo requisito' }}
+            </h2>
+            <p>
+              Documento o condición que debe cumplir
+              el solicitante.
+            </p>
+          </div>
+        </header>
+
+        <div class="config-dialog__body">
+          @if (error()) {
+            <div class="modal-error" role="alert">{{ error() }}</div>
+          }
+
+          <div class="dialog-grid">
+            <div class="form-field form-field--wide">
+              <label for="requisito-nombre">
+                Nombre del requisito *
+              </label>
+              <input id="requisito-nombre"
+                [(ngModel)]="requisito.nombre"
+                placeholder="Ej. Formulario de solicitud firmado"/>
+            </div>
+
+            <div class="form-field form-field--wide">
+              <label for="requisito-descripcion">
+                Indicaciones de presentación
+              </label>
+              <textarea id="requisito-descripcion" rows="2"
+                [(ngModel)]="requisito.descripcion"
+                placeholder="Ej. Presentar dos ejemplares en Kardex..."></textarea>
+            </div>
+
+            <div class="form-field">
+              <label for="requisito-etapa">
+                Etapa asociada
+              </label>
+              <div class="select-wrap">
+                <select id="requisito-etapa"
+                  [(ngModel)]="requisito.id_etapa">
+                  <option [ngValue]="null">
+                    Sin etapa específica
+                  </option>
+                  @for (e of actual()?.etapas || []; track e.id_etapa) {
+                    <option [ngValue]="e.id_etapa">
+                      {{ e.nombre }}
+                    </option>
+                  }
+                </select>
+              </div>
+              <small class="field-help">
+                Selecciona una etapa solo si el requisito
+                corresponde a un momento específico.
+              </small>
+            </div>
+
+            <div class="form-field">
+              <label for="requisito-orden">Orden</label>
+              <input id="requisito-orden" type="number" min="1"
+                [(ngModel)]="requisito.orden"/>
+            </div>
+          </div>
+
+          <div class="dialog-settings">
+            <label class="dialog-check">
+              <input type="checkbox"
+                [(ngModel)]="requisito.obligatorio"/>
+              <span>
+                <strong>Obligatorio</strong>
+                <small>Debe cumplirse para realizar el trámite.</small>
+              </span>
+            </label>
+
+            <label class="dialog-check">
+              <input type="checkbox"
+                [(ngModel)]="requisito.requiere_presentacion_fisica"/>
+              <span>
+                <strong>Presentación física</strong>
+                <small>Se presenta en la unidad correspondiente.</small>
+              </span>
+            </label>
+
+            <label class="dialog-check">
+              <input type="checkbox"
+                [(ngModel)]="requisito.activo"/>
+              <span>
+                <strong>Requisito activo</strong>
+                <small>Se considera dentro de la configuración.</small>
+              </span>
+            </label>
+          </div>
+
+          <div class="dialog-subsection">
+            <h3>¿Aplica a todos los solicitantes?</h3>
+            <p>
+              Si el requisito depende de un dato o perfil,
+              puedes establecer una condición.
+            </p>
+
+            <div class="form-field">
+              <label for="condicion-origen">
+                Aplicación del requisito
+              </label>
+              <div class="select-wrap">
+                <select id="condicion-origen"
+                  [(ngModel)]="condicionOrigen"
+                  (ngModelChange)="cambiarOrigenCondicion()">
+                  <option value="">Siempre aplica</option>
+                  <option value="solicitud_dato">
+                    Según una respuesta del formulario
+                  </option>
+                  <option value="perfil_academico">
+                    Según el perfil académico
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            @if (condicionOrigen) {
+              <div class="dialog-grid dialog-grid--condition">
+                <div class="form-field">
+                  <label for="condicion-campo">
+                    Dato que se evaluará
+                  </label>
+                  <div class="select-wrap">
+                    <select id="condicion-campo"
+                      [(ngModel)]="condicionCampo">
+                      <option value="">Seleccionar dato...</option>
+                      @if (condicionOrigen === 'solicitud_dato') {
+                        @for (c of actual()?.campos || [];
+                              track c.id_campo) {
+                          @if (c.activo) {
+                            <option [value]="c.clave">
+                              {{ c.etiqueta }}
+                            </option>
+                          }
+                        }
+                      } @else {
+                        @for (c of camposPerfil; track c.clave) {
+                          <option [value]="c.clave">
+                            {{ c.nombre }}
+                          </option>
+                        }
+                      }
+                    </select>
+                  </div>
+                </div>
+
+                @if (condicionOrigen === 'solicitud_dato') {
+                  <div class="form-field">
+                    <label for="condicion-tipo">
+                      Tipo de comparación
+                    </label>
+                    <div class="select-wrap">
+                      <select id="condicion-tipo"
+                        [(ngModel)]="condicionTipo"
+                        (ngModelChange)="condicionValor = ''">
+                        <option value="texto">Texto o fecha</option>
+                        <option value="numero">Número</option>
+                        <option value="booleano">Sí / No</option>
+                      </select>
+                    </div>
+                  </div>
+                }
+
+                <div class="form-field"
+                  [class.form-field--wide]="condicionOrigen === 'perfil_academico'">
+                  <label for="condicion-valor">
+                    Valor que activa el requisito
+                  </label>
+
+                  @if (
+                    condicionOrigen === 'solicitud_dato' &&
+                    condicionTipo === 'booleano'
+                  ) {
+                    <div class="select-wrap">
+                      <select id="condicion-valor"
+                        [(ngModel)]="condicionValor">
+                        <option value="">Seleccionar...</option>
+                        <option value="true">Sí</option>
+                        <option value="false">No</option>
+                      </select>
+                    </div>
+                  } @else {
+                    <input id="condicion-valor"
+                      [(ngModel)]="condicionValor"
+                      placeholder="Valor que debe coincidir"/>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+
+          @if (idRequisito) {
+            <div class="dialog-subsection dialog-subsection--payment">
+              <div class="payment-heading">
+                <div>
+                  <h3>Configuración económica</h3>
+                  <p>
+                    Registra pagos institucionales asociados a
+                    este requisito, cuando corresponda.
+                  </p>
+                </div>
+
+                <button type="button"
+                  class="config-button config-button--outline"
+                  [disabled]="ocupado()"
+                  (click)="abrirNuevoEconomico()">
+                  ＋ Agregar pago
+                </button>
+              </div>
+
+              @for (e of economicosDelRequisito;
+                    track e.id_requisito_economico) {
+                <div class="payment-row">
+                  <span>
+                    <strong>{{ e.concepto }}</strong>
+                    <small>{{ e.gestion }} · {{ e.moneda }}</small>
+                  </span>
+                  <strong class="payment-amount">{{ e.monto }}</strong>
+                  <button type="button"
+                    class="row-edit-button"
+                    [disabled]="ocupado()"
+                    (click)="editarEconomico(idRequisito, e)">
+                    Editar pago
+                  </button>
+                </div>
+              } @empty {
+                <span class="payment-empty">
+                  Este requisito no tiene costos configurados.
+                </span>
+              }
+            </div>
+          } @else {
+            <div class="modal-info">
+              Guarda primero el requisito para poder asociarle
+              una configuración económica.
+            </div>
+          }
+        </div>
+
+        <footer class="config-dialog__footer">
+          <button type="button"
+            class="config-button config-button--subtle"
+            [disabled]="ocupado()"
+            (click)="cerrarModalEditor()">Cancelar</button>
+          <button type="button"
+            class="config-button config-button--primary"
+            [disabled]="ocupado() || !requisito.nombre.trim()"
+            (click)="guardarRequisito()">
+            {{ ocupado() ? 'Guardando...' : 'Guardar requisito' }}
+          </button>
+        </footer>
+      </div>
+    </app-gestion-modal>
+  }
+
+  <!-- ===============================================
+       MODAL: CONFIGURACIÓN ECONÓMICA
+       =============================================== -->
+  @if (modalEditor === 'economico') {
+    <app-gestion-modal
+      titulo="Configuración económica"
+      [operativo]="true"
+      [ocupado]="ocupado()"
+      (cerrar)="cerrarModalEditor()">
+
+      <div class="config-dialog config-dialog--form">
+        <header class="config-dialog__header">
+          <span class="dialog-icon dialog-icon--cyan">Bs</span>
+          <div>
+            <h2>
+              {{ idEconomico ? 'Editar pago' : 'Agregar pago institucional' }}
+            </h2>
+            <p>
+              Información económica asociada al requisito,
+              sin procesamiento de pagos en la plataforma.
+            </p>
+          </div>
+        </header>
+
+        <div class="config-dialog__body">
+          @if (error()) {
+            <div class="modal-error" role="alert">{{ error() }}</div>
+          }
+
+          <div class="dialog-grid">
+            <div class="form-field form-field--wide">
+              <label for="pago-concepto">Concepto *</label>
+              <input id="pago-concepto"
+                [(ngModel)]="economico.concepto"
+                placeholder="Ej. Pago por certificado"/>
+            </div>
+
+            <div class="form-field">
+              <label for="pago-monto">Monto *</label>
+              <input id="pago-monto" type="number"
+                min="0.01" step="0.01"
+                [(ngModel)]="economico.monto"
+                placeholder="Ej. 55.00"/>
+            </div>
+
+            <div class="form-field">
+              <label for="pago-moneda">Moneda</label>
+              <input id="pago-moneda"
+                maxlength="3"
+                [(ngModel)]="economico.moneda"
+                placeholder="BOB"/>
+            </div>
+
+            <div class="form-field">
+              <label for="pago-gestion">Gestión</label>
+              <input id="pago-gestion" type="number"
+                min="2000" max="2100"
+                [(ngModel)]="economico.gestion"/>
+            </div>
+
+            <div class="form-field">
+              <label for="pago-codigo">
+                Código de concepto externo
+              </label>
+              <input id="pago-codigo"
+                [(ngModel)]="economico.codigo_concepto_externo"
+                placeholder="Código de Caja, si corresponde"/>
+            </div>
+          </div>
+
+          <label class="dialog-check">
+            <input type="checkbox"
+              [(ngModel)]="economico.activo"/>
+            <span>
+              <strong>Configuración activa</strong>
+              <small>
+                Este importe se considera en la información
+                económica del requisito.
+              </small>
+            </span>
+          </label>
+
+          <div class="modal-info">
+            El pago se realiza mediante los canales
+            institucionales correspondientes. Este sistema
+            solamente registra la información del requisito.
+          </div>
+        </div>
+
+        <footer class="config-dialog__footer">
+          <button type="button"
+            class="config-button config-button--subtle"
+            [disabled]="ocupado()"
+            (click)="volverARequisito()">
+            Volver al requisito
+          </button>
+
+          <button type="button"
+            class="config-button config-button--primary"
+            [disabled]="ocupado() || !economico.concepto.trim() || !(+economico.monto > 0)"
+            (click)="guardarEconomico()">
+            {{ ocupado() ? 'Guardando...' : 'Guardar pago' }}
+          </button>
+        </footer>
+      </div>
+    </app-gestion-modal>
+  }
+
+  <!-- ===============================================
+       MODAL: ETAPA DEL FLUJO
+       =============================================== -->
+  @if (modalEditor === 'etapa') {
+    <app-gestion-modal
+      [titulo]="idEtapa ? 'Editar etapa' : 'Agregar etapa'"
+      [operativo]="true"
+      [ocupado]="ocupado()"
+      (cerrar)="cerrarModalEditor()">
+
+      <div class="config-dialog config-dialog--form">
+        <header class="config-dialog__header">
+          <span class="dialog-icon dialog-icon--cyan">⇢</span>
+          <div>
+            <h2>{{ idEtapa ? 'Editar etapa' : 'Nueva etapa' }}</h2>
+            <p>
+              Configura una fase del seguimiento y la
+              unidad que será responsable.
+            </p>
+          </div>
+        </header>
+
+        <div class="config-dialog__body">
+          @if (error()) {
+            <div class="modal-error" role="alert">{{ error() }}</div>
+          }
+
+          <div class="dialog-grid">
+            <div class="form-field form-field--wide">
+              <label for="etapa-nombre">Nombre de la etapa *</label>
+              <input id="etapa-nombre"
+                [(ngModel)]="etapa.nombre"
+                placeholder="Ej. Revisión de documentación"/>
+            </div>
+
+            <div class="form-field">
+              <label for="etapa-unidad">
+                Unidad administrativa responsable
+              </label>
+              <div class="select-wrap">
+                <select id="etapa-unidad"
+                  [(ngModel)]="etapa.id_unidad">
+                  <option [ngValue]="null">
+                    Sin unidad asignada
+                  </option>
+                  @for (u of unidades(); track u.id_unidad) {
+                    <option [ngValue]="u.id_unidad">
+                      {{ u.nombre }}
+                    </option>
+                  }
+                </select>
+              </div>
+              <small class="field-help">
+                Unidad que atiende esta parte del proceso.
+              </small>
+            </div>
+
+            <div class="form-field">
+              <label for="etapa-orden">Posición en el flujo</label>
+              <input id="etapa-orden" type="number"
+                min="1"
+                [(ngModel)]="etapa.orden"/>
+            </div>
+
+            <div class="form-field form-field--wide">
+              <label for="etapa-descripcion">
+                ¿Qué se realiza en esta etapa?
+              </label>
+              <textarea id="etapa-descripcion" rows="3"
+                [(ngModel)]="etapa.descripcion"
+                placeholder="Ej. La unidad verifica los requisitos presentados..."></textarea>
+            </div>
+          </div>
+
+          <div class="dialog-subsection">
+            <h3>Comportamiento de la etapa</h3>
+
+            <div class="dialog-settings">
+              <label class="dialog-check">
+                <input type="checkbox"
+                  [(ngModel)]="etapa.es_inicial"/>
+                <span>
+                  <strong>Etapa inicial</strong>
+                  <small>Primera fase activa del flujo.</small>
+                </span>
+              </label>
+
+              <label class="dialog-check">
+                <input type="checkbox"
+                  [(ngModel)]="etapa.es_final"/>
+                <span>
+                  <strong>Etapa final</strong>
+                  <small>Última fase del seguimiento.</small>
+                </span>
+              </label>
+
+              <label class="dialog-check">
+                <input type="checkbox"
+                  [(ngModel)]="etapa.visible_solicitante"/>
+                <span>
+                  <strong>Visible al solicitante</strong>
+                  <small>
+                    Permite mostrar esta etapa en el seguimiento.
+                  </small>
+                </span>
+              </label>
+
+              <label class="dialog-check">
+                <input type="checkbox"
+                  [(ngModel)]="etapa.activo"/>
+                <span>
+                  <strong>Etapa activa</strong>
+                  <small>Participa en el flujo configurado.</small>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <footer class="config-dialog__footer">
+          <button type="button"
+            class="config-button config-button--subtle"
+            [disabled]="ocupado()"
+            (click)="cerrarModalEditor()">Cancelar</button>
+
+          <button type="button"
+            class="config-button config-button--primary"
+            [disabled]="ocupado() || !etapa.nombre.trim()"
+            (click)="guardarEtapa()">
+            {{ ocupado() ? 'Guardando...' : 'Guardar etapa' }}
+          </button>
+        </footer>
+      </div>
+    </app-gestion-modal>
+  }
+
+  <!-- ===============================================
+       MODAL: ACTIVAR / DESACTIVAR
+       =============================================== -->
+  @if (tramiteCambioEstado; as t) {
+    <app-gestion-modal
+      titulo="Cambiar estado del trámite"
+      [operativo]="true"
+      [ocupado]="ocupado()"
+      (cerrar)="tramiteCambioEstado = null">
+
+      <div class="config-dialog">
+        <header class="config-dialog__header">
+          <span class="dialog-icon"
+            [class.dialog-icon--danger]="t.activo">
+            !
+          </span>
+          <div>
+            <h2>
+              {{ t.activo ? 'Desactivar trámite' : 'Activar trámite' }}
+            </h2>
+            <p>Revisa la operación antes de confirmar.</p>
+          </div>
+        </header>
+
+        <div class="config-dialog__body">
+          <div class="dialog-selected-item">
+            <small>Trámite seleccionado</small>
+            <strong>{{ t.nombre }}</strong>
+          </div>
+
+          <div class="modal-info">
+            @if (t.activo) {
+              El trámite dejará de admitir nuevas solicitudes.
+              Las solicitudes existentes y su historial se conservarán.
+            } @else {
+              El trámite pasará a estado activo. Su publicación
+              y la admisión de solicitudes continuarán dependiendo
+              de su configuración.
+            }
+          </div>
+        </div>
+
+        <footer class="config-dialog__footer">
+          <button type="button"
+            class="config-button config-button--subtle"
+            [disabled]="ocupado()"
+            (click)="tramiteCambioEstado = null">
+            Cancelar
+          </button>
+
+          <button type="button" class="config-button"
+            [class.config-button--danger]="t.activo"
+            [class.config-button--primary]="!t.activo"
+            [disabled]="ocupado()"
+            (click)="confirmarCambioActivo()">
+            {{ t.activo
+              ? 'Confirmar desactivación'
+              : 'Confirmar activación'
+            }}
+          </button>
+        </footer>
+      </div>
+    </app-gestion-modal>
+  }
+
+</section>

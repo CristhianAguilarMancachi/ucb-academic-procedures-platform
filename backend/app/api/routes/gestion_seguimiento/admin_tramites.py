@@ -32,6 +32,7 @@ from app.schemas.gestion_seguimiento.tramite_etapa import (
     TramiteEtapaActualizarRequest,
     TramiteEtapaCrearRequest,
     TramiteEtapaResponse,
+    EtapasOrdenRequest,
 )
 from app.schemas.gestion_seguimiento.tramite_requisito import (
     RequisitoEconomicoActualizarRequest,
@@ -63,6 +64,7 @@ from app.services.gestion_seguimiento.tramite_service import (
     actualizar_campo_tramite,
     actualizar_configuracion_economica_tramite,
     actualizar_etapa_tramite,
+    reordenar_etapas,
     actualizar_requisito_tramite,
     actualizar_tramite_catalogo,
     agregar_campo_tramite,
@@ -535,3 +537,12 @@ def actualizar_etapa(
 
     except TramiteServiceError as exc:
         raise _convertir_error_servicio(exc) from exc
+
+@router.post("/{id_tramite}/etapas/orden", response_model=TramiteDetalleResponse)
+def ordenar_etapas(id_tramite: int, datos: EtapasOrdenRequest, administrador: AdministradorActual, db: DatabaseSession):
+    try:
+        return reordenar_etapas(db, id_tramite=id_tramite, ids=datos.ids, id_usuario_actor=administrador.id_usuario)
+    except TramiteNoEncontradoError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except TramiteServiceError as exc:
+        raise HTTPException(400, str(exc)) from exc

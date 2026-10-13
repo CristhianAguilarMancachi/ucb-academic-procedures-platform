@@ -153,3 +153,6 @@ class TramiteEtapaResponse(BaseModel):
 
     fecha_creacion: datetime
     fecha_actualizacion: datetime
+
+class EtapasOrdenRequest(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=1000)

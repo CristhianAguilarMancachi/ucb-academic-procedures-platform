@@ -156,6 +156,18 @@ export const routes: Routes = [
 
       // Administración
       {
+        path: 'admin/documentos',
+        canActivate: [authGuard, roleGuard],
+        data: { roles: ['administrador'] },
+        loadComponent: () => import('./features/rag/pages/documentos-institucionales/documentos-institucionales.component').then(m => m.DocumentosInstitucionalesComponent),
+      },
+      {
+        path: 'admin/documentos/:id',
+        canActivate: [authGuard, roleGuard],
+        data: { roles: ['administrador'] },
+        loadComponent: () => import('./features/rag/pages/documentos-institucionales/documentos-institucionales.component').then(m => m.DocumentosInstitucionalesComponent),
+      },
+      {
         path: 'admin/usuarios',
         component: UserListComponent,
         canActivate: [authGuard, roleGuard],

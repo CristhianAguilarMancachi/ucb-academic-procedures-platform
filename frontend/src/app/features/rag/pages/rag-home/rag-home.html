@@ -1,104 +1,72 @@
+
 <section
   class="rag-home"
   [class.chat-mode]="conversationStarted()"
 >
-
-  <ng-container
-    *ngIf="!conversationStarted(); else chatMode"
-  >
+  <ng-container *ngIf="!conversationStarted(); else chatMode">
 
     <div class="welcome-mode">
-
-      <div class="welcome-background">
-      </div>
-
-      <div class="welcome-overlay">
-      </div>
-
+      <div class="welcome-background"></div>
+      <div class="welcome-overlay"></div>
 
       <div class="welcome-content">
 
-        <!-- ===================================================
-             COLUMNA PRINCIPAL
-             =================================================== -->
-
+        <!-- COLUMNA PRINCIPAL -->
         <div class="welcome-primary">
 
           <div class="institutional-label">
-
-            <span>
-              DIRECCIÓN ACADÉMICA
-            </span>
-
-            <span
-              class="institutional-line"
-            >
-            </span>
-
+            <span>DIRECCIÓN ACADÉMICA</span>
+            <span class="institutional-line"></span>
           </div>
-
 
           <div class="hero-copy">
-
             <h1>
-
               Información
-
               <span class="hero-title-bottom">
-
-                académica
-
-                <strong>
-                  UCB
-                </strong>
-
+                académica <strong>UCB</strong>
               </span>
-
             </h1>
 
-
             <p>
-
-              Encuentra información oficial sobre
-              trámites, reglamentos y consultas
-              académicas de la Universidad Católica
-              Boliviana “San Pablo”.
-
+              Encuentra información oficial sobre trámites,
+              reglamentos y consultas académicas de la
+              Universidad Católica Boliviana “San Pablo”.
             </p>
-
           </div>
 
-
-          <!-- =================================================
-               BUSCADOR
-               Todo el bloque es clickeable.
-               ================================================= -->
-
+          <!-- CAMPO DE CONSULTA -->
           <div
-            class="composer"
+            class="rag-query-bar"
             (click)="queryInput.focus()"
+            role="search"
+            aria-label="Búsqueda de información académica"
           >
-
             <ng-icon
               name="heroMagnifyingGlass"
-              class="composer-search-icon"
-            >
-            </ng-icon>
-
+              class="rag-query-bar__search"
+              aria-hidden="true"
+            ></ng-icon>
 
             <input
               #queryInput
+              id="consulta-academica-rag"
+              name="consulta_academica_rag"
               type="text"
               placeholder="Escribe tu consulta aquí..."
+              autocomplete="off"
+              autocorrect="on"
+              autocapitalize="sentences"
+              spellcheck="true"
+              data-1p-ignore
+              data-lpignore="true"
               [(ngModel)]="question"
               (keyup.enter)="submitQuery()"
-              aria-label="Consulta académica"
+              aria-label="Escribe una consulta académica"
             />
-
 
             <button
               type="button"
-              class="composer-send"
+              class="rag-query-bar__send"
               aria-label="Enviar consulta"
               [disabled]="loading()"
               (click)="
@@ -106,116 +74,73 @@
                 submitQuery()
               "
             >
-
               <ng-icon
                 name="heroPaperAirplane"
-                class="send-icon"
-              >
-              </ng-icon>
-
+                class="rag-query-bar__send-icon"
+                aria-hidden="true"
+              ></ng-icon>
             </button>
-
           </div>
 
-
           <div class="institutional-note">
-
             <ng-icon
               name="heroInformationCircle"
               class="institutional-note-icon"
-            >
-            </ng-icon>
+            ></ng-icon>
 
             <span>
               Consulta basada en documentación institucional.
             </span>
-
           </div>
 
         </div>
 
-
-        <!-- ===================================================
-             CONSULTAS FRECUENTES
-             =================================================== -->
-
+        <!-- CONSULTAS FRECUENTES -->
         <aside class="frequent-panel">
 
           <div class="frequent-heading">
-
-            <span
-              class="frequent-heading-accent"
-            >
-            </span>
-
+            <span class="frequent-heading-accent"></span>
 
             <div>
-
-              <h2>
-                Consultas frecuentes
-              </h2>
-
+              <h2>Consultas frecuentes</h2>
               <p>
                 Selecciona una consulta para obtener
                 información rápida y confiable.
               </p>
-
             </div>
-
           </div>
 
-
           <div class="frequent-list">
-
             <button
               type="button"
               class="frequent-item"
               *ngFor="let item of suggestedQuestions"
               (click)="useSuggestedQuestion(item)"
             >
-
               <span class="frequent-item-icon">
-
-                <ng-icon
-                  name="heroDocumentText"
-                >
-                </ng-icon>
-
+                <ng-icon name="heroDocumentText"></ng-icon>
               </span>
-
 
               <span class="frequent-item-text">
-
                 {{ item }}
-
               </span>
-
 
               <ng-icon
                 name="heroChevronRight"
                 class="frequent-item-chevron"
-              >
-              </ng-icon>
-
+              ></ng-icon>
             </button>
-
           </div>
 
         </aside>
 
       </div>
-
     </div>
 
   </ng-container>
 
-
-  <!-- =======================================================
-       MODO CONVERSACIÓN
-       ======================================================= -->
-
+  <!-- MODO CONVERSACIÓN -->
   <ng-template #chatMode>
-
     <app-rag-chat
       [messages]="messages()"
       [question]="question"
@@ -223,8 +148,7 @@
       (questionChange)="updateQuestion($event)"
       (submit)="submitQuery()"
       (clear)="clearConversation()"
-    />
-
+    ></app-rag-chat>
   </ng-template>
 
 </section>

@@ -248,6 +248,7 @@ def listar_usuarios(
     pagina: int = 1,
     por_pagina: int = 20,
     estado: str | None = None,
+    id_rol: int | None = None,
     texto_busqueda: str | None = None,
 ) -> tuple[
     Sequence[Usuario],
@@ -287,6 +288,14 @@ def listar_usuarios(
             == estado,
         )
 
+
+    if id_rol is not None:
+        from app.models.rol import Rol
+        filtros.append(Usuario.asignaciones_rol.any(
+            (UsuarioRol.id_rol == id_rol) & UsuarioRol.activo.is_(True)
+            & UsuarioRol.fecha_revocacion.is_(None)
+            & UsuarioRol.rol.has(Rol.activo.is_(True))
+        ))
 
     consulta_ids = select(
         Usuario.id_usuario,

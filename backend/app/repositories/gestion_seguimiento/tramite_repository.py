@@ -212,6 +212,7 @@ def listar_tramites(
 
     consulta = (
         consulta_base
+        .options(selectinload(Tramite.requisitos), selectinload(Tramite.etapas))
         .order_by(
             Tramite.nombre.asc(),
         )
@@ -950,3 +951,17 @@ def actualizar_etapa(
     db.refresh(etapa)
 
     return etapa
+
+def bloquear_configuracion(db: Session, id_tramite: int) -> Tramite | None:
+    return db.scalar(select(Tramite).where(Tramite.id_tramite == id_tramite).with_for_update())
+
+
+def guardar_orden_etapas(db: Session, etapas: list[TramiteEtapa]) -> None:
+    # Evita colisiones con la unicidad inmediata (tramite, orden).
+    desplazamiento = max(e.orden for e in etapas) + len(etapas) + 1
+    for i, etapa in enumerate(etapas):
+        etapa.orden = desplazamiento + i
+    db.flush()
+    for i, etapa in enumerate(etapas, 1):
+        etapa.orden = i
+    db.flush()

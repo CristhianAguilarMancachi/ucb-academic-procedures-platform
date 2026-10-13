@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from app.api.routes.admin_documentos import router as admin_documentos_router
 
 from app.api.routes.admin_users import (
     router as admin_users_router,
@@ -33,6 +34,7 @@ from app.api.routes.users import (
 
 
 api_router = APIRouter()
+api_router.include_router(admin_documentos_router)
 
 
 # ============================================================

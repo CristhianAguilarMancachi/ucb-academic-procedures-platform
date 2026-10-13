@@ -9,9 +9,7 @@ from pdf2image import convert_from_path
 from sqlalchemy.orm import Session
 
 from app.core.config import DOCUMENTS_DIR
-from app.models.chunk_documento import ChunkDocumento
-from app.models.documento_institucional import DocumentoInstitucional
-from app.models.version_documento import VersionDocumento
+from app.repositories import documento_repository as documentos
 from app.services.rag.embeddings import generate_embeddings
 
 
@@ -651,17 +649,8 @@ def create_embeddings(
     return generate_embeddings(texts)
 
 
-def ingest_document(
-    db: Session,
-    file_path: str,
-    titulo: str,
-    tipo_documento: str,
-    unidad_origen: str,
-    numero_version: str = "1",
-    descripcion: str | None = None,
-    observacion: str | None = None,
-    chunking_mode: str = "normativo",
-):
+def preparar_chunks(file_path: str | Path, chunking_mode: str = "normativo") -> tuple[str, list[dict]]:
+    """Pipeline único de extracción, OCR, segmentación y embeddings, sin persistencia."""
     path = Path(file_path)
 
     if not path.exists():
@@ -683,33 +672,6 @@ def ingest_document(
     pages = normalize_page_text_content(pages)
     pages = normalize_pages_text(pages)
 
-    documento = DocumentoInstitucional(
-        titulo=titulo,
-        tipo_documento=tipo_documento,
-        descripcion=descripcion,
-        unidad_origen=unidad_origen,
-        estado="activo",
-        ruta_archivo=str(path),
-        hash_archivo=file_hash,
-    )
-
-    db.add(documento)
-    db.flush()
-
-    version = VersionDocumento(
-        id_documento_institucional=(
-            documento.id_documento_institucional
-        ),
-        numero_version=numero_version,
-        ruta_archivo=str(path),
-        hash_archivo=file_hash,
-        estado="activo",
-        observacion=observacion,
-    )
-
-    db.add(version)
-    db.flush()
-
     if chunking_mode == "faq":
         blocks = split_faq_blocks(pages)
     elif chunking_mode == "lineamiento":
@@ -730,56 +692,47 @@ def ingest_document(
 
     embeddings = create_embeddings(contents)
 
-    for index, (
-        block,
-        embedding,
-    ) in enumerate(
-        zip(valid_blocks, embeddings),
-        start=1,
-    ):
-        chunk = ChunkDocumento(
-            id_version_documento=(
-                version.id_version_documento
-            ),
-            contenido=block["content"],
-            numero_chunk=index,
-            pagina_inicio=block["pagina_inicio"],
-            pagina_fin=block["pagina_fin"],
-            seccion=block["seccion"],
-            subseccion=block["subseccion"],
-            articulo_numero=(
-                block["articulo_numero"]
-            ),
-            estrategia_chunking=(
-                block["estrategia_chunking"]
-            ),
-            tokens_aproximados=estimate_tokens(
-                block["content"]
-            ),
-            embedding=embedding,
-            activo=True,
-        )
+    if not valid_blocks:
+        raise ValueError("El PDF no contiene texto suficiente para generar fragmentos.")
+    if len(embeddings) != len(valid_blocks) or any(len(e) != 512 for e in embeddings):
+        raise ValueError("Los embeddings deben corresponder a todos los fragmentos y tener dimensión 512.")
+    chunks = [dict(
+        contenido=block["content"], numero_chunk=index,
+        pagina_inicio=block["pagina_inicio"], pagina_fin=block["pagina_fin"],
+        seccion=block["seccion"], subseccion=block["subseccion"],
+        articulo_numero=block["articulo_numero"], estrategia_chunking=block["estrategia_chunking"],
+        tokens_aproximados=estimate_tokens(block["content"]), embedding=embedding, activo=True,
+    ) for index, (block, embedding) in enumerate(zip(valid_blocks, embeddings), 1)]
+    return file_hash, chunks
 
-        db.add(chunk)
 
-    db.flush()
-
-    documento.id_version_actual = (
-        version.id_version_documento
-    )
-
-    db.commit()
-
-    return {
-        "documento_id": (
-            documento.id_documento_institucional
-        ),
-        "version_id": (
-            version.id_version_documento
-        ),
-        "chunks_creados": len(valid_blocks),
-        "archivo": str(path),
-    }
+def ingest_document(
+    db: Session,
+    file_path: str,
+    titulo: str,
+    tipo_documento: str,
+    unidad_origen: str,
+    numero_version: str = "1",
+    descripcion: str | None = None,
+    observacion: str | None = None,
+    chunking_mode: str = "normativo",
+):
+    file_hash, chunks = preparar_chunks(file_path, chunking_mode)
+    try:
+        documento = documentos.crear_documento(db, titulo=titulo, tipo_documento=tipo_documento,
+            unidad_origen=unidad_origen, descripcion=descripcion, estado="activo",
+            ruta_archivo=str(file_path), hash_archivo=file_hash)
+        version = documentos.crear_version(db, id_documento_institucional=documento.id_documento_institucional,
+            numero_version=numero_version, ruta_archivo=str(file_path), hash_archivo=file_hash,
+            estado="activo", observacion=observacion)
+        documentos.guardar_chunks(db, version.id_version_documento, chunks)
+        documentos.establecer_version_actual(db, documento, version)
+        db.commit()
+        return {"documento_id": documento.id_documento_institucional,
+                "version_id": version.id_version_documento, "chunks_creados": len(chunks), "archivo": str(file_path)}
+    except Exception:
+        db.rollback()
+        raise
 
 
 def ingest_from_documents_dir(

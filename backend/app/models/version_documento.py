@@ -1,4 +1,5 @@
-from sqlalchemy import String, Text, DateTime, ForeignKey
+from datetime import date
+from sqlalchemy import String, Text, Date, DateTime, ForeignKey, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -7,6 +8,16 @@ from app.db.base import Base
 
 class VersionDocumento(Base):
     __tablename__ = "version_documento"
+
+    vigente_desde: Mapped[date | None] = mapped_column(Date, nullable=True)
+    vigente_hasta: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "vigente_hasta IS NULL OR (vigente_desde IS NOT NULL AND vigente_hasta >= vigente_desde)",
+            name="ck_version_documento_vigencia",
+        ),
+    )
 
     id_version_documento: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     id_documento_institucional: Mapped[int] = mapped_column(

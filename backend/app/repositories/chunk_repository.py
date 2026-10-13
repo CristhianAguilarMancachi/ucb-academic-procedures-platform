@@ -1,3 +1,4 @@
+from app.repositories.documento_repository import condiciones_version_utilizable
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -53,6 +54,7 @@ def search_similar_chunks(
                 VersionDocumento.documento
             )
         )
+        .where(*condiciones_version_utilizable())
         .where(
             ChunkDocumento.activo.is_(True)
         )

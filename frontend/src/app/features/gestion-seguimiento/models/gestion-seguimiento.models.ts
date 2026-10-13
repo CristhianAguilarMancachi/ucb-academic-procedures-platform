@@ -156,7 +156,17 @@ export interface EtapaConfigurada {
 }
 
 
+export interface Unidad {
+  id_unidad: number;
+  nombre: string;
+  descripcion: string | null;
+  activo: boolean;
+}
+
 export interface Tramite {
+  cantidad_requisitos_activos?: number;
+  cantidad_etapas_activas?: number;
+  fecha_actualizacion?: string;
   id_tramite: number;
 
   nombre: string;

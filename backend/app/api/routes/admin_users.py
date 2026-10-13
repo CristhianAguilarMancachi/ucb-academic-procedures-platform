@@ -87,6 +87,7 @@ def listar_usuarios(
     estado: EstadoUsuarioFiltro | None = Query(
         default=None,
     ),
+    id_rol: int | None = Query(default=None, gt=0),
     busqueda: str | None = Query(
         default=None,
         min_length=1,
@@ -103,6 +104,7 @@ def listar_usuarios(
         pagina=pagina,
         por_pagina=por_pagina,
         estado=estado,
+        id_rol=id_rol,
         texto_busqueda=busqueda,
     )
 

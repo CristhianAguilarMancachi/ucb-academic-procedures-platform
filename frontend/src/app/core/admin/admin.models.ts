@@ -1,3 +1,5 @@
+import { Unidad } from '../../features/gestion-seguimiento/models/gestion-seguimiento.models';
+import { PerfilAcademicoResponse } from '../account/account.models';
 import {
   RolResponse,
   UsuarioAutenticadoResponse,
@@ -12,6 +14,8 @@ export type EstadoUsuarioAdministracion =
 
 
 export interface UsuarioResumenResponse {
+  correo_principal: string | null;
+  roles: RolResponse[];
   id_usuario: number;
   nombres: string;
   apellidos: string;
@@ -30,6 +34,7 @@ export interface ListaUsuariosResponse {
 
 
 export interface ListaUsuariosParams {
+  id_rol?: number;
   pagina?: number;
   por_pagina?: number;
   estado?: EstadoUsuarioAdministracion;
@@ -39,6 +44,17 @@ export interface ListaUsuariosParams {
 
 export interface UsuarioAdministradorDetalleResponse
   extends UsuarioAutenticadoResponse {
+  cantidad_sesiones_activas: number;
+  perfil_academico: PerfilAcademicoResponse | null;
+  unidades: Unidad[];
+  actividad_reciente: ActividadUsuario[];
+}
+
+export interface ActividadUsuario {
+  fecha: string;
+  origen: string;
+  accion: string;
+  exitoso: boolean;
 }
 
 

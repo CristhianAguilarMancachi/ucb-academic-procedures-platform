@@ -148,6 +148,9 @@ class TramiteResumenResponse(BaseModel):
 
 
 class TramiteResponse(TramiteResumenResponse):
+    cantidad_requisitos_activos: int = 0
+    cantidad_etapas_activas: int = 0
+
     """
     Información administrativa completa de un trámite.
     """

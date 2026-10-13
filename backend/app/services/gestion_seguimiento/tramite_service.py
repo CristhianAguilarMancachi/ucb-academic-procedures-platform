@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.repositories.gestion_seguimiento import tramite_repository as configuracion_repo
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -512,6 +513,9 @@ def actualizar_tramite_catalogo(
             raise TramiteDuplicadoError(
                 "Ya existe un trámite con ese nombre."
             )
+
+    if datos.activo is False:
+        datos = datos.model_copy(update={"publicado": False, "permite_solicitudes": False})
 
     activo_final = (
         datos.activo
@@ -1392,6 +1396,8 @@ def agregar_etapa_tramite(
 
     El servicio no infiere unidades, nombres ni secuencias.
     """
+    configuracion_repo.bloquear_configuracion(db, id_tramite)
+
     _obtener_tramite_o_error(
         db,
         id_tramite,
@@ -1451,6 +1457,7 @@ def agregar_etapa_tramite(
         )
 
         _aplicar_extension(db, etapa, datos, ('visible_solicitante',))
+        _validar_extremos_etapas(list(configuracion_repo.listar_etapas_tramite(db, id_tramite)))
 
         registrar_accion_simple(
             db,
@@ -1501,6 +1508,8 @@ def actualizar_etapa_tramite(
     """
     Modifica una etapa previamente configurada.
     """
+    configuracion_repo.bloquear_configuracion(db, id_tramite)
+
     if not datos.model_fields_set:
         raise TramiteServiceError(
             "Debe indicarse al menos un dato para actualizar."
@@ -1612,6 +1621,7 @@ def actualizar_etapa_tramite(
         )
 
         _aplicar_extension(db, etapa, datos, ('visible_solicitante',))
+        _validar_extremos_etapas(list(configuracion_repo.listar_etapas_tramite(db, id_tramite)))
 
         registrar_accion_simple(
             db,
@@ -1644,6 +1654,36 @@ def actualizar_etapa_tramite(
             "a un conflicto de configuración."
         ) from exc
 
+    except Exception:
+        db.rollback()
+        raise
+
+
+def _validar_extremos_etapas(etapas) -> None:
+    # Permite configuración parcial, pero no extremos activos fuera de posición.
+    activas = [e for e in sorted(etapas, key=lambda e: e.orden) if e.activo]
+    if any(e.es_inicial for e in activas[1:]) or any(e.es_final for e in activas[:-1]):
+        raise TramiteServiceError("La etapa inicial debe ser la primera activa y la final la última.")
+
+
+def reordenar_etapas(db: Session, *, id_tramite: int, ids: list[int], id_usuario_actor: int) -> TramiteDetalleResponse:
+    try:
+        if configuracion_repo.bloquear_configuracion(db, id_tramite) is None:
+            raise TramiteNoEncontradoError("El trámite no existe.")
+        etapas = list(configuracion_repo.listar_etapas_tramite(db, id_tramite))
+        por_id = {e.id_etapa: e for e in etapas}
+        if not ids or len(ids) != len(set(ids)) or set(ids) != set(por_id):
+            raise TramiteServiceError("Envía exactamente las etapas actuales del trámite, sin duplicados.")
+        ordenadas = [por_id[i] for i in ids]
+        activas = [e for e in ordenadas if e.activo]
+        if any(e.es_inicial for e in activas[1:]) or any(e.es_final for e in activas[:-1]):
+            raise TramiteServiceError("La etapa inicial debe ser la primera activa y la final la última.")
+        configuracion_repo.guardar_orden_etapas(db, ordenadas)
+        registrar_accion_simple(db, id_usuario_actor=id_usuario_actor, accion="reordenar_etapas",
+            modulo="gestion_seguimiento", entidad="tramite", id_entidad=id_tramite,
+            detalle={"etapas": ids})
+        db.commit()
+        return obtener_tramite_administracion(db, id_tramite=id_tramite)
     except Exception:
         db.rollback()
         raise

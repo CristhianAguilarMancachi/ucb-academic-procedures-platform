@@ -14,6 +14,7 @@ import {
 } from 'rxjs';
 
 import {
+  DocumentoCrear, DocumentoDetalle, ListaDocumentos, VersionCrear, VigenciaDocumento,
   RagFeedbackDeleteResponse,
   RagFeedbackRating,
   RagFeedbackResponse,
@@ -27,6 +28,46 @@ import {
     'root',
 })
 export class RagService {
+  private readonly documentosBase = '/api/admin/documentos';
+
+  documentos(pagina: number) {
+    return this.http.get<ListaDocumentos>(this.documentosBase, { params: { pagina, por_pagina: 20 } });
+  }
+
+  documento(id: number) {
+    return this.http.get<DocumentoDetalle>(`${this.documentosBase}/${id}`);
+  }
+
+  cargarDocumento(datos: DocumentoCrear, archivo: File) {
+    return this.http.post<DocumentoDetalle>(this.documentosBase, this.formularioPdf(datos, archivo));
+  }
+
+  nuevaVersion(id: number, datos: VersionCrear, archivo: File) {
+    return this.http.post<DocumentoDetalle>(`${this.documentosBase}/${id}/versiones`, this.formularioPdf(datos, archivo));
+  }
+
+  private formularioPdf(datos: DocumentoCrear | VersionCrear, archivo: File) {
+    const form = new FormData();
+    form.append('datos', JSON.stringify(datos));
+    form.append('archivo', archivo);
+    return form;
+  }
+
+  estadoDocumento(id: number, estado: 'activo' | 'inactivo') {
+    return this.http.patch<DocumentoDetalle>(`${this.documentosBase}/${id}/estado`, { estado });
+  }
+
+  vigenciaDocumento(id: number, version: number, datos: VigenciaDocumento) {
+    return this.http.patch<DocumentoDetalle>(`${this.documentosBase}/${id}/versiones/${version}/vigencia`, datos);
+  }
+
+  reingestarDocumento(id: number, version: number) {
+    return this.http.post<DocumentoDetalle>(`${this.documentosBase}/${id}/versiones/${version}/reingestar`, {});
+  }
+
+  descargarDocumento(id: number, version: number) {
+    return this.http.get(`${this.documentosBase}/${id}/versiones/${version}/archivo`, { responseType: 'blob' });
+  }
 
   private readonly http =
     inject(

@@ -3,10 +3,37 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.usuario_rol import UsuarioRol
+
+
+def bloquear_administracion(db: Session) -> None:
+    """Serializa cambios de roles/estado usando el rol existente como cerrojo."""
+    from app.models.rol import Rol
+    db.scalar(select(Rol).where(Rol.nombre == "administrador").with_for_update())
+
+
+def contar_otros_administradores(db: Session, id_usuario: int) -> int:
+    from app.models.rol import Rol
+    from app.models.usuario import Usuario
+    from app.models.usuario_correo import UsuarioCorreo
+    return db.scalar(
+        select(func.count(Usuario.id_usuario))
+        .join(UsuarioRol, UsuarioRol.id_usuario == Usuario.id_usuario)
+        .join(Rol, Rol.id_rol == UsuarioRol.id_rol)
+        .where(
+            Usuario.id_usuario != id_usuario, Usuario.estado == "activo",
+            UsuarioRol.activo.is_(True), UsuarioRol.fecha_revocacion.is_(None),
+            Rol.nombre == "administrador", Rol.activo.is_(True),
+            Usuario.correos.any(
+                (UsuarioCorreo.activo.is_(True))
+                & (UsuarioCorreo.es_principal.is_(True))
+                & (UsuarioCorreo.verificado.is_(True))
+            ),
+        )
+    ) or 0
 
 
 def crear_asignacion_rol(

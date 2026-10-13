@@ -2,11 +2,12 @@
 -- Creación desde cero. NO ejecutar sobre una base existente.
 -- Para actualizar Fases 1–3 usar exclusivamente el SQL manual de Fases 4–6.
 -- No contiene personas ni flujos institucionales de ejemplo.
--- Conserva el alcance previo de este archivo; el esquema RAG/chat se gestiona aparte.
+-- Incluye las entidades RAG/chat existentes y la vigencia documental.
 BEGIN;
 
 
 CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE OR REPLACE FUNCTION actualizar_fecha_actualizacion()
 RETURNS TRIGGER AS $$
@@ -1845,13 +1846,17 @@ ALTER TABLE solicitud
 COMMIT;
 
 
-— —————————————————————————————————————————————
+-- — —————————————————————————————————————————————
 
 
 CREATE UNIQUE INDEX uq_usuario_correo_unico_activo
 ON usuario_correo (id_usuario)
-WHERE activo = TRUE;   — —————————————————————————————————————————————
- ALTER TABLE usuario
+WHERE activo = TRUE;
+
+
+-- — —————————————————————————————————————————————
+
+ALTER TABLE usuario
 ADD COLUMN telefono VARCHAR(30);
 
 ALTER TABLE usuario
@@ -1859,9 +1864,10 @@ ADD CONSTRAINT ck_usuario_telefono
 CHECK (
     telefono IS NULL
     OR LENGTH(TRIM(telefono)) >= 7
-); 
+);
 
-— —————————————————————————————————————————————
+
+-- — —————————————————————————————————————————————
 BEGIN;
 
 DO $usuario_prueba$
@@ -2121,7 +2127,7 @@ WHERE c.correo = 'solicitante.personal@gmail.com';
 
 
 
-— ———————————————————————————————
+-- — ———————————————————————————————
 
 
 BEGIN;
@@ -2169,7 +2175,7 @@ COMMIT;
 
 
 
-— ————————————————————————————————
+-- — ————————————————————————————————
 
 
 
@@ -2179,6 +2185,85 @@ COMMIT;
 -- ============================================================
 -- UCB ACADEMIC PROCEDURES PLATFORM
 --
+-- Entidades documentales y chat existentes, reproducidas según los modelos ORM.
+-- Referencia de creación desde cero; NO aplicar sobre una base existente.
+
+BEGIN;
+
+CREATE TABLE documento_institucional (
+    id_documento_institucional SERIAL PRIMARY KEY,
+    titulo VARCHAR(255) NOT NULL,
+    tipo_documento VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    unidad_origen VARCHAR(150) NOT NULL,
+    estado VARCHAR(30) NOT NULL DEFAULT 'activo',
+    fecha_publicacion DATE,
+    fecha_carga TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ruta_archivo TEXT NOT NULL,
+    hash_archivo VARCHAR(255) NOT NULL,
+    id_version_actual INTEGER,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE version_documento (
+    id_version_documento SERIAL PRIMARY KEY,
+    id_documento_institucional INTEGER NOT NULL REFERENCES documento_institucional(id_documento_institucional),
+    numero_version VARCHAR(50) NOT NULL,
+    fecha_version TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ruta_archivo TEXT NOT NULL,
+    hash_archivo VARCHAR(255) NOT NULL,
+    estado VARCHAR(30) NOT NULL DEFAULT 'activo',
+    observacion TEXT,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    vigente_desde DATE,
+    vigente_hasta DATE,
+    CONSTRAINT ck_version_documento_vigencia CHECK (
+        vigente_hasta IS NULL OR (vigente_desde IS NOT NULL AND vigente_hasta >= vigente_desde)
+    )
+);
+
+ALTER TABLE documento_institucional ADD CONSTRAINT fk_documento_version_actual
+    FOREIGN KEY (id_version_actual) REFERENCES version_documento(id_version_documento);
+
+CREATE TABLE chunk_documento (
+    id_chunk_documento SERIAL PRIMARY KEY,
+    id_version_documento INTEGER NOT NULL REFERENCES version_documento(id_version_documento),
+    contenido TEXT NOT NULL,
+    numero_chunk INTEGER NOT NULL,
+    pagina_inicio INTEGER,
+    pagina_fin INTEGER,
+    seccion VARCHAR(255),
+    subseccion VARCHAR(255),
+    articulo_numero VARCHAR(50),
+    estrategia_chunking VARCHAR(100),
+    tokens_aproximados INTEGER,
+    embedding VECTOR(512),
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE chat_session (
+    id_session UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE chat_message (
+    id_message UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES chat_session(id_session) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
+    message_order INTEGER NOT NULL,
+    sources_json JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX ix_chat_message_session_id ON chat_message(session_id);
+
+COMMIT;
+
 -- Valoración de respuestas del módulo informativo RAG
 --
 -- Fecha: 2026-10-06
