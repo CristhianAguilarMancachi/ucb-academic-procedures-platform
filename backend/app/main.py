@@ -1,9 +1,20 @@
+
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+
+from fastapi.middleware.cors import (
+    CORSMiddleware,
+)
+
 from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
+
+from app.api.routes.gestion_seguimiento.intervenciones import (
+    router as intervenciones_router,
+)
+
 from app.core.config import CORS_ORIGINS
+
 from app.services.gestion_seguimiento.seguimiento_service import (
     SeguimientoError,
 )
@@ -11,11 +22,6 @@ from app.services.gestion_seguimiento.seguimiento_service import (
 
 # ============================================================
 # APLICACIÓN FASTAPI
-# ============================================================
-#
-# El RAG ya no necesita cargar un modelo de embeddings local
-# durante el arranque. Jina AI se consume mediante API cuando
-# una operación necesita generar embeddings.
 # ============================================================
 
 app = FastAPI(
@@ -42,11 +48,21 @@ app.add_middleware(
 
 
 # ============================================================
-# RUTAS DE LA API
+# RUTAS PRINCIPALES
 # ============================================================
 
 app.include_router(
     api_router,
+    prefix="/api",
+)
+
+
+# ============================================================
+# INTERVENCIONES Y NOTIFICACIONES
+# ============================================================
+
+app.include_router(
+    intervenciones_router,
     prefix="/api",
 )
 
@@ -77,7 +93,7 @@ def ready():
 
 
 # ============================================================
-# MANEJO GLOBAL DE ERRORES DE SEGUIMIENTO
+# ERRORES DE SEGUIMIENTO
 # ============================================================
 
 @app.exception_handler(

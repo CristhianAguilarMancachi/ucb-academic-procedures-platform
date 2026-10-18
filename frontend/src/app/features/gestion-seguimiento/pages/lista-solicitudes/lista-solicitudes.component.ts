@@ -211,6 +211,10 @@ export class ListaSolicitudesComponent
 
 
   ngOnInit(): void {
+    if (this.vistaAdministrativa) {
+      const id = Number(this.route.snapshot.queryParamMap.get('id_tramite'));
+      if (Number.isSafeInteger(id) && id > 0) this.filtros.id_tramite = String(id);
+    }
     if (
       this.vistaAdministrativa
     ) {
@@ -220,6 +224,11 @@ export class ListaSolicitudesComponent
           next: (
             respuesta,
           ) => {
+            // Analítica también puede enlazar trámites históricos no publicados.
+            const id = Number(this.filtros.id_tramite);
+            if (id > 0 && !respuesta.items.some(t => t.id_tramite === id)) {
+              respuesta.items.push({ id_tramite: id, nombre: `Trámite #${id}` } as Tramite);
+            }
             this.tramitesFiltro.set(
               respuesta.items,
             );
@@ -574,6 +583,24 @@ export class ListaSolicitudesComponent
   }
 
 
+  estadoAdministrativo(solicitud: SolicitudResumen): string {
+    return solicitud.estado === 'lista_para_entrega'
+      ? 'finalizada'
+      : solicitud.estado;
+  }
+
+  etiquetaAdministrativa(solicitud: SolicitudResumen): string {
+    return this.etiqueta(this.estadoAdministrativo(solicitud));
+  }
+
+  contarFinalizadas(): number {
+    return this.items().filter(
+      solicitud =>
+        solicitud.estado === 'finalizada' ||
+        solicitud.estado === 'lista_para_entrega'
+    ).length;
+  }
+
   textoAccionAdministrativa(
     solicitud:
       SolicitudResumen,
@@ -581,6 +608,7 @@ export class ListaSolicitudesComponent
     if (
       solicitud.estado ===
         'finalizada' ||
+      solicitud.estado === 'lista_para_entrega' ||
       solicitud.estado ===
         'cancelada' ||
       solicitud.estado ===

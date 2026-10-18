@@ -20,6 +20,8 @@ import {
   RagFeedbackResponse,
   RagQueryRequest,
   RagQueryResponse,
+  RagCurrentChatResponse,
+  RagClearChatResponse,
 } from '../models/rag.models';
 
 
@@ -102,6 +104,18 @@ export class RagService {
       );
   }
 
+
+  getCurrentSession(): Observable<RagCurrentChatResponse> {
+    return this.http.get<RagCurrentChatResponse>(
+      `${this.apiBase}/session`,
+    );
+  }
+
+  clearCurrentSession(): Observable<RagClearChatResponse> {
+    return this.http.delete<RagClearChatResponse>(
+      `${this.apiBase}/session`,
+    );
+  }
 
   /* =======================================================
      CREAR / ACTUALIZAR VALORACIÓN

@@ -1342,7 +1342,12 @@
     min-height: 410px;
   }
 
+  .documents-table {
+    min-width: 960px;
+  }
+
   .documents-table-scroll {
+    overflow-x: auto;
     max-height: 540px;
   }
 
@@ -1373,41 +1378,6 @@
       flex-basis: 100%;
       margin-left: 0;
       text-align: left;
-    }
-  }
-
-  .documents-table {
-    th,
-    td {
-      padding-left: 0.4rem;
-      padding-right: 0.4rem;
-      font-size: 0.68rem;
-    }
-
-    th:nth-child(2),
-    td:nth-child(2),
-    th:nth-child(3),
-    td:nth-child(3),
-    th:nth-child(5),
-    td:nth-child(5) {
-      display: none;
-    }
-  }
-
-  .col-document { width: 43%; }
-  .col-status { width: 30%; }
-  .col-action { width: 27%; }
-
-  .document-identity__icon {
-    display: none;
-  }
-
-  .doc-row-action {
-    padding: 0.35rem;
-    font-size: 0.66rem;
-
-    svg {
-      display: none;
     }
   }
 

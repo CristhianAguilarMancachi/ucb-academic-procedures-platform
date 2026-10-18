@@ -1,140 +1,134 @@
+
 from __future__ import annotations
 
-from datetime import (
-    date,
-    datetime,
-    timezone,
-)
+from datetime import date, datetime, timezone
 
-from sqlalchemy.exc import (
-    IntegrityError,
-)
 from sqlalchemy.orm import Session
 
 from app.repositories.gestion_seguimiento import (
-    seguimiento_repository
-    as seguimiento_repo,
+    seguimiento_repository as seguimiento_repo,
+    solicitud_administrativa_repository as admin_repo,
 )
-from app.repositories.gestion_seguimiento import (
-    solicitud_administrativa_repository,
-)
+
 from app.schemas.gestion_seguimiento.pago_verificacion import (
     PagoVerificacionResponse,
 )
+
 from app.schemas.gestion_seguimiento.seguimiento import (
-    EntregaResponse,
     HistorialResponse,
     ObservacionResponse,
     ResultadoResponse,
-    SolicitudEtapaResponse,
 )
+
 from app.schemas.gestion_seguimiento.solicitud_administrativa import (
     ListaSolicitudesAdministrativasResponse,
     RequisitoVerificacionResponse,
     RequisitoVerificarRequest,
+    RequisitosAdministrativosConfirmarRequest,
+    RequisitosAdministrativosConfirmarResponse,
     SolicitudAdministrativaDetalleResponse,
     SolicitudAdministrativaResumenResponse,
     SolicitudDatoAdministrativoResponse,
     SolicitudRecepcionResponse,
     SolicitudRequisitoAdministrativoResponse,
 )
+
 from app.services.auth.audit_service import (
     registrar_accion_simple,
 )
+
+from app.services.gestion_seguimiento import (
+    atencion_service,
+)
+
 from app.services.gestion_seguimiento.seguimiento_service import (
+    SeguimientoError,
     validar_presentacion,
     validar_requisito_editable,
 )
 
 
-class SolicitudAdministrativaServiceError(
-    Exception
-):
-    """
-    Error base de gestión administrativa.
-    """
+# ============================================================
+# ERRORES
+# ============================================================
+
+class SolicitudAdministrativaServiceError(Exception):
+    """Error base de gestión administrativa."""
 
 
 class SolicitudAdministrativaNoEncontradaError(
     SolicitudAdministrativaServiceError
 ):
-    """
-    La solicitud no existe o no está disponible para gestión.
-    """
+    """Solicitud inexistente o no disponible."""
 
 
 class SolicitudYaRecibidaError(
     SolicitudAdministrativaServiceError
 ):
-    """
-    La solicitud ya tiene una recepción registrada.
-    """
+    """La solicitud ya cuenta con recepción."""
 
 
 class SolicitudNoPendienteRecepcionError(
     SolicitudAdministrativaServiceError
 ):
-    """
-    La solicitud no puede volver a recibirse.
-    """
+    """La solicitud no está pendiente de recepción."""
 
 
 class SolicitudNoEstaEnRevisionError(
     SolicitudAdministrativaServiceError
 ):
-    """
-    La solicitud todavía no se encuentra en revisión.
-    """
+    """La solicitud no está en atención."""
 
 
 class RequisitoSolicitudNoEncontradoError(
     SolicitudAdministrativaServiceError
 ):
-    """
-    El requisito solicitado no existe.
-    """
+    """Requisito inexistente."""
 
 
 class RequisitoNoPerteneceSolicitudError(
     SolicitudAdministrativaServiceError
 ):
-    """
-    El requisito no pertenece a la solicitud indicada.
-    """
+    """El requisito pertenece a otra solicitud."""
 
 
 class RequisitoEconomicoRequiereApiError(
     SolicitudAdministrativaServiceError
 ):
-    """
-    Los requisitos económicos no pueden aprobarse
-    manualmente.
-    """
+    """Los requisitos económicos requieren la API de pagos."""
+
+
+class RequisitoNoEsAdministrativoError(
+    SolicitudAdministrativaServiceError
+):
+    """El requisito no admite confirmación administrativa."""
+
+
+class RequisitoAdministrativoYaConfirmadoError(
+    SolicitudAdministrativaServiceError
+):
+    """El requisito ya fue confirmado."""
 
 
 # ============================================================
-# HELPERS
+# CONSULTAS INTERNAS
 # ============================================================
-
 
 def _obtener_solicitud(
     db: Session,
     id_solicitud: int,
 ):
     solicitud = (
-        solicitud_administrativa_repository
-        .obtener_solicitud_administrativa_por_id(
+        admin_repo.obtener_solicitud_administrativa_por_id(
             db,
             id_solicitud,
         )
     )
 
     if solicitud is None:
-        raise (
-            SolicitudAdministrativaNoEncontradaError(
-                "La solicitud no existe o no está "
-                "disponible para gestión administrativa."
-            )
+        raise SolicitudAdministrativaNoEncontradaError(
+            "La solicitud no existe o no está disponible "
+            "para gestión administrativa."
         )
 
     return solicitud
@@ -145,33 +139,25 @@ def _obtener_documento_identidad(
     *,
     id_usuario: int,
 ) -> str | None:
-    perfil = (
-        seguimiento_repo
-        .obtener_perfil(
-            db,
-            id_usuario,
-        )
+    perfil = seguimiento_repo.obtener_perfil(
+        db,
+        id_usuario,
     )
 
     if perfil is None:
         return None
 
-    documento = (
-        perfil.documento_identidad
-    )
+    documento = perfil.documento_identidad
 
     if documento is None:
         return None
 
-    documento_normalizado = (
-        documento.strip()
-    )
+    return documento.strip() or None
 
-    return (
-        documento_normalizado
-        or None
-    )
 
+# ============================================================
+# DETALLE ADMINISTRATIVO
+# ============================================================
 
 def _construir_detalle(
     db: Session,
@@ -182,213 +168,143 @@ def _construir_detalle(
         id_solicitud,
     )
 
-    recepcion = (
-        solicitud_administrativa_repository
-        .obtener_recepcion_por_solicitud(
+    recepcion = admin_repo.obtener_recepcion_por_solicitud(
+        db,
+        id_solicitud,
+    )
+
+    perfil = seguimiento_repo.obtener_perfil(
+        db,
+        solicitud.id_solicitante,
+    )
+
+    resultado = seguimiento_repo.obtener_resultado(
+        db,
+        id_solicitud,
+    )
+
+    datos = [
+        SolicitudDatoAdministrativoResponse.model_validate(
+            dato
+        )
+        for dato in solicitud.datos
+    ]
+
+    requisitos = [
+        SolicitudRequisitoAdministrativoResponse.model_validate(
+            requisito
+        )
+        for requisito in sorted(
+            solicitud.requisitos,
+            key=lambda item: (
+                item.orden,
+                item.id_solicitud_requisito,
+            ),
+        )
+    ]
+
+    observaciones = [
+        ObservacionResponse.model_validate(
+            observacion
+        )
+        for observacion in seguimiento_repo.listar_observaciones(
             db,
             id_solicitud,
         )
-    )
+    ]
 
-    perfil = (
-        seguimiento_repo.obtener_perfil(
-            db,
-            solicitud.id_solicitante,
+    historial = [
+        HistorialResponse.model_validate(
+            registro
         )
-    )
-
-    resultado = (
-        seguimiento_repo.obtener_resultado(
+        for registro in seguimiento_repo.listar_historial(
             db,
             id_solicitud,
         )
-    )
+    ]
 
-    entrega = (
-        seguimiento_repo.obtener_entrega(
+    pagos = [
+        PagoVerificacionResponse.model_validate(
+            pago
+        ).model_dump()
+        for pago in seguimiento_repo.listar_pagos(
             db,
             id_solicitud,
         )
-    )
+    ]
 
-    return (
-        SolicitudAdministrativaDetalleResponse(
-            nombre_solicitante=(
-                solicitud
-                .solicitante
-                .nombre_completo
-            ),
+    perfil_academico = None
 
-            perfil_academico=(
-                {
-                    campo: getattr(
-                        perfil,
-                        campo,
-                    )
-                    for campo in (
-                        "codigo_estudiante",
-                        "sede",
-                        "carrera_programa",
-                        "nivel_academico",
-                        "documento_identidad",
-                    )
-                }
-                if perfil
-                else None
-            ),
+    if perfil is not None:
+        perfil_academico = {
+            campo: getattr(
+                perfil,
+                campo,
+            )
+            for campo in (
+                "codigo_estudiante",
+                "sede",
+                "carrera_programa",
+                "nivel_academico",
+                "documento_identidad",
+            )
+        }
 
-            tipo_finalizacion=(
-                solicitud.tipo_finalizacion
-            ),
+    return SolicitudAdministrativaDetalleResponse(
+        id_solicitud=solicitud.id_solicitud,
+        id_solicitante=solicitud.id_solicitante,
+        id_tramite=solicitud.id_tramite,
 
-            id_etapa_actual=(
-                solicitud.id_etapa_actual
-            ),
+        nombre_tramite=(
+            solicitud.nombre_tramite_snapshot
+            or solicitud.tramite.nombre
+        ),
 
-            etapas=[
-                SolicitudEtapaResponse
-                .model_validate(
-                    etapa
-                )
-                for etapa
-                in seguimiento_repo
-                .listar_etapas(
-                    db,
-                    id_solicitud,
-                )
-            ],
+        nombre_solicitante=(
+            solicitud.solicitante.nombre_completo
+        ),
 
-            observaciones=[
-                ObservacionResponse
-                .model_validate(
-                    observacion
-                )
-                for observacion
-                in seguimiento_repo
-                .listar_observaciones(
-                    db,
-                    id_solicitud,
-                )
-            ],
+        estado=solicitud.estado,
 
-            historial=[
-                HistorialResponse
-                .model_validate(
-                    evento
-                )
-                for evento
-                in seguimiento_repo
-                .listar_historial(
-                    db,
-                    id_solicitud,
-                )
-            ],
+        tipo_finalizacion=solicitud.tipo_finalizacion,
+        tipo_intervencion=solicitud.tipo_intervencion,
 
-            resultado=(
-                ResultadoResponse
-                .model_validate(
-                    resultado
-                )
-                if resultado
-                else None
-            ),
+        fecha_creacion=solicitud.fecha_creacion,
+        fecha_envio=solicitud.fecha_envio,
 
-            entrega=(
-                EntregaResponse
-                .model_validate(
-                    entrega
-                )
-                if entrega
-                else None
-            ),
+        perfil_academico=perfil_academico,
 
-            pagos=[
-                PagoVerificacionResponse
-                .model_validate(
-                    pago
-                )
-                .model_dump()
-                for pago
-                in seguimiento_repo
-                .listar_pagos(
-                    db,
-                    id_solicitud,
-                )
-            ],
+        datos=datos,
+        requisitos=requisitos,
 
-            id_solicitud=(
-                solicitud.id_solicitud
-            ),
+        recepcion=(
+            SolicitudRecepcionResponse.model_validate(
+                recepcion
+            )
+            if recepcion is not None
+            else None
+        ),
 
-            id_solicitante=(
-                solicitud.id_solicitante
-            ),
+        observaciones=observaciones,
+        historial=historial,
 
-            id_tramite=(
-                solicitud.id_tramite
-            ),
+        resultado=(
+            ResultadoResponse.model_validate(
+                resultado
+            )
+            if resultado is not None
+            else None
+        ),
 
-            nombre_tramite=(
-                solicitud
-                .nombre_tramite_snapshot
-                or solicitud
-                .tramite
-                .nombre
-            ),
+        pagos=pagos,
 
-            estado=(
-                solicitud.estado
-            ),
-
-            fecha_creacion=(
-                solicitud.fecha_creacion
-            ),
-
-            fecha_envio=(
-                solicitud.fecha_envio
-            ),
-
-            datos=[
-                SolicitudDatoAdministrativoResponse
-                .model_validate(
-                    dato
-                )
-                for dato
-                in solicitud.datos
-            ],
-
-            requisitos=[
-                SolicitudRequisitoAdministrativoResponse
-                .model_validate(
-                    requisito
-                )
-                for requisito
-                in sorted(
-                    solicitud.requisitos,
-                    key=lambda item: (
-                        item.orden,
-                        item.id_solicitud_requisito,
-                    ),
-                )
-            ],
-
-            recepcion=(
-                SolicitudRecepcionResponse
-                .model_validate(
-                    recepcion
-                )
-                if recepcion
-                is not None
-                else None
-            ),
-        )
+        # No se utilizan etapas de solicitud.
     )
 
 
 # ============================================================
-# BANDEJA
+# BANDEJA ADMINISTRATIVA
 # ============================================================
-
 
 def listar_bandeja_administrativa(
     db: Session,
@@ -404,8 +320,7 @@ def listar_bandeja_administrativa(
     limite: int = 20,
 ) -> ListaSolicitudesAdministrativasResponse:
     solicitudes, total = (
-        solicitud_administrativa_repository
-        .listar_solicitudes_administrativas(
+        admin_repo.listar_solicitudes_administrativas(
             db,
             estado=estado,
             id_tramite=id_tramite,
@@ -419,93 +334,49 @@ def listar_bandeja_administrativa(
         )
     )
 
-    items: list[
-        SolicitudAdministrativaResumenResponse
-    ] = []
+    items = []
 
     for solicitud in solicitudes:
-        documento_identidad = (
-            _obtener_documento_identidad(
-                db,
-                id_usuario=(
-                    solicitud.id_solicitante
-                ),
-            )
+        documento_identidad = _obtener_documento_identidad(
+            db,
+            id_usuario=solicitud.id_solicitante,
         )
 
         items.append(
             SolicitudAdministrativaResumenResponse(
-                id_solicitud=(
-                    solicitud.id_solicitud
-                ),
-
-                id_solicitante=(
-                    solicitud.id_solicitante
-                ),
+                id_solicitud=solicitud.id_solicitud,
+                id_solicitante=solicitud.id_solicitante,
 
                 nombre_solicitante=(
-                    solicitud
-                    .solicitante
-                    .nombre_completo
+                    solicitud.solicitante.nombre_completo
                 ),
 
-                documento_identidad=(
-                    documento_identidad
-                ),
+                documento_identidad=documento_identidad,
 
-                id_tramite=(
-                    solicitud.id_tramite
-                ),
+                id_tramite=solicitud.id_tramite,
 
                 nombre_tramite=(
-                    solicitud
-                    .nombre_tramite_snapshot
-                    or solicitud
-                    .tramite
-                    .nombre
+                    solicitud.nombre_tramite_snapshot
+                    or solicitud.tramite.nombre
                 ),
 
-                estado=(
-                    solicitud.estado
-                ),
+                estado=solicitud.estado,
+                tipo_intervencion=solicitud.tipo_intervencion,
 
-                fecha_creacion=(
-                    solicitud.fecha_creacion
-                ),
-
-                fecha_envio=(
-                    solicitud.fecha_envio
-                ),
+                fecha_creacion=solicitud.fecha_creacion,
+                fecha_envio=solicitud.fecha_envio,
 
                 fecha_actualizacion=(
-                    getattr(
-                        solicitud,
-                        "fecha_actualizacion",
-                        None,
-                    )
+                    solicitud.fecha_actualizacion
                 ),
             )
         )
 
-    return (
-        ListaSolicitudesAdministrativasResponse(
-            items=items,
-
-            total=total,
-
-            pagina=max(
-                pagina,
-                1,
-            ),
-
-            limite=min(
-                max(
-                    limite,
-                    1,
-                ),
-                100,
-            ),
-        )
+    return ListaSolicitudesAdministrativasResponse(
+        items=items,
+        total=total,
+        pagina=max(pagina, 1),
+        limite=min(max(limite, 1), 100),
     )
 
 
@@ -521,9 +392,8 @@ def obtener_detalle_administrativo(
 
 
 # ============================================================
-# RECEPCIÓN
+# RECEPCIÓN E INICIO DE ATENCIÓN
 # ============================================================
-
 
 def recibir_solicitud(
     db: Session,
@@ -534,151 +404,57 @@ def recibir_solicitud(
     user_agent: str | None = None,
 ) -> SolicitudAdministrativaDetalleResponse:
     """
-    Registra la recepción administrativa inicial.
+    Compatibilidad con el endpoint administrativo
+    de recepción.
 
-    Única transición realizada:
+    Recibir equivale a iniciar la atención.
 
-        pendiente_recepcion
-                ↓
-            en_revision
+    No crea etapas, no exige verificar requisitos
+    y no genera el estado en_revision.
     """
-    seguimiento_repo.bloquear_solicitud(
+
+    solicitud = _obtener_solicitud(
         db,
         id_solicitud,
     )
 
-    solicitud = (
-        _obtener_solicitud(
-            db,
-            id_solicitud,
+    if solicitud.estado != "pendiente_recepcion":
+        raise SolicitudNoPendienteRecepcionError(
+            "La solicitud ya no está pendiente "
+            "de recepción."
         )
+
+    recepcion = admin_repo.obtener_recepcion_por_solicitud(
+        db,
+        id_solicitud,
     )
 
-    if (
-        solicitud.estado
-        != "pendiente_recepcion"
-    ):
-        raise (
-            SolicitudNoPendienteRecepcionError(
-                "La solicitud ya no se encuentra "
-                "pendiente de recepción."
-            )
+    if recepcion is not None:
+        raise SolicitudYaRecibidaError(
+            "La solicitud ya tiene recepción registrada."
         )
-
-    recepcion_existente = (
-        solicitud_administrativa_repository
-        .obtener_recepcion_por_solicitud(
-            db,
-            id_solicitud,
-        )
-    )
-
-    if (
-        recepcion_existente
-        is not None
-    ):
-        raise (
-            SolicitudYaRecibidaError(
-                "La solicitud ya fue recibida."
-            )
-        )
-
-    fecha_recepcion = (
-        datetime.now(
-            timezone.utc
-        )
-    )
 
     try:
-        (
-            solicitud_administrativa_repository
-            .crear_recepcion(
-                db,
-                id_solicitud=id_solicitud,
-                id_usuario_receptor=(
-                    id_usuario_receptor
-                ),
-                fecha_recepcion=(
-                    fecha_recepcion
-                ),
-            )
-        )
-
-        (
-            solicitud_administrativa_repository
-            .marcar_solicitud_en_revision(
-                db,
-                solicitud,
-            )
-        )
-
-        registrar_accion_simple(
-            db,
-            accion=(
-                "recibir_solicitud"
-            ),
-            modulo=(
-                "gestion_seguimiento"
-            ),
-            id_usuario_actor=(
-                id_usuario_receptor
-            ),
-            entidad="solicitud",
-            id_entidad=str(
-                id_solicitud
-            ),
-            exitoso=True,
-            detalle={
-                "estado_anterior":
-                    "pendiente_recepcion",
-                "estado_nuevo":
-                    "en_revision",
-            },
-            direccion_ip=(
-                direccion_ip
-            ),
-            user_agent=(
-                user_agent
-            ),
-        )
-
-        seguimiento_repo.registrar_historial(
+        atencion_service.iniciar_atencion(
             db,
             id_solicitud,
             id_usuario_receptor,
-            "solicitud_recibida",
-            (
-                "Solicitud recibida "
-                "para revisión."
-            ),
         )
 
-        db.commit()
-
-        return _construir_detalle(
-            db,
-            id_solicitud,
-        )
-
-    except IntegrityError as exc:
-        db.rollback()
-
-        raise (
-            SolicitudYaRecibidaError(
-                "La solicitud ya fue recibida."
-            )
+    except SeguimientoError as exc:
+        raise SolicitudNoPendienteRecepcionError(
+            str(exc)
         ) from exc
 
-    except Exception:
-        db.rollback()
-
-        raise
+    return _construir_detalle(
+        db,
+        id_solicitud,
+    )
 
 
 # ============================================================
-# VERIFICACIÓN MANUAL DE REQUISITOS NO ECONÓMICOS
+# VERIFICACIÓN MANUAL EXISTENTE
 # ============================================================
-
 
 def verificar_requisito_manual(
     db: Session,
@@ -691,66 +467,60 @@ def verificar_requisito_manual(
     user_agent: str | None = None,
 ) -> RequisitoVerificacionResponse:
     """
-    Verifica manualmente un requisito NO económico.
+    Conserva la compatibilidad con el endpoint de
+    verificación manual.
 
-    Los requisitos económicos deben utilizar exclusivamente
-    la integración con la API de facturación/pagos.
+    Los documentos físicos se completan durante su
+    recepción y los económicos mediante la API.
+
+    Este endpoint queda limitado a requisitos
+    administrativos no físicos ni económicos.
     """
+
     seguimiento_repo.bloquear_solicitud(
         db,
         id_solicitud,
     )
 
-    solicitud = (
-        _obtener_solicitud(
-            db,
-            id_solicitud,
-        )
+    solicitud = _obtener_solicitud(
+        db,
+        id_solicitud,
     )
 
     if solicitud.estado not in (
         "en_revision",
         "en_proceso",
     ):
-        raise (
-            SolicitudNoEstaEnRevisionError(
-                "La solicitud debe estar en revisión "
-                "antes de verificar sus requisitos."
-            )
+        raise SolicitudNoEstaEnRevisionError(
+            "La solicitud debe estar en atención "
+            "para verificar sus requisitos."
         )
 
-    requisito = (
-        solicitud_administrativa_repository
-        .obtener_requisito_solicitud_por_id(
-            db,
-            id_solicitud_requisito,
-        )
+    requisito = admin_repo.obtener_requisito_solicitud_por_id(
+        db,
+        id_solicitud_requisito,
     )
 
     if requisito is None:
-        raise (
-            RequisitoSolicitudNoEncontradoError(
-                "El requisito indicado no existe."
-            )
+        raise RequisitoSolicitudNoEncontradoError(
+            "El requisito indicado no existe."
         )
 
-    if (
-        requisito.id_solicitud
-        != id_solicitud
-    ):
-        raise (
-            RequisitoNoPerteneceSolicitudError(
-                "El requisito no pertenece "
-                "a la solicitud."
-            )
+    if requisito.id_solicitud != id_solicitud:
+        raise RequisitoNoPerteneceSolicitudError(
+            "El requisito no pertenece a la solicitud."
         )
 
     if requisito.es_economico:
-        raise (
-            RequisitoEconomicoRequiereApiError(
-                "Los requisitos económicos deben "
-                "verificarse mediante la API de pagos."
-            )
+        raise RequisitoEconomicoRequiereApiError(
+            "Los requisitos económicos deben "
+            "verificarse mediante la API de pagos."
+        )
+
+    if requisito.requiere_presentacion_fisica:
+        raise RequisitoNoEsAdministrativoError(
+            "Los documentos físicos se completan "
+            "al registrar su recepción."
         )
 
     validar_requisito_editable(
@@ -758,81 +528,36 @@ def verificar_requisito_manual(
         requisito,
     )
 
-    if datos.estado == "cumple":
-        validar_presentacion(
-            requisito
-        )
-
-    estado_anterior = (
-        requisito.estado_verificacion
-    )
-
-    fecha_verificacion = (
-        datetime.now(
-            timezone.utc
-        )
-    )
+    estado_anterior = requisito.estado_verificacion
 
     try:
-        requisito = (
-            solicitud_administrativa_repository
-            .actualizar_verificacion_requisito(
-                db,
-                requisito,
-                estado_verificacion=(
-                    datos.estado
-                ),
-                id_usuario_verificador=(
-                    id_usuario_verificador
-                ),
-                fecha_verificacion=(
-                    fecha_verificacion
-                ),
-                detalle_verificacion=(
-                    datos.detalle
-                ),
-            )
+        requisito = admin_repo.actualizar_verificacion_requisito(
+            db,
+            requisito,
+            estado_verificacion=datos.estado,
+            id_usuario_verificador=id_usuario_verificador,
+            fecha_verificacion=datetime.now(timezone.utc),
+            detalle_verificacion=datos.detalle,
         )
 
         registrar_accion_simple(
             db,
-            accion=(
-                "verificar_requisito_solicitud"
-            ),
-            modulo=(
-                "gestion_seguimiento"
-            ),
-            id_usuario_actor=(
-                id_usuario_verificador
-            ),
-            entidad=(
-                "solicitud_requisito"
-            ),
+            accion="verificar_requisito_solicitud",
+            modulo="gestion_seguimiento",
+            id_usuario_actor=id_usuario_verificador,
+            entidad="solicitud_requisito",
             id_entidad=str(
-                requisito
-                .id_solicitud_requisito
+                requisito.id_solicitud_requisito
             ),
             exitoso=True,
             detalle={
-                "id_solicitud":
-                    id_solicitud,
-
-                "estado_anterior":
-                    estado_anterior,
-
-                "estado_nuevo":
-                    requisito
-                    .estado_verificacion,
-
-                "es_economico":
-                    False,
+                "id_solicitud": id_solicitud,
+                "estado_anterior": estado_anterior,
+                "estado_nuevo": requisito.estado_verificacion,
+                "es_economico": False,
             },
-            direccion_ip=(
-                direccion_ip
-            ),
-            user_agent=(
-                user_agent
-            ),
+            direccion_ip=direccion_ip,
+            user_agent=user_agent,
         )
 
         seguimiento_repo.registrar_historial(
@@ -844,26 +569,188 @@ def verificar_requisito_manual(
                 f"{requisito.nombre}: "
                 f"{requisito.estado_verificacion}."
             ),
-            id_solicitud_etapa=(
-                requisito
-                .id_solicitud_etapa
-            ),
             id_solicitud_requisito=(
-                requisito
-                .id_solicitud_requisito
+                requisito.id_solicitud_requisito
             ),
         )
 
         db.commit()
 
-        return (
-            RequisitoVerificacionResponse
-            .model_validate(
-                requisito
-            )
+        return RequisitoVerificacionResponse.model_validate(
+            requisito
         )
 
     except Exception:
         db.rollback()
+        raise
 
+
+# ============================================================
+# CONFIRMACIÓN AGRUPADA DE REQUISITOS ADMINISTRATIVOS
+# ============================================================
+
+def confirmar_requisitos_administrativos(
+    db: Session,
+    *,
+    id_solicitud: int,
+    id_usuario_verificador: int,
+    datos: RequisitosAdministrativosConfirmarRequest,
+    direccion_ip: str | None = None,
+    user_agent: str | None = None,
+) -> RequisitosAdministrativosConfirmarResponse:
+    """
+    Confirma los requisitos administrativos seleccionados
+    desde la pestaña Requisitos.
+
+    La operación es atómica:
+    - valida todos los identificadores;
+    - impide incluir documentos físicos y pagos;
+    - impide confirmar requisitos ya cumplidos;
+    - registra verificador y fecha;
+    - incorpora historial y auditoría;
+    - confirma los cambios en una sola transacción.
+
+    No modifica el estado de la solicitud ni ejecuta
+    etapas institucionales.
+    """
+
+    try:
+        seguimiento_repo.bloquear_solicitud(
+            db,
+            id_solicitud,
+        )
+
+        solicitud = _obtener_solicitud(
+            db,
+            id_solicitud,
+        )
+
+        if solicitud.estado not in (
+            "en_revision",
+            "en_proceso",
+        ):
+            raise SolicitudNoEstaEnRevisionError(
+                "La solicitud debe estar en atención "
+                "para confirmar requisitos administrativos."
+            )
+
+        ids_solicitados = set(datos.ids_requisitos)
+
+        requisitos = [
+            requisito
+            for requisito in solicitud.requisitos
+            if requisito.id_solicitud_requisito
+            in ids_solicitados
+        ]
+
+        if len(requisitos) != len(ids_solicitados):
+            raise RequisitoNoPerteneceSolicitudError(
+                "Uno o más requisitos no pertenecen "
+                "a esta solicitud."
+            )
+
+        # Se valida toda la selección antes de actualizar
+        # cualquier requisito.
+        for requisito in requisitos:
+            validar_requisito_editable(
+                solicitud,
+                requisito,
+            )
+
+            if requisito.es_economico:
+                raise RequisitoEconomicoRequiereApiError(
+                    "Los pagos deben validarse mediante "
+                    "la API de facturación."
+                )
+
+            if requisito.requiere_presentacion_fisica:
+                raise RequisitoNoEsAdministrativoError(
+                    "La documentación física se completa "
+                    "al registrar su recepción."
+                )
+
+            if requisito.estado_verificacion == "cumple":
+                raise RequisitoAdministrativoYaConfirmadoError(
+                    f'El requisito "{requisito.nombre}" '
+                    "ya está confirmado."
+                )
+
+        fecha = datetime.now(timezone.utc)
+
+        ids_confirmados: list[int] = []
+
+        for requisito in sorted(
+            requisitos,
+            key=lambda item: (
+                item.orden,
+                item.id_solicitud_requisito,
+            ),
+        ):
+            estado_anterior = requisito.estado_verificacion
+
+            admin_repo.actualizar_verificacion_requisito(
+                db,
+                requisito,
+                estado_verificacion="cumple",
+                id_usuario_verificador=id_usuario_verificador,
+                fecha_verificacion=fecha,
+                detalle_verificacion=(
+                    datos.detalle
+                    or "Cumplimiento confirmado por personal administrativo."
+                ),
+            )
+
+            seguimiento_repo.registrar_historial(
+                db,
+                id_solicitud,
+                id_usuario_verificador,
+                "requisito_administrativo_confirmado",
+                (
+                    "Cumplimiento administrativo confirmado: "
+                    f"{requisito.nombre}."
+                ),
+                id_solicitud_requisito=(
+                    requisito.id_solicitud_requisito
+                ),
+            )
+
+            registrar_accion_simple(
+                db,
+                accion="confirmar_requisito_administrativo",
+                modulo="gestion_seguimiento",
+                id_usuario_actor=id_usuario_verificador,
+                entidad="solicitud_requisito",
+                id_entidad=str(
+                    requisito.id_solicitud_requisito
+                ),
+                exitoso=True,
+                detalle={
+                    "id_solicitud": id_solicitud,
+                    "estado_anterior": estado_anterior,
+                    "estado_nuevo": "cumple",
+                    "tipo": "administrativo",
+                },
+                direccion_ip=direccion_ip,
+                user_agent=user_agent,
+            )
+
+            ids_confirmados.append(
+                requisito.id_solicitud_requisito
+            )
+
+        db.commit()
+
+        return RequisitosAdministrativosConfirmarResponse(
+            mensaje=(
+                "Se confirmó el cumplimiento de "
+                f"{len(ids_confirmados)} requisito(s) "
+                "administrativo(s)."
+            ),
+            id_solicitud=id_solicitud,
+            requisitos_confirmados=ids_confirmados,
+            cantidad_confirmada=len(ids_confirmados),
+        )
+
+    except Exception:
+        db.rollback()
         raise

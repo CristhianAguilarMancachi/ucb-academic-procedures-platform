@@ -1,4 +1,3 @@
-
 :host {
   display: block;
   width: 100%;
@@ -727,10 +726,9 @@
 .editor-tabs {
   display: grid;
   grid-template-columns:
-    minmax(0, 0.85fr)
-    minmax(0, 0.85fr)
-    minmax(0, 1.45fr)
-    minmax(0, 1.05fr);
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1.6fr);
   align-items: stretch;
   gap: 0.35rem;
   flex: 0 0 auto;
@@ -1358,174 +1356,6 @@
 }
 
 /* =======================================================
-   FLUJO DE ETAPAS
-   ======================================================= */
-
-.collection-card--flow {
-  min-height: 0;
-}
-
-.flow-list {
-  padding: 0.8rem 1rem 0.2rem;
-}
-
-.flow-stage {
-  display: grid;
-  grid-template-columns: 37px minmax(0, 1fr);
-  gap: 0.7rem;
-  min-width: 0;
-}
-
-.flow-stage__marker {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-
-  > span {
-    display: grid;
-    place-items: center;
-    width: 32px;
-    height: 32px;
-    flex: 0 0 32px;
-    border: 1px solid var(--ucb-yellow-border);
-    border-radius: 50%;
-    background: var(--ucb-yellow-soft);
-    color: var(--ucb-yellow);
-    font-size: 0.78rem;
-    font-weight: 800;
-  }
-}
-
-.flow-stage__line {
-  width: 2px;
-  min-height: 30px;
-  flex: 1 1 auto;
-  background: rgba(0, 166, 200, 0.35);
-}
-
-.flow-stage__content {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  min-width: 0;
-  min-height: 64px;
-  margin-bottom: 0.65rem;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--ucb-border);
-  border-radius: 8px;
-  background: rgba(2, 13, 27, 0.27);
-}
-
-.flow-stage__description {
-  display: flex;
-  flex: 1 1 230px;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-
-  strong {
-    color: var(--ucb-text-strong);
-    font-size: 0.81rem;
-    font-weight: 700;
-    line-height: 1.4;
-  }
-
-  > span {
-    color: #8bd9ea;
-    font-size: 0.72rem;
-    font-weight: 600;
-  }
-
-  p {
-    margin: 0.1rem 0 0;
-    color: var(--ucb-text-muted);
-    font-size: 0.7rem;
-    line-height: 1.45;
-  }
-}
-
-.flow-stage__tags {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-
-.stage-tag {
-  display: inline-flex;
-  align-items: center;
-  min-height: 25px;
-  padding: 0.2rem 0.48rem;
-  border: 1px solid var(--ucb-border-strong);
-  border-radius: 5px;
-  color: var(--ucb-text-soft);
-  font-size: 0.68rem;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.stage-tag--start {
-  border-color: rgba(0, 166, 200, 0.27);
-  background: rgba(0, 166, 200, 0.09);
-  color: #85d8ea;
-}
-
-.stage-tag--final {
-  border-color: rgba(68, 194, 129, 0.25);
-  background: rgba(8, 115, 78, 0.13);
-  color: #8fe0b6;
-}
-
-.stage-tag--off {
-  border-color: rgba(236, 104, 104, 0.25);
-  background: rgba(189, 41, 57, 0.1);
-  color: #f1a1a1;
-}
-
-.flow-stage__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  margin-left: auto;
-}
-
-.move-button {
-  display: grid;
-  place-items: center;
-  width: 33px;
-  height: 35px;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 1px solid var(--ucb-border-strong) !important;
-  border-radius: 6px !important;
-  background: transparent !important;
-  color: var(--ucb-text-soft) !important;
-  font-size: 1.05rem;
-  font-weight: 600;
-
-  &:hover:not(:disabled) {
-    border-color: rgba(0, 166, 200, 0.45) !important;
-    background: rgba(0, 166, 200, 0.08) !important;
-    color: #8bd9ea !important;
-  }
-}
-
-.flow-guidance {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin: 0.1rem 1rem 0.9rem;
-  padding: 0.65rem 0.8rem;
-  border: 1px solid rgba(0, 166, 200, 0.18);
-  border-radius: 7px;
-  background: rgba(0, 166, 200, 0.055);
-  color: var(--ucb-text-soft);
-  font-size: 0.72rem;
-  line-height: 1.5;
-}
-
-/* =======================================================
    PIE DEL EDITOR
    ======================================================= */
 
@@ -1962,9 +1792,6 @@
     flex-basis: 30px;
   }
 
-  .flow-stage__actions {
-    flex-wrap: wrap;
-  }
 }
 
 /* =======================================================
@@ -2007,7 +1834,12 @@
     min-height: 420px;
   }
 
+  .config-table {
+    min-width: 1060px;
+  }
+
   .config-table-scroll {
+    overflow-x: auto;
     max-height: 560px;
   }
 
@@ -2037,43 +1869,6 @@
 
   .list-filters__total {
     flex-basis: 100%;
-  }
-
-  .config-table {
-    th,
-    td {
-      padding-left: 0.3rem;
-      padding-right: 0.3rem;
-      font-size: 0.68rem;
-    }
-
-    .col-tramite { width: 24%; }
-    .col-descripcion { display: none; width: 0; }
-    .col-estado { width: 15%; }
-    .col-cantidad { display: none; width: 0; }
-    .col-fecha { width: 23%; }
-    .col-acciones { width: 38%; }
-  }
-
-  .config-table td:nth-child(2),
-  .config-table td:nth-child(4),
-  .config-table td:nth-child(5) {
-    display: none;
-  }
-
-  .table-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .table-action {
-    width: 100%;
-    min-height: 30px;
-    font-size: 0.68rem;
-  }
-
-  .tramite-cell__icon {
-    display: none;
   }
 
   .tramites-config.is-editor {
@@ -2122,8 +1917,7 @@
   }
 
   .collection-row,
-  .requirement-row,
-  .flow-stage__content {
+  .requirement-row {
     align-items: flex-start;
     flex-wrap: wrap;
   }
@@ -2131,15 +1925,6 @@
   .collection-row .row-edit-button,
   .requirement-row .row-edit-button {
     margin-left: auto !important;
-  }
-
-  .flow-stage__actions {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .flow-stage__tags {
-    width: 100%;
   }
 
   .editor-footer {
@@ -2191,10 +1976,9 @@
 /* Indicadores descriptivos de las pestañas */
 .editor-tabs {
   grid-template-columns:
-    minmax(0, 0.8fr)
-    minmax(0, 0.8fr)
-    minmax(0, 1.9fr)
-    minmax(0, 1.1fr);
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1.6fr);
 }
 
 .editor-tabs button {

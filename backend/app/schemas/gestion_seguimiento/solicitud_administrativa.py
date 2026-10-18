@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -9,24 +10,21 @@ from pydantic import (
     ConfigDict,
     Field,
     field_validator,
+    model_validator,
 )
 
 from app.schemas.gestion_seguimiento.seguimiento import (
-    EntregaResponse,
     HistorialResponse,
     ObservacionResponse,
     ResultadoResponse,
-    SolicitudEtapaResponse,
 )
+
 from app.schemas.gestion_seguimiento.solicitud import (
     EstadoSolicitud,
 )
 
 
-EstadoSolicitudAdministrativa = (
-    EstadoSolicitud
-)
-
+EstadoSolicitudAdministrativa = EstadoSolicitud
 
 EstadoVerificacionRequisito = Literal[
     "pendiente",
@@ -34,79 +32,57 @@ EstadoVerificacionRequisito = Literal[
     "no_cumple",
 ]
 
+TipoIntervencion = Literal[
+    "ninguna",
+    "firma",
+    "conformidad",
+]
+
 
 # ============================================================
 # BANDEJA ADMINISTRATIVA
 # ============================================================
 
-
-class SolicitudAdministrativaResumenResponse(
-    BaseModel
-):
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+class SolicitudAdministrativaResumenResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
     id_solicitud: int
-
     id_solicitante: int
 
     nombre_solicitante: str
-
-    documento_identidad: (
-        str | None
-    ) = None
+    documento_identidad: str | None = None
 
     id_tramite: int
-
     nombre_tramite: str
 
     estado: str
+    tipo_intervencion: TipoIntervencion = "ninguna"
 
     fecha_creacion: datetime
-
-    fecha_envio: (
-        datetime | None
-    )
-
-    fecha_actualizacion: (
-        datetime | None
-    ) = None
+    fecha_envio: datetime | None
+    fecha_actualizacion: datetime | None = None
 
 
-class ListaSolicitudesAdministrativasResponse(
-    BaseModel
-):
-    items: list[
-        SolicitudAdministrativaResumenResponse
-    ]
+class ListaSolicitudesAdministrativasResponse(BaseModel):
+    items: list[SolicitudAdministrativaResumenResponse]
 
     total: int
-
     pagina: int
-
     limite: int
 
 
 # ============================================================
-# DATOS
+# DATOS DINÁMICOS
 # ============================================================
 
-
-class SolicitudDatoAdministrativoResponse(
-    BaseModel
-):
-    clave_snapshot: str | None
-
-    etiqueta_snapshot: str | None
-
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+class SolicitudDatoAdministrativoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
     id_solicitud_dato: int
-
     id_campo: int
+
+    clave_snapshot: str | None
+    etiqueta_snapshot: str | None
 
     valor: Any
 
@@ -115,184 +91,82 @@ class SolicitudDatoAdministrativoResponse(
 # REQUISITOS
 # ============================================================
 
-
-class SolicitudRequisitoAdministrativoResponse(
-    BaseModel
-):
-    id_solicitud_etapa: (
-        int | None
-    )
-
-    requiere_presentacion_fisica: (
-        bool
-    )
-
-    presentado: bool
-
-    fecha_presentacion: (
-        datetime | None
-    )
-
-    id_usuario_presentacion: (
-        int | None
-    )
-
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+class SolicitudRequisitoAdministrativoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
     id_solicitud_requisito: int
-
-    id_requisito_origen: (
-        int | None
-    )
+    id_requisito_origen: int | None
 
     nombre: str
-
-    descripcion: (
-        str | None
-    )
+    descripcion: str | None
 
     obligatorio: bool
-
     orden: int
 
-    id_requisito_economico_origen: (
-        int | None
-    )
+    requiere_presentacion_fisica: bool
+    presentado: bool
 
-    concepto_economico: (
-        str | None
-    )
+    fecha_presentacion: datetime | None
+    id_usuario_presentacion: int | None
 
-    monto_economico: (
-        Decimal | None
-    )
+    id_requisito_economico_origen: int | None
 
-    moneda: (
-        str | None
-    )
+    concepto_economico: str | None
+    monto_economico: Decimal | None
+    moneda: str | None
+    gestion: int | None
 
-    gestion: (
-        int | None
-    )
+    codigo_concepto_externo: str | None
+    numero_factura: str | None
 
-    codigo_concepto_externo: (
-        str | None
-    )
+    estado_verificacion: EstadoVerificacionRequisito
 
-    numero_factura: (
-        str | None
-    )
+    id_usuario_verificador: int | None
+    fecha_verificacion: datetime | None
+    detalle_verificacion: str | None
 
-    estado_verificacion: (
-        EstadoVerificacionRequisito
-    )
-
-    id_usuario_verificador: (
-        int | None
-    )
-
-    fecha_verificacion: (
-        datetime | None
-    )
-
-    detalle_verificacion: (
-        str | None
-    )
+    # Compatibilidad con registros y clientes anteriores.
 
     @property
-    def es_economico(
-        self,
-    ) -> bool:
-        return (
-            self.id_requisito_economico_origen
-            is not None
-        )
+    def es_economico(self) -> bool:
+        return self.concepto_economico is not None
 
 
 # ============================================================
 # RECEPCIÓN
 # ============================================================
 
-
-class SolicitudRecepcionResponse(
-    BaseModel
-):
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+class SolicitudRecepcionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
     id_recepcion: int
-
     id_solicitud: int
 
     id_usuario_receptor: int
-
     fecha_recepcion: datetime
 
 
 # ============================================================
-# DETALLE
+# DETALLE ADMINISTRATIVO
 # ============================================================
 
-
-class SolicitudAdministrativaDetalleResponse(
-    BaseModel
-):
-    nombre_solicitante: str
-
-    perfil_academico: (
-        dict[str, Any] | None
-    )
-
-    tipo_finalizacion: (
-        str | None
-    )
-
-    id_etapa_actual: (
-        int | None
-    )
-
-    etapas: list[
-        SolicitudEtapaResponse
-    ]
-
-    observaciones: list[
-        ObservacionResponse
-    ]
-
-    historial: list[
-        HistorialResponse
-    ]
-
-    resultado: (
-        ResultadoResponse | None
-    )
-
-    entrega: (
-        EntregaResponse | None
-    )
-
-    pagos: list[
-        dict[str, Any]
-    ]
-
+class SolicitudAdministrativaDetalleResponse(BaseModel):
     id_solicitud: int
-
     id_solicitante: int
 
     id_tramite: int
-
     nombre_tramite: str
+    nombre_solicitante: str
 
     estado: str
 
-    fecha_creacion: datetime
+    tipo_finalizacion: str | None
+    tipo_intervencion: TipoIntervencion = "ninguna"
 
-    fecha_envio: (
-        datetime | None
-    )
+    fecha_creacion: datetime
+    fecha_envio: datetime | None
+
+    perfil_academico: dict[str, Any] | None
 
     datos: list[
         SolicitudDatoAdministrativoResponse
@@ -302,20 +176,24 @@ class SolicitudAdministrativaDetalleResponse(
         SolicitudRequisitoAdministrativoResponse
     ]
 
-    recepcion: (
-        SolicitudRecepcionResponse
-        | None
-    )
+    recepcion: SolicitudRecepcionResponse | None
+
+    observaciones: list[ObservacionResponse]
+    historial: list[HistorialResponse]
+
+    resultado: ResultadoResponse | None
+
+    pagos: list[dict[str, Any]]
+
+    # Compatibilidad temporal con Angular.
+
 
 
 # ============================================================
-# VERIFICACIÓN
+# VERIFICACIÓN MANUAL EXISTENTE
 # ============================================================
 
-
-class RequisitoVerificarRequest(
-    BaseModel
-):
+class RequisitoVerificarRequest(BaseModel):
     estado: Literal[
         "cumple",
         "no_cumple",
@@ -326,9 +204,7 @@ class RequisitoVerificarRequest(
         max_length=2000,
     )
 
-    @field_validator(
-        "detalle"
-    )
+    @field_validator("detalle")
     @classmethod
     def normalizar_detalle(
         cls,
@@ -337,37 +213,99 @@ class RequisitoVerificarRequest(
         if valor is None:
             return None
 
-        valor_normalizado = (
-            valor.strip()
-        )
-
-        if not valor_normalizado:
-            return None
-
-        return valor_normalizado
+        valor = valor.strip()
+        return valor or None
 
 
-class RequisitoVerificacionResponse(
-    BaseModel
-):
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+class RequisitoVerificacionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
     id_solicitud_requisito: int
 
-    estado_verificacion: (
-        EstadoVerificacionRequisito
+    estado_verificacion: EstadoVerificacionRequisito
+
+    id_usuario_verificador: int | None
+    fecha_verificacion: datetime | None
+
+    detalle_verificacion: str | None
+
+
+# ============================================================
+# CONFIRMACIÓN DE REQUISITOS ADMINISTRATIVOS
+# ============================================================
+
+class RequisitosAdministrativosConfirmarRequest(BaseModel):
+    """
+    Confirma uno o varios requisitos administrativos
+    de una misma solicitud.
+
+    No admite requisitos económicos ni documentos físicos.
+    La selección se realiza desde el modal administrativo.
+    """
+
+    ids_requisitos: list[int] = Field(
+        min_length=1,
+        max_length=100,
     )
 
-    id_usuario_verificador: (
-        int | None
+    detalle: str | None = Field(
+        default=None,
+        max_length=2000,
     )
 
-    fecha_verificacion: (
-        datetime | None
+    @field_validator("ids_requisitos")
+    @classmethod
+    def validar_ids_requisitos(
+        cls,
+        valores: list[int],
+    ) -> list[int]:
+        if any(valor <= 0 for valor in valores):
+            raise ValueError(
+                "Los identificadores deben ser positivos."
+            )
+
+        if len(valores) != len(set(valores)):
+            raise ValueError(
+                "No se puede seleccionar un requisito dos veces."
+            )
+
+        return valores
+
+    @field_validator("detalle")
+    @classmethod
+    def normalizar_detalle_confirmacion(
+        cls,
+        valor: str | None,
+    ) -> str | None:
+        if valor is None:
+            return None
+
+        return valor.strip() or None
+
+
+class RequisitosAdministrativosConfirmarResponse(BaseModel):
+    mensaje: str
+
+    id_solicitud: int
+
+    requisitos_confirmados: list[int] = Field(
+        default_factory=list,
     )
 
-    detalle_verificacion: (
-        str | None
+    cantidad_confirmada: int = Field(
+        ge=0,
     )
+
+    @model_validator(mode="after")
+    def validar_cantidad(
+        self,
+    ) -> RequisitosAdministrativosConfirmarResponse:
+        if self.cantidad_confirmada != len(
+            self.requisitos_confirmados
+        ):
+            raise ValueError(
+                "La cantidad confirmada no coincide "
+                "con los requisitos registrados."
+            )
+
+        return self

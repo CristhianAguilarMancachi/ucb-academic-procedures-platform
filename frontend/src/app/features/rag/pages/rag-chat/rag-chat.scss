@@ -1115,3 +1115,26 @@ ng-icon {
       none;
   }
 }
+
+/* Estado discreto del único chat */
+.chat-topbar {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chat-session-note {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: .75;
+}
+
+@media (max-width: 600px) {
+  .chat-topbar {
+    flex-wrap: wrap;
+  }
+  .chat-session-note {
+    font-size: 11px;
+  }
+}

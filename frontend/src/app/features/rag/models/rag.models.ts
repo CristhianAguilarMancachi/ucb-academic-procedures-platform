@@ -8,6 +8,25 @@ export interface RagSource {
 }
 
 
+export interface RagStoredMessage {
+  id_message: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+  sources_json: RagSource[] | null;
+  feedback_rating: RagFeedbackRating | null;
+}
+
+export interface RagCurrentChatResponse {
+  session_id: string | null;
+  messages: RagStoredMessage[];
+}
+
+export interface RagClearChatResponse {
+  deleted: boolean;
+  message: string;
+}
+
 export interface RagQueryRequest {
   question: string;
   session_id?: string | null;

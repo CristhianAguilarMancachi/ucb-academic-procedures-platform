@@ -1,3 +1,4 @@
+
 # ============================================================
 # MODELOS DE AUTENTICACIÓN Y SEGURIDAD
 # ============================================================
@@ -6,6 +7,10 @@ from app.models.usuario import Usuario
 
 from app.models.usuario_correo import (
     UsuarioCorreo,
+)
+
+from app.models.usuario_identidad_externa import (
+    UsuarioIdentidadExterna,
 )
 
 from app.models.rol import Rol
@@ -70,10 +75,10 @@ from app.models.chat.chat_message_feedback import (
 
 
 __all__ = [
-
     # Autenticación y seguridad
     "Usuario",
     "UsuarioCorreo",
+    "UsuarioIdentidadExterna",
     "Rol",
     "UsuarioRol",
     "SesionUsuario",

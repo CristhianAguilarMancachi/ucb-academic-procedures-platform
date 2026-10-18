@@ -1087,8 +1087,7 @@
 }
 
 
-.preparation-field__label strong,
-.academic-area-group legend strong {
+.preparation-field__label strong {
   color: #ffd21d;
 }
 
@@ -1222,190 +1221,6 @@
     rgba(255, 191, 0, 0.07);
 
   color: #d9bd6b;
-}
-
-
-/* =========================================================
-   ÁREAS ACADÉMICAS
-   ========================================================= */
-
-.academic-fields {
-  min-width: 0;
-}
-
-
-.academic-area-group {
-  min-width: 0;
-
-  margin: 0;
-
-  padding: 0;
-
-  border: 0;
-}
-
-
-.academic-area-group legend {
-  margin-bottom: 0.35rem;
-
-  color: #cdd8e4;
-
-  font-size: 0.59rem;
-  font-weight: 550;
-}
-
-
-.academic-area-grid {
-  display: grid;
-
-  grid-template-columns:
-    repeat(
-      3,
-      minmax(0, 1fr)
-    );
-
-  gap: 0.42rem;
-}
-
-
-.academic-area-option {
-  position: relative;
-
-  min-width: 0;
-  min-height: 48px;
-
-  display: flex;
-
-  align-items: center;
-
-  gap: 0.45rem;
-
-  padding:
-    0.45rem
-    0.5rem;
-
-  overflow: hidden;
-
-  border:
-    1px solid
-    rgba(255, 255, 255, 0.075);
-
-  border-radius: 7px;
-
-  background:
-    rgba(8, 35, 61, 0.52);
-
-  color: #9eafc0;
-
-  cursor: pointer;
-
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease,
-    color 0.15s ease,
-    transform 0.15s ease;
-}
-
-
-.academic-area-option:hover {
-  border-color:
-    rgba(255, 205, 21, 0.25);
-
-  background:
-    rgba(10, 42, 72, 0.72);
-
-  color: #dce5ee;
-}
-
-
-.academic-area-option--selected {
-  border-color:
-    rgba(255, 205, 21, 0.46);
-
-  background:
-    linear-gradient(
-      135deg,
-      rgba(255, 205, 21, 0.12),
-      rgba(9, 43, 73, 0.76)
-    );
-
-  color: #f2f5f8;
-
-  box-shadow:
-    inset
-    0
-    0
-    0
-    1px
-    rgba(255, 205, 21, 0.05);
-}
-
-
-.academic-area-option input {
-  position: absolute;
-
-  width: 1px;
-  height: 1px;
-
-  overflow: hidden;
-
-  opacity: 0;
-}
-
-
-.academic-area-option__mark {
-  width: 14px;
-  height: 14px;
-
-  flex:
-    0
-    0
-    14px;
-
-  display: grid;
-
-  place-items: center;
-
-  border:
-    1px solid
-    #496078;
-
-  border-radius: 50%;
-
-  background:
-    rgba(3, 18, 36, 0.75);
-}
-
-
-.academic-area-option__mark span {
-  width: 6px;
-  height: 6px;
-
-  border-radius: 50%;
-
-  background: transparent;
-}
-
-
-.academic-area-option--selected
-.academic-area-option__mark {
-  border-color: #ffd21d;
-}
-
-
-.academic-area-option--selected
-.academic-area-option__mark span {
-  background: #ffd21d;
-}
-
-
-.academic-area-option__text {
-  min-width: 0;
-
-  font-size: 0.53rem;
-  font-weight: 550;
-
-  line-height: 1.25;
 }
 
 
@@ -2315,13 +2130,7 @@
     margin-bottom: 0.52rem;
   }
 
-  .academic-area-option {
-    min-height: 42px;
-
-    padding:
-      0.35rem
-      0.42rem;
-  }
+  
 
   .preparation-field input,
   .preparation-field select {
@@ -2430,13 +2239,7 @@
     grid-column: auto;
   }
 
-  .academic-area-grid {
-    grid-template-columns:
-      repeat(
-        2,
-        minmax(0, 1fr)
-      );
-  }
+  
 
   .applicant-card__footer,
   .requirements-footer {
@@ -2551,5 +2354,133 @@
 
   .confirmation-button {
     height: 40px;
+  }
+}
+
+/* =========================================================
+   BLOQUE 13J - AJUSTES DE LEGIBILIDAD
+   Solo pantalla Preparar solicitud
+   ========================================================= */
+
+.preparation-view {
+  .preparation-procedure {
+    font-size: 0.86rem !important;
+  }
+
+  .preparation-reference,
+  .draft-status,
+  .form-status,
+  .requirements-ready {
+    font-size: 0.7rem;
+  }
+
+  .preparation-detail-link {
+    height: 40px;
+    font-size: 0.76rem;
+  }
+
+  .preparation-card__title h2 {
+    font-size: 0.92rem;
+  }
+
+  .preparation-card__title p {
+    font-size: 0.7rem !important;
+  }
+
+  .form-section__heading h3 {
+    font-size: 0.83rem;
+  }
+
+  .form-section__heading p {
+    font-size: 0.69rem;
+  }
+
+  .preparation-field__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .preparation-field input,
+  .preparation-field select,
+  .preparation-field textarea {
+    font-size: 0.79rem;
+  }
+
+  .preparation-field input,
+  .preparation-field select {
+    height: 40px;
+  }
+
+  .preparation-field__help,
+  .field-note {
+    font-size: 0.66rem;
+    line-height: 1.4;
+  }
+
+  .preparation-button {
+    height: 40px;
+    min-width: 170px;
+    font-size: 0.75rem;
+  }
+
+  .form-footer-status {
+    font-size: 0.67rem;
+  }
+
+  .requirements-waiting__top strong,
+  .requirements-empty strong {
+    font-size: 0.82rem;
+  }
+
+  .requirements-waiting__top p,
+  .readiness-item strong {
+    font-size: 0.72rem;
+  }
+
+  .readiness-item span:not(.readiness-item__state),
+  .requirements-waiting__hint,
+  .requirements-waiting__ready {
+    font-size: 0.67rem;
+  }
+
+  .requirements-information p,
+  .requirement-description,
+  .requirement-later-note {
+    font-size: 0.69rem !important;
+  }
+
+  .requirement-card__name > strong {
+    font-size: 0.78rem;
+  }
+
+  .requirement-badge,
+  .requirement-meta > span,
+  .economic-detail {
+    font-size: 0.65rem;
+  }
+
+  .requirements-footer__text strong {
+    font-size: 0.71rem;
+  }
+
+  .requirements-footer__text span {
+    font-size: 0.65rem;
+  }
+}
+
+@media (max-height: 820px) and (min-width: 1101px) {
+  .preparation-view .preparation-field input,
+  .preparation-view .preparation-field select {
+    height: 38px;
+  }
+
+  .preparation-view .preparation-button {
+    height: 37px;
+  }
+}
+
+@media (max-width: 680px) {
+  .preparation-view .preparation-card__header {
+    flex-wrap: wrap;
   }
 }

@@ -9,16 +9,31 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
+    Request,
+    Response,
     status,
 )
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordBearer
+from app.core.dependencies import (
+    obtener_usuario_actual,
+    obtener_usuario_activo,
+    UsuarioActivo,
+)
+from app.models.usuario import Usuario
+from app.models.chat.chat_session import ChatSession
+from app.models.chat.chat_message import ChatMessage
+from app.models.chat.chat_message_feedback import ChatMessageFeedback
 
 from app.db.session import get_db
 
 from app.schemas.chat.chat import (
     RagChatQueryRequest,
     RagChatQueryResponse,
+    RagCurrentChatResponse,
+    RagClearChatResponse,
     RagMessageFeedbackDeleteResponse,
     RagMessageFeedbackRequest,
     RagMessageFeedbackResponse,
@@ -35,12 +50,22 @@ from app.services.chat.feedback_service import (
 from app.services.chat.history_service import (
     build_conversation_history,
     get_or_create_chat_session,
+    get_chat_session,
+    get_user_chat_session,
+    get_or_create_user_chat_session,
+    delete_user_chat,
     save_chat_message,
 )
 
 from app.services.rag.llm_client import (
     LLMUnavailableError,
     UNAVAILABLE_MESSAGE,
+)
+
+from app.services.chat.visitor_session import (
+    read_visitor_id,
+    set_visitor_cookie,
+    delete_visitor_cookie,
 )
 
 from app.services.rag.pipeline import (
@@ -61,6 +86,159 @@ router = APIRouter(
 
 
 # ============================================================
+
+
+optional_bearer = OAuth2PasswordBearer(
+    tokenUrl="/api/auth/token",
+    auto_error=False,
+)
+
+
+def obtener_usuario_rag_opcional(
+    request: Request,
+    db: Session = Depends(get_db),
+    token: str | None = Depends(optional_bearer),
+) -> Usuario | None:
+    # No aceptar como visitante una solicitud que presente
+    # explícitamente credenciales inválidas.
+    if token is None:
+        if request.headers.get("Authorization"):
+            raise HTTPException(
+                status_code=401,
+                detail="Credenciales no válidas.",
+            )
+        return None
+
+    usuario = obtener_usuario_actual(db, token)
+    return obtener_usuario_activo(usuario)
+
+
+def validar_sesion_rag(
+    db: Session,
+    session_id: UUID,
+    usuario: Usuario | None,
+    request: Request,
+) -> None:
+    session = db.scalar(
+        select(ChatSession).where(
+            ChatSession.id_session == session_id
+        )
+    )
+
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="La conversación no existe.",
+        )
+
+    if usuario is None:
+        permitido = (
+            session.id_usuario is None
+            and read_visitor_id(request) == session_id
+        )
+    else:
+        permitido = session.id_usuario == usuario.id_usuario
+
+    if not permitido:
+        raise HTTPException(
+            status_code=404,
+            detail="La conversación no existe.",
+        )
+
+
+@router.get(
+    "/session",
+    response_model=RagCurrentChatResponse,
+)
+def current_rag_session(
+    usuario: UsuarioActivo,
+    db: Session = Depends(get_db),
+):
+    session = get_user_chat_session(db, usuario.id_usuario)
+
+    if session is None:
+        return RagCurrentChatResponse()
+
+    mensajes = db.scalars(
+        select(ChatMessage)
+        .where(ChatMessage.session_id == session.id_session)
+        .order_by(ChatMessage.message_order.asc())
+    ).all()
+
+    valoraciones = {
+        item.message_id: item.rating
+        for item in db.scalars(
+            select(ChatMessageFeedback)
+            .join(
+                ChatMessage,
+                ChatMessage.id_message
+                == ChatMessageFeedback.message_id,
+            )
+            .where(
+                ChatMessage.session_id == session.id_session
+            )
+        ).all()
+    }
+
+    return RagCurrentChatResponse(
+        session_id=session.id_session,
+        messages=[
+            {
+                "id_message": m.id_message,
+                "role": m.role,
+                "content": m.content,
+                "created_at": m.created_at,
+                "sources_json": m.sources_json,
+                "feedback_rating": valoraciones.get(m.id_message),
+            }
+            for m in mensajes
+        ],
+    )
+
+
+@router.delete(
+    "/session",
+    response_model=RagClearChatResponse,
+)
+def clear_rag_session(
+    request: Request,
+    response: Response,
+    usuario: Usuario | None = Depends(
+        obtener_usuario_rag_opcional
+    ),
+    db: Session = Depends(get_db),
+):
+    if usuario is not None:
+        eliminado = delete_user_chat(
+            db=db,
+            id_usuario=usuario.id_usuario,
+        )
+    else:
+        session_id = read_visitor_id(request)
+        session = (
+            get_chat_session(db, session_id)
+            if session_id is not None
+            else None
+        )
+
+        eliminado = (
+            session is not None
+            and session.id_usuario is None
+        )
+
+        if eliminado:
+            db.delete(session)
+            db.commit()
+
+        delete_visitor_cookie(response)
+
+    return RagClearChatResponse(
+        deleted=eliminado,
+        message="Conversación limpiada correctamente.",
+    )
+
+
+# ============================================================
 # CONSULTA RAG
 # ============================================================
 
@@ -70,16 +248,39 @@ router = APIRouter(
 )
 def query_rag(
     payload: RagChatQueryRequest,
+    request: Request,
+    response: Response,
     db: Session = Depends(get_db),
+    usuario: Usuario | None = Depends(obtener_usuario_rag_opcional),
 ):
     # --------------------------------------------------------
     # 1. Obtener o crear sesión de conversación
     # --------------------------------------------------------
 
-    session = get_or_create_chat_session(
-        db=db,
-        session_id=payload.session_id,
-    )
+    if usuario is not None:
+        session = get_or_create_user_chat_session(
+            db=db,
+            id_usuario=usuario.id_usuario,
+        )
+    else:
+        visitor_id = read_visitor_id(request)
+        visitor_session = (
+            get_chat_session(db, visitor_id)
+            if visitor_id is not None
+            else None
+        )
+
+        # Nunca confiar en un UUID suministrado por Angular.
+        session = get_or_create_chat_session(
+            db=db,
+            session_id=(
+                visitor_id
+                if visitor_session is not None
+                and visitor_session.id_usuario is None
+                else None
+            ),
+        )
+        set_visitor_cookie(response, session.id_session)
 
 
     # --------------------------------------------------------
@@ -211,9 +412,18 @@ def query_rag(
 )
 def put_message_feedback(
     message_id: UUID,
+    request: Request,
     payload: RagMessageFeedbackRequest,
     db: Session = Depends(get_db),
+    usuario: Usuario | None = Depends(obtener_usuario_rag_opcional),
 ):
+    validar_sesion_rag(
+        db=db,
+        session_id=payload.session_id,
+        usuario=usuario,
+        request=request,
+    )
+
     try:
         feedback = set_message_feedback(
             db=db,
@@ -263,6 +473,7 @@ def put_message_feedback(
 )
 def remove_message_feedback(
     message_id: UUID,
+    request: Request,
 
     session_id: UUID = Query(
         ...,
@@ -273,7 +484,15 @@ def remove_message_feedback(
     ),
 
     db: Session = Depends(get_db),
+    usuario: Usuario | None = Depends(obtener_usuario_rag_opcional),
 ):
+    validar_sesion_rag(
+        db=db,
+        session_id=session_id,
+        usuario=usuario,
+        request=request,
+    )
+
     try:
         delete_message_feedback(
             db=db,

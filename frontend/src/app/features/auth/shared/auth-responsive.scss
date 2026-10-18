@@ -22,9 +22,16 @@
 
   /* =========================================================
      DESKTOP CON ALTURA REDUCIDA
-     Mantiene todo visible sin scroll.
+     Conserva las dimensiones y permite recorrer el contenido cuando no cabe.
      ========================================================= */
   @media (min-width: 1101px) and (max-height: 950px) {
+    .auth-panel {
+      justify-content: safe center;
+      overflow-y: auto;
+
+      > * { flex-shrink: 0; }
+    }
+
     .auth-main {
       min-height: calc(100svh - 58px);
       padding: 14px 5.8% 4px 4.2%;

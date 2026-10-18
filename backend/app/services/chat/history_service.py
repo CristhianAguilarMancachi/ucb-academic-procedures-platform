@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.chat.chat_message import ChatMessage
 from app.models.chat.chat_session import ChatSession
+from app.models.usuario import Usuario
 
 
 def create_chat_session(db: Session, title: str | None = None) -> ChatSession:
@@ -30,7 +31,7 @@ def get_or_create_chat_session(
 ) -> ChatSession:
     if session_id is not None:
         existing = get_chat_session(db, session_id)
-        if existing is not None:
+        if existing is not None and existing.id_usuario is None:
             return existing
 
     return create_chat_session(db=db, title=title)
@@ -104,3 +105,60 @@ def build_conversation_history(
         }
         for message in messages
     ]
+
+def get_user_chat_session(
+    db: Session,
+    id_usuario: int,
+) -> ChatSession | None:
+    return db.scalar(
+        select(ChatSession).where(
+            ChatSession.id_usuario == id_usuario
+        )
+    )
+
+
+def get_or_create_user_chat_session(
+    db: Session,
+    id_usuario: int,
+) -> ChatSession:
+    # Bloquea la fila del usuario durante la creación para
+    # evitar dos chats simultáneos de la misma cuenta.
+    db.scalar(
+        select(Usuario.id_usuario)
+        .where(Usuario.id_usuario == id_usuario)
+        .with_for_update()
+    )
+
+    session = get_user_chat_session(db, id_usuario)
+
+    if session is not None:
+        return session
+
+    session = ChatSession(
+        id_usuario=id_usuario,
+        is_active=True,
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+def delete_user_chat(
+    db: Session,
+    id_usuario: int,
+) -> bool:
+    db.scalar(
+        select(Usuario.id_usuario)
+        .where(Usuario.id_usuario == id_usuario)
+        .with_for_update()
+    )
+
+    session = get_user_chat_session(db, id_usuario)
+
+    if session is None:
+        return False
+
+    db.delete(session)
+    db.commit()
+    return True

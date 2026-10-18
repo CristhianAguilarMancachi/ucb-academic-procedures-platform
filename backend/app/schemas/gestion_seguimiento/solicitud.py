@@ -131,7 +131,6 @@ class SolicitudEnviarRequest(BaseModel):
 
 
 class SolicitudRequisitoResponse(BaseModel):
-    id_solicitud_etapa: int | None
 
     requiere_presentacion_fisica: bool
 

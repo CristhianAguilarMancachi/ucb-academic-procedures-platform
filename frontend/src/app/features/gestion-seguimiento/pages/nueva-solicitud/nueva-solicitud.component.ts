@@ -235,9 +235,6 @@ export class NuevaSolicitudComponent
   correoCuentaPredeterminado =
     '';
 
-  areaAcademica =
-    '';
-
 
   readonly carreras: CarreraGrupo[] = [
     {
@@ -534,6 +531,8 @@ export class NuevaSolicitudComponent
   ];
 
 
+  readonly carrerasDisponibles: CarreraOpcion[] = this.carreras.flatMap(grupo => grupo.opciones);
+
   readonly camposPerfil = [
     {
       clave:
@@ -643,8 +642,6 @@ export class NuevaSolicitudComponent
           this.perfilGuardado = {
             ...this.perfil,
           };
-
-          this.sincronizarAreaDesdeCarrera();
 
           this.perfilCargado.set(
             true,
@@ -931,11 +928,9 @@ export class NuevaSolicitudComponent
       ]?.trim();
 
     return Boolean(
-      this.areaAcademica &&
       carrera &&
-      this.carreraPerteneceAlArea(
-        carrera,
-        this.areaAcademica,
+      this.carrerasDisponibles.some(
+        opcion => opcion.valor === carrera
       ) &&
       ci &&
       ci.length >= 3
@@ -1033,108 +1028,6 @@ export class NuevaSolicitudComponent
           texto;
       },
     );
-  }
-
-
-  // =========================================================
-  // ÁREA Y CARRERA
-  // =========================================================
-
-
-  seleccionarArea(
-    area: string,
-  ) {
-    this.areaAcademica =
-      area;
-
-    const carreraActual =
-      this.perfil[
-        'carrera_programa'
-      ]?.trim()
-      ||
-      '';
-
-    if (
-      carreraActual &&
-      !this.carreraPerteneceAlArea(
-        carreraActual,
-        area,
-      )
-    ) {
-      this.perfil[
-        'carrera_programa'
-      ] =
-        '';
-    }
-
-    this.cambiar();
-  }
-
-
-  carrerasDelArea():
-    CarreraOpcion[] {
-    return (
-      this.carreras.find(
-        (grupo) =>
-          grupo.grupo ===
-          this.areaAcademica,
-      )?.opciones
-      ||
-      []
-    );
-  }
-
-
-  private carreraPerteneceAlArea(
-    carrera: string,
-    area: string,
-  ): boolean {
-    return (
-      this.carreras
-        .find(
-          (grupo) =>
-            grupo.grupo ===
-            area,
-        )
-        ?.opciones
-        .some(
-          (opcion) =>
-            opcion.valor ===
-            carrera,
-        )
-      ||
-      false
-    );
-  }
-
-
-  private sincronizarAreaDesdeCarrera() {
-    const carrera =
-      this.perfil[
-        'carrera_programa'
-      ]?.trim();
-
-    if (
-      !carrera
-    ) {
-      this.areaAcademica =
-        '';
-
-      return;
-    }
-
-    const grupo =
-      this.carreras.find(
-        (item) =>
-          item.opciones.some(
-            (opcion) =>
-              opcion.valor ===
-              carrera,
-          ),
-      );
-
-    this.areaAcademica =
-      grupo?.grupo || '';
   }
 
 
@@ -1362,7 +1255,7 @@ export class NuevaSolicitudComponent
       !this.perfilCompleto()
     ) {
       this.error.set(
-        'Selecciona tu área académica, carrera e ingresa tu documento de identidad.',
+        'Selecciona tu carrera o programa e ingresa tu documento de identidad.',
       );
 
       return;

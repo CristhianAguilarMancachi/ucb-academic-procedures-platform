@@ -142,6 +142,7 @@
   <!-- MODO CONVERSACIÓN -->
   <ng-template #chatMode>
     <app-rag-chat
+      [persistent]="persistentChat()"
       [messages]="messages()"
       [question]="question"
       [loading]="loading()"
@@ -150,5 +151,72 @@
       (clear)="clearConversation()"
     ></app-rag-chat>
   </ng-template>
+
+
+  <!-- Confirmación institucional de limpieza del chat -->
+  <div
+    *ngIf="clearModalOpen()"
+    class="clear-history-overlay"
+    (click)="cancelClearConversation()"
+  >
+    <div
+      class="clear-history-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="clear-history-title"
+      aria-describedby="clear-history-description"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="clear-history-heading">
+        <div class="clear-history-icon" aria-hidden="true">
+          <ng-icon name="heroInformationCircle"></ng-icon>
+        </div>
+
+        <h2 id="clear-history-title">
+          ¿Limpiar el historial del chat?
+        </h2>
+      </div>
+
+      <p
+        id="clear-history-description"
+        class="clear-history-description"
+      >
+        Se borrarán los mensajes de esta conversación para
+        que puedas comenzar una nueva consulta desde cero.
+      </p>
+
+      <p class="clear-history-note">
+        Esto no afecta tus trámites ni la información de tu cuenta.
+      </p>
+
+      <p
+        *ngIf="clearError()"
+        class="clear-history-error"
+        role="alert"
+      >
+        {{ clearError() }}
+      </p>
+
+      <div class="clear-history-actions">
+        <button
+          type="button"
+          class="clear-history-cancel"
+          [disabled]="clearingChat()"
+          (click)="cancelClearConversation()"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          class="clear-history-confirm"
+          [disabled]="clearingChat()"
+          (click)="confirmClearConversation()"
+        >
+          {{ clearingChat() ? 'Limpiando...' : 'Limpiar historial' }}
+        </button>
+      </div>
+    </div>
+  </div>
 
 </section>

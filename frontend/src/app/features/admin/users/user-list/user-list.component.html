@@ -195,7 +195,7 @@
     }
 
     @if (!error() && usuarios().length > 0) {
-      <div class="users-table-scroll">
+      <div class="users-table-scroll" tabindex="0" role="region" aria-label="Tabla con desplazamiento horizontal">
         <table class="users-table">
           <thead>
             <tr>

@@ -57,3 +57,17 @@ app-root {
   @include
     gestion.superficie;
 }
+
+/* Contención en tablet/móvil; las dimensiones de escritorio se conservan. */
+@media (max-width: 1050px) {
+  .content > :not(router-outlet) {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  input, select, textarea {
+    min-width: 0;
+    max-width: 100%;
+  }
+}

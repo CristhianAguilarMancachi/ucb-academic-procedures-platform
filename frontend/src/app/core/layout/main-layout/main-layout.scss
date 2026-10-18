@@ -1,125 +1,345 @@
+
 :host {
   display: block;
-
   width: 100%;
   height: 100%;
 }
 
+/* =========================================================
+   ESCRITORIO: CONSERVAR ESTRUCTURA EXISTENTE
+   ========================================================= */
 
 .layout {
   display: grid;
-
-  grid-template-columns:
-    220px
-    minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
 
   width: 100vw;
   height: 100vh;
 
-  background:
-    #051225;
+  background: #051225;
+  color: #ffffff;
 
-  color:
-    #ffffff;
-
-  overflow:
-    hidden;
+  overflow: hidden;
 }
-
 
 .sidebar {
-  width:
-    220px;
+  width: 220px;
+  height: 100vh;
+  min-height: 0;
+  flex-shrink: 0;
 
-  height:
-    100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 
-  min-height:
-    0;
+  background: linear-gradient(
+    180deg,
+    #04101f 0%,
+    #020b18 100%
+  );
 
-  flex-shrink:
-    0;
-
-  overflow-y:
-    auto;
-
-  overflow-x:
-    hidden;
-
-  background:
-    linear-gradient(
-      180deg,
-      #04101f 0%,
-      #020b18 100%
-    );
-
-  border-right:
-    1px solid
-    rgba(
-      255,
-      255,
-      255,
-      0.08
-    );
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
-
 
 .main-area {
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
 
-  /*
-   * Ya no existe una fila para
-   * el encabezado.
-   *
-   * El contenido recibe prácticamente
-   * toda la altura disponible.
-   */
-  grid-template-rows:
-    minmax(0, 1fr)
-    auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100vh;
 
-  min-width:
-    0;
-
-  min-height:
-    0;
-
-  width:
-    100%;
-
-  height:
-    100vh;
-
-  overflow:
-    hidden;
+  overflow: hidden;
 }
-
 
 .content {
-  min-width:
-    0;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
 
-  min-height:
-    0;
+  overflow-y: auto;
+  overflow-x: hidden;
 
-  width:
-    100%;
-
-  overflow-y:
-    auto;
-
-  overflow-x:
-    hidden;
-
-  padding:
-    0;
+  padding: 0;
 }
 
-
 .footer {
-  min-width:
-    0;
+  min-width: 0;
+  min-height: 0;
+}
 
-  min-height:
-    0;
+/* =========================================================
+   ELEMENTOS MÓVILES OCULTOS EN ESCRITORIO
+   ========================================================= */
+
+.mobile-header {
+  display: none;
+}
+
+.mobile-backdrop {
+  display: none;
+}
+
+/* =========================================================
+   MÓVILES
+   ========================================================= */
+
+@media (max-width: 1050px) {
+  :host {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 58px minmax(0, 1fr);
+
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+
+    overflow: hidden;
+  }
+
+  /* ENCABEZADO SUPERIOR */
+
+  .mobile-header {
+    position: relative;
+    z-index: 40;
+
+    grid-column: 1;
+    grid-row: 1;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    min-width: 0;
+    height: 58px;
+    padding: 0 15px;
+
+    background: var(--ucb-bg-deep, #04101f);
+    border-bottom: 1px solid var(
+      --ucb-border,
+      rgba(255, 255, 255, 0.09)
+    );
+  }
+
+  .mobile-header__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    min-width: 0;
+    height: 100%;
+  }
+
+  .mobile-header__logo {
+    display: block;
+    width: 37px;
+    height: 45px;
+
+    object-fit: contain;
+    flex: 0 0 auto;
+  }
+
+  .mobile-header__identity {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    min-width: 0;
+
+    strong {
+      color: var(--ucb-yellow, #ffcc00);
+      font-size: 0.84rem;
+      font-weight: 750;
+      letter-spacing: 0.05em;
+    }
+
+    span {
+      overflow: hidden;
+      color: var(--ucb-text-soft, #d7e2f0);
+      font-size: 0.72rem;
+      font-weight: 500;
+
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+  }
+
+  /* BOTÓN DEL MENÚ */
+
+  .mobile-menu-button {
+    display: grid;
+    place-items: center;
+
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    border: 1px solid var(
+      --ucb-border-strong,
+      rgba(160, 185, 215, 0.28)
+    );
+    border-radius: 8px;
+
+    background: var(--ucb-surface-soft, #081c32);
+    color: var(--ucb-text-strong, #ffffff);
+
+    cursor: pointer;
+
+    svg {
+      width: 21px;
+      height: 21px;
+    }
+
+    &:hover {
+      border-color: var(--ucb-yellow-border);
+      background: var(--ucb-hover);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ucb-yellow);
+      outline-offset: 2px;
+    }
+  }
+
+  /* FONDO OSCURO AL ABRIR EL MENÚ */
+
+  .mobile-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+
+    display: block;
+    width: 100%;
+    height: 100%;
+
+    margin: 0;
+    padding: 0;
+    border: 0;
+
+    background: rgba(0, 5, 14, 0.66);
+    cursor: pointer;
+  }
+
+  /* SIDEBAR DESLIZABLE */
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 70;
+
+    width: min(82vw, 300px);
+    height: 100vh;
+    height: 100dvh;
+
+    min-height: 0;
+    overflow: hidden;
+
+    transform: translateX(-105%);
+    visibility: hidden;
+
+    background: var(--ucb-bg-deep, #04101f);
+
+    box-shadow: none;
+
+    transition:
+      transform 220ms ease,
+      visibility 220ms ease;
+  }
+
+  .sidebar--open {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 220ms ease;
+
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.36);
+  }
+
+  .sidebar-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 1;
+  }
+
+  /* CONTENIDO Y FOOTER */
+
+  .main-area {
+    grid-column: 1;
+    grid-row: 2;
+
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+
+    overflow: hidden;
+  }
+
+  .content {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .footer {
+    width: 100%;
+    min-width: 0;
+    flex-shrink: 0;
+  }
+}
+
+@media (min-width: 1051px) {
+  .sidebar-close { display: none; }
+}
+
+/* =========================================================
+   TELÉFONOS PEQUEÑOS
+   ========================================================= */
+
+@media (max-width: 360px) {
+  .mobile-header {
+    padding: 0 11px;
+  }
+
+  .mobile-header__brand {
+    gap: 7px;
+  }
+
+  .mobile-header__identity span {
+    font-size: 0.67rem;
+  }
+
+  .sidebar {
+    width: min(88vw, 290px);
+  }
+}
+
+/* =========================================================
+   MOVIMIENTO REDUCIDO
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
 }

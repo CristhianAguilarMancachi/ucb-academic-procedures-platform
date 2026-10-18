@@ -85,6 +85,8 @@ export class RagChatComponent {
     );
 
 
+  @Input() persistent = false;
+
   @Input()
   messages:
     ChatMessage[] = [];

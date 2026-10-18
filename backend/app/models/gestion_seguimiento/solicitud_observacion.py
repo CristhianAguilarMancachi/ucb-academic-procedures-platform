@@ -14,7 +14,6 @@ class SolicitudObservacion(Base):
 
     id_observacion: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     id_solicitud: Mapped[int] = mapped_column(BigInteger, ForeignKey("solicitud.id_solicitud", ondelete="RESTRICT"))
-    id_solicitud_etapa: Mapped[int | None] = mapped_column(BigInteger)
     id_solicitud_requisito: Mapped[int | None] = mapped_column(BigInteger)
     id_usuario_observador: Mapped[int] = mapped_column(BigInteger, ForeignKey("usuario.id_usuario", ondelete="RESTRICT"))
     detalle: Mapped[str] = mapped_column(Text)
@@ -26,7 +25,6 @@ class SolicitudObservacion(Base):
     fecha_resolucion: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
-        ForeignKeyConstraint(["id_solicitud", "id_solicitud_etapa"], ["solicitud_etapa.id_solicitud", "solicitud_etapa.id_solicitud_etapa"], name="fk_observacion_etapa"),
         ForeignKeyConstraint(["id_solicitud", "id_solicitud_requisito"], ["solicitud_requisito.id_solicitud", "solicitud_requisito.id_solicitud_requisito"], name="fk_observacion_requisito"),
         CheckConstraint("length(trim(detalle)) > 0 AND length(trim(correccion_requerida)) > 0", name="ck_observacion_texto"),
         CheckConstraint("""(estado = 'pendiente' AND id_usuario_resolucion IS NULL AND fecha_resolucion IS NULL)

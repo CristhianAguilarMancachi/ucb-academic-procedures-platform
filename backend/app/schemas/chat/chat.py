@@ -78,6 +78,29 @@ class RagChatQueryResponse(BaseModel):
 # FEEDBACK
 # ============================================================
 
+
+
+class RagStoredMessage(BaseModel):
+    id_message: UUID
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime
+    sources_json: list[dict[str, Any]] | None = None
+    feedback_rating: Literal[-1, 1] | None = None
+
+
+class RagCurrentChatResponse(BaseModel):
+    session_id: UUID | None = None
+    messages: list[RagStoredMessage] = Field(
+        default_factory=list
+    )
+
+
+class RagClearChatResponse(BaseModel):
+    deleted: bool
+    message: str
+
+
 class RagMessageFeedbackRequest(BaseModel):
     # Sesión de conversación a la que pertenece
     # el mensaje valorado.

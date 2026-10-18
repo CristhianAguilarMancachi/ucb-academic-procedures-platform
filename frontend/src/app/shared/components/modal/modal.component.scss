@@ -453,6 +453,26 @@ dialog.operativo .modal-body {
    ========================================================= */
 
 @media (max-width: 1000px) {
+  dialog {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .modal-header,
+  .modal-body {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .modal-heading p {
+    white-space: normal;
+  }
+
+  dialog.compacto .modal-body,
+  dialog.operativo .modal-body {
+    flex: 1 1 auto;
+  }
+
   dialog.lateral {
     width:
       calc(100vw - 24px);
@@ -464,6 +484,8 @@ dialog.operativo .modal-body {
       calc(100dvh - 24px);
 
     margin: 12px;
+
+    max-width: calc(100vw - 24px);
 
     border-radius: 10px;
   }
@@ -501,6 +523,7 @@ dialog.operativo .modal-body {
       calc(100dvh - 16px);
 
     margin: 8px;
+    max-width: calc(100vw - 16px);
   }
 
   .modal-header {
@@ -533,6 +556,10 @@ dialog.operativo .modal-body {
 
   dialog.compacto .modal-header,
   dialog.operativo .modal-header {
+    position: static;
+    align-self: flex-end;
+    flex-shrink: 0;
+    margin: 0.5rem 0.5rem 0;
     min-height: 0;
 
     padding: 0;

@@ -126,12 +126,10 @@ class TramiteEtapa(Base):
 
     tramite: Mapped[Tramite] = relationship(
         "Tramite",
-        back_populates="etapas",
     )
 
     unidad: Mapped[UnidadAdministrativa | None] = relationship(
         "UnidadAdministrativa",
-        back_populates="etapas",
     )
 
     # =====================================================

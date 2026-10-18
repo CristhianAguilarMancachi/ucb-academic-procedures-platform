@@ -1,126 +1,79 @@
+<!-- RETIRO_ENTREGA_FISICA_13F -->
+
 @if (!admin) {
   @if (solicitud(); as s) {
     <div class="tracking-page">
-      <nav
-        class="tracking-breadcrumb"
-        aria-label="Navegación"
-      >
-        <a routerLink="/mis-solicitudes">
-          Mis trámites
-        </a>
-
-        <span aria-hidden="true">
-          ›
-        </span>
-
-        <strong>
-          Ver seguimiento
-        </strong>
+      <nav class="tracking-breadcrumb" aria-label="Navegación">
+        <a routerLink="/mis-solicitudes">Mis trámites</a>
+        <span aria-hidden="true">›</span>
+        <strong>Seguimiento</strong>
       </nav>
 
       @if (error()) {
-        <div
-          class="tracking-message tracking-message--error"
-          role="alert"
-        >
+        <div class="tracking-message tracking-message--error" role="alert">
           {{ error() }}
         </div>
       }
 
       @if (mensaje()) {
-        <div
-          class="tracking-message tracking-message--success"
-          role="status"
-        >
+        <div class="tracking-message tracking-message--success" role="status">
           {{ mensaje() }}
         </div>
       }
 
       <section class="tracking-summary-card">
         <div class="tracking-ticket">
-          <div
-            class="tracking-ticket__icon"
-            aria-hidden="true"
-          >
+          <div class="tracking-ticket__icon">
             <ng-icon name="heroTicket" />
           </div>
-
           <div class="tracking-ticket__info">
-            <span class="tracking-summary-label">
-              Solicitud
-            </span>
-
-            <strong>
-              {{ formatearNumeroSolicitud(s.id_solicitud) }}
-            </strong>
+            <span class="tracking-summary-label">Solicitud</span>
+            <strong>{{ formatearNumeroSolicitud(s.id_solicitud) }}</strong>
           </div>
         </div>
 
         <div class="tracking-procedure">
-          <span class="tracking-summary-label">
-            Trámite
-          </span>
-
-          <h1>
-            {{ nombreTramite(s) }}
-          </h1>
-
+          <span class="tracking-summary-label">Trámite</span>
+          <h1>{{ nombreTramite(s) }}</h1>
           <p>
             Fecha de solicitud:
-            {{
-              (s.fecha_envio || s.fecha_creacion)
-                | date: 'dd/MM/yyyy'
-            }}
+            {{ (s.fecha_envio || s.fecha_creacion) | date:'dd/MM/yyyy' }}
           </p>
         </div>
 
         <div class="tracking-current-state">
-          <span class="tracking-summary-label">
-            Estado actual
-          </span>
-
-          <span
-            class="tracking-status"
-            [attr.data-state]="s.estado"
-          >
+          <span class="tracking-summary-label">Estado actual</span>
+          <span class="tracking-status" [attr.data-state]="s.estado">
             {{ etiqueta(s.estado) }}
           </span>
-
-          <p>
-            Última actualización:
-          </p>
-
+          <p>Última actualización</p>
           <strong>
-            {{
-              fechaUltimaActualizacion(s)
-                | date: 'dd/MM/yyyy HH:mm'
-            }}
+            {{ fechaUltimaActualizacion(s) | date:'dd/MM/yyyy HH:mm' }}
           </strong>
         </div>
       </section>
 
-      @if (
-        s.estado === 'cancelada' ||
-        s.estado === 'rechazada'
-      ) {
-        <div class="tracking-closed">
-          <ng-icon
-            name="heroExclamationTriangle"
-            aria-hidden="true"
-          />
-
+      @if (s.estado === 'lista_para_entrega') {
+        <div class="student-requirement-feedback student-requirement-feedback--success">
+          <span class="student-requirement-feedback__icon">✓</span>
           <div>
-            <strong>
-              {{
-                s.estado === 'cancelada'
-                  ? 'Solicitud cancelada'
-                  : 'Solicitud rechazada'
-              }}
-            </strong>
+            <strong>Tu resultado está listo para recoger</strong>
+            <p>
+              Acércate a la unidad administrativa correspondiente
+              para recoger el documento.
+            </p>
+          </div>
+        </div>
+      }
 
+      @if (s.estado === 'cancelada' || s.estado === 'rechazada') {
+        <div class="tracking-closed">
+          <ng-icon name="heroExclamationTriangle" />
+          <div>
+            <strong>{{ etiqueta(s.estado) }}</strong>
             <p>
               Esta solicitud está cerrada.
-              El historial permanece disponible para consulta.
+              Su información e historial permanecen disponibles.
             </p>
           </div>
         </div>
@@ -130,11 +83,7 @@
         <section class="tracking-process-card">
           <app-gestion-timeline
             [historial]="historial()"
-            [etapas]="etapas()"
-            [detenida]="
-              s.estado === 'cancelada' ||
-              s.estado === 'rechazada'
-            "
+            [detenida]="s.estado === 'cancelada' || s.estado === 'rechazada'"
           />
         </section>
 
@@ -148,16 +97,9 @@
             <section class="student-actions-panel">
               <header class="student-actions-header">
                 <app-gestion-icon tipo="proceso" />
-
                 <div>
-                  <h2>
-                    Acciones pendientes
-                  </h2>
-
-                  <p>
-                    Completa únicamente las acciones requeridas
-                    para este trámite.
-                  </p>
+                  <h2>Requisitos de la solicitud</h2>
+                  <p>Completa las acciones que correspondan.</p>
                 </div>
               </header>
 
@@ -165,55 +107,30 @@
                 <nav
                   class="student-actions-tabs"
                   role="tablist"
-                  aria-label="Acciones requeridas"
+                  aria-label="Tipos de requisitos"
                 >
                   <button
                     type="button"
                     role="tab"
                     class="student-actions-tab"
-                    [class.student-actions-tab--active]="
-                      studentRequirementTab === 'documentos'
-                    "
-                    [attr.aria-selected]="
-                      studentRequirementTab === 'documentos'
-                    "
-                    (click)="
-                      seleccionarPestanaRequisitoSolicitante(
-                        'documentos'
-                      )
-                    "
+                    [class.student-actions-tab--active]="studentRequirementTab === 'documentos'"
+                    [attr.aria-selected]="studentRequirementTab === 'documentos'"
+                    (click)="seleccionarPestanaRequisitoSolicitante('documentos')"
                   >
-                    <ng-icon
-                      name="heroDocumentText"
-                      aria-hidden="true"
-                    />
-
-                    <span>
-                      Documentos
-                    </span>
+                    <ng-icon name="heroDocumentText" />
+                    Documentos
                   </button>
 
                   <button
                     type="button"
                     role="tab"
                     class="student-actions-tab"
-                    [class.student-actions-tab--active]="
-                      studentRequirementTab === 'pago'
-                    "
-                    [attr.aria-selected]="
-                      studentRequirementTab === 'pago'
-                    "
-                    (click)="
-                      seleccionarPestanaRequisitoSolicitante(
-                        'pago'
-                      )
-                    "
+                    [class.student-actions-tab--active]="studentRequirementTab === 'pago'"
+                    [attr.aria-selected]="studentRequirementTab === 'pago'"
+                    (click)="seleccionarPestanaRequisitoSolicitante('pago')"
                   >
                     <app-gestion-icon tipo="precio" />
-
-                    <span>
-                      Verificación de pago
-                    </span>
+                    Pagos
                   </button>
                 </nav>
               }
@@ -221,44 +138,33 @@
               <div class="student-actions-content">
                 @if (
                   tieneDocumentosSolicitante() &&
-                  (
-                    !mostrarTabsRequisitosSolicitante() ||
-                    studentRequirementTab === 'documentos'
-                  )
+                  (!mostrarTabsRequisitosSolicitante() ||
+                   studentRequirementTab === 'documentos')
                 ) {
-                  <section
-                    class="student-requirement-view"
-                    role="tabpanel"
-                  >
+                  <section class="student-requirement-view">
                     <header class="student-requirement-header">
                       <div>
                         <span class="student-requirement-kicker">
-                          Documentos
+                          Documentación
                         </span>
-
-                        <h3>
-                          Documentación requerida
-                        </h3>
-
+                        <h3>Documentos requeridos</h3>
                         <p>
-                          Presenta físicamente los documentos indicados
-                          en Dirección Académica / Kardex.
+                          Presenta los documentos físicos en
+                          Dirección Académica / Kardex.
                         </p>
                       </div>
 
                       @if (todosDocumentosRecibidos()) {
                         <span class="student-status student-status--success">
-                          Recibida
+                          Recibidos
                         </span>
-                      } @else if (
-                        hayDocumentosDeclaradosPendientes()
-                      ) {
+                      } @else if (hayDocumentosDeclaradosPendientes()) {
                         <span class="student-status student-status--info">
                           Entrega informada
                         </span>
                       } @else {
                         <span class="student-status student-status--pending">
-                          Pendiente
+                          Pendientes
                         </span>
                       }
                     </header>
@@ -270,102 +176,51 @@
                       ) {
                         <div
                           class="student-document-row"
-                          [class.student-document-row--complete]="
-                            r.presentado
-                          "
-                          [class.student-document-row--declared]="
-                            r.entrega_declarada &&
-                            !r.presentado
-                          "
+                          [class.student-document-row--complete]="r.presentado"
+                          [class.student-document-row--declared]="r.entrega_declarada && !r.presentado"
                         >
-                          <span
-                            class="student-document-row__marker"
-                            aria-hidden="true"
-                          >
-                            @if (r.presentado) {
-                              ✓
-                            } @else if (r.entrega_declarada) {
-                              •
-                            } @else {
-                              ○
-                            }
+                          <span class="student-document-row__marker">
+                            {{ r.presentado ? '✓' : r.entrega_declarada ? '•' : '○' }}
                           </span>
 
                           <div class="student-document-row__content">
-                            <strong>
-                              {{ r.nombre }}
-                            </strong>
+                            <strong>{{ r.nombre }}</strong>
 
                             @if (r.descripcion) {
-                              <p>
-                                {{ r.descripcion }}
-                              </p>
+                              <p>{{ r.descripcion }}</p>
                             }
 
-                            <small>
-                              @if (r.presentado) {
-                                Recepción confirmada por personal administrativo
-                              } @else if (r.entrega_declarada) {
-                                Entrega informada · pendiente de revisión administrativa
-                              } @else {
-                                Pendiente de entrega
-                              }
-                            </small>
+                            <small>{{ estadoDocumento(r) }}</small>
+
+                            @if (r.estado_verificacion === 'no_cumple') {
+                              <small>
+                                Requiere corrección administrativa
+                              </small>
+                            }
                           </div>
                         </div>
                       }
                     </div>
 
                     @if (todosDocumentosRecibidos()) {
-                      <div
-                        class="
-                          student-requirement-feedback
-                          student-requirement-feedback--success
-                        "
-                      >
-                        <span
-                          class="student-requirement-feedback__icon"
-                          aria-hidden="true"
-                        >
-                          ✓
-                        </span>
-
+                      <div class="student-requirement-feedback student-requirement-feedback--success">
+                        <span class="student-requirement-feedback__icon">✓</span>
                         <div>
-                          <strong>
-                            Documentación recibida
-                          </strong>
-
+                          <strong>Documentación recibida</strong>
                           <p>
-                            La recepción de la documentación física
-                            fue confirmada por el personal administrativo.
+                            El personal administrativo registró
+                            la recepción física.
                           </p>
                         </div>
                       </div>
-                    } @else if (
-                      hayDocumentosDeclaradosPendientes() &&
-                      !requisitosFisicosDeclarables().length
-                    ) {
-                      <div
-                        class="
-                          student-requirement-feedback
-                          student-requirement-feedback--info
-                        "
-                      >
-                        <span
-                          class="student-requirement-feedback__icon"
-                          aria-hidden="true"
-                        >
-                          ✓
-                        </span>
-
+                    } @else if (hayDocumentosDeclaradosPendientes()) {
+                      <div class="student-requirement-feedback student-requirement-feedback--info">
+                        <span class="student-requirement-feedback__icon">•</span>
                         <div>
-                          <strong>
-                            Entrega informada
-                          </strong>
-
+                          <strong>Entrega informada</strong>
                           <p>
-                            Registramos tu confirmación.
-                            Ahora queda pendiente la revisión administrativa.
+                            La recepción y verificación deben ser
+                            confirmadas por personal administrativo.
                           </p>
                         </div>
                       </div>
@@ -374,14 +229,10 @@
                     @if (requisitosFisicosDeclarables().length) {
                       <div class="student-document-action">
                         <div>
-                          <strong>
-                            ¿Ya entregaste la documentación?
-                          </strong>
-
+                          <strong>¿Ya entregaste la documentación?</strong>
                           <p>
-                            Confirma esta acción únicamente después
-                            de haber presentado físicamente los
-                            documentos indicados.
+                            Confirma solo después de haberla
+                            presentado físicamente.
                           </p>
                         </div>
 
@@ -394,52 +245,25 @@
                           Confirmar entrega
                         </button>
                       </div>
-                    } @else if (
-                      !todosDocumentosRecibidos() &&
-                      !hayDocumentosDeclaradosPendientes()
-                    ) {
-                      <div class="student-requirement-feedback">
-                        <app-gestion-icon tipo="reloj" />
-
-                        <div>
-                          <strong>
-                            Entrega aún no disponible
-                          </strong>
-
-                          <p>
-                            Esta acción se habilitará cuando
-                            la solicitud llegue a la etapa correspondiente.
-                          </p>
-                        </div>
-                      </div>
                     }
                   </section>
                 }
 
                 @if (
                   tienePagoSolicitante() &&
-                  (
-                    !mostrarTabsRequisitosSolicitante() ||
-                    studentRequirementTab === 'pago'
-                  )
+                  (!mostrarTabsRequisitosSolicitante() ||
+                   studentRequirementTab === 'pago')
                 ) {
-                  <section
-                    class="student-requirement-view"
-                    role="tabpanel"
-                  >
+                  <section class="student-requirement-view">
                     <header class="student-requirement-header">
                       <div>
                         <span class="student-requirement-kicker">
-                          Pago
+                          Pagos
                         </span>
-
-                        <h3>
-                          Verificación de pago
-                        </h3>
-
+                        <h3>Verificación de facturas</h3>
                         <p>
-                          Ingresa el número de factura.
-                          La validación se realiza automáticamente.
+                          El sistema consulta la información de
+                          facturación. No realiza cobros.
                         </p>
                       </div>
                     </header>
@@ -450,172 +274,77 @@
                     ) {
                       <article
                         class="student-payment"
-                        [class.student-payment--complete]="
-                          r.estado_verificacion === 'cumple'
-                        "
-                        [class.student-payment--error]="
-                          r.estado_verificacion === 'no_cumple'
-                        "
+                        [class.student-payment--complete]="r.estado_verificacion === 'cumple'"
+                        [class.student-payment--error]="r.estado_verificacion === 'no_cumple'"
                       >
                         <header class="student-payment__header">
                           <div>
-                            <strong>
-                              {{ r.nombre }}
-                            </strong>
+                            <strong>{{ r.nombre }}</strong>
 
                             @if (r.concepto_economico) {
-                              <span>
-                                {{ r.concepto_economico }}
-                              </span>
+                              <span>{{ r.concepto_economico }}</span>
                             }
                           </div>
 
-                          @if (r.estado_verificacion === 'cumple') {
-                            <span class="student-status student-status--success">
-                              Verificado
-                            </span>
-                          } @else if (
-                            r.estado_verificacion === 'no_cumple'
-                          ) {
-                            <span class="student-status student-status--error">
-                              No verificado
-                            </span>
-                          } @else {
-                            <span class="student-status student-status--pending">
-                              Pendiente
-                            </span>
-                          }
+                          <span
+                            class="student-status"
+                            [class.student-status--success]="r.estado_verificacion === 'cumple'"
+                            [class.student-status--error]="r.estado_verificacion === 'no_cumple'"
+                            [class.student-status--pending]="r.estado_verificacion !== 'cumple' && r.estado_verificacion !== 'no_cumple'"
+                          >
+                            {{ estadoPago(r) }}
+                          </span>
                         </header>
 
                         <dl class="student-payment-summary">
-                          @if (r.monto_economico !== null) {
-                            <div>
-                              <dt>
-                                Importe
-                              </dt>
-
-                              <dd class="student-payment-summary__amount">
-                                {{ r.monto_economico }}
-                                {{ r.moneda }}
-                              </dd>
-                            </div>
-                          }
-
                           <div>
-                            <dt>
-                              Cod. Servicio
-                            </dt>
-
-                            <dd>
-                              {{
-                                $any(r).codigo_concepto_externo ||
-                                  'No disponible'
-                              }}
+                            <dt>Monto</dt>
+                            <dd class="student-payment-summary__amount">
+                              {{ r.monto_economico ?? '—' }}
+                              {{ r.moneda || '' }}
                             </dd>
                           </div>
 
                           <div>
-                            <dt>
-                              Documento de identidad
-                            </dt>
-
-                            <dd>
-                              {{ documentoPago() || 'No registrado' }}
-                            </dd>
+                            <dt>Documento de identidad</dt>
+                            <dd>{{ documentoPago() || 'No registrado' }}</dd>
                           </div>
                         </dl>
 
                         @if (r.estado_verificacion === 'cumple') {
-                          <div
-                            class="
-                              student-requirement-feedback
-                              student-requirement-feedback--success
-                            "
-                          >
-                            <span
-                              class="student-requirement-feedback__icon"
-                              aria-hidden="true"
-                            >
-                              ✓
-                            </span>
-
+                          <div class="student-requirement-feedback student-requirement-feedback--success">
+                            <span class="student-requirement-feedback__icon">✓</span>
                             <div>
-                              <strong>
-                                Pago verificado correctamente
-                              </strong>
-
+                              <strong>Pago verificado</strong>
                               <p>
                                 @if (r.numero_factura) {
                                   Factura {{ r.numero_factura }}
                                 }
-
-                                @if (
-                                  r.numero_factura &&
-                                  r.monto_economico !== null
-                                ) {
-                                  ·
-                                }
-
-                                @if (r.monto_economico !== null) {
-                                  {{ r.monto_economico }}
-                                  {{ r.moneda }}
-                                }
                               </p>
                             </div>
                           </div>
-                        } @else if (
-                          r.puede_registrar_factura
-                        ) {
-                          @if (
-                            r.estado_verificacion === 'no_cumple'
-                          ) {
-                            <div
-                              class="
-                                student-requirement-feedback
-                                student-requirement-feedback--error
-                              "
-                            >
-                              <ng-icon
-                                name="heroExclamationTriangle"
-                                aria-hidden="true"
-                              />
-
+                        } @else if (r.puede_registrar_factura) {
+                          @if (r.estado_verificacion === 'no_cumple') {
+                            <div class="student-requirement-feedback student-requirement-feedback--error">
+                              <ng-icon name="heroExclamationTriangle" />
                               <div>
-                                <strong>
-                                  No se pudo verificar el pago
-                                </strong>
-
-                                <p>
-                                  Revisa el número de factura
-                                  e inténtalo nuevamente.
-                                </p>
+                                <strong>No se verificó el pago</strong>
+                                <p>Revisa el número de factura.</p>
                               </div>
                             </div>
                           }
 
                           <div class="student-payment-form">
                             <label>
-                              <span>
-                                Número de factura
-                              </span>
-
+                              <span>Número de factura</span>
                               <input
                                 type="text"
                                 maxlength="150"
                                 autocomplete="off"
-                                placeholder="Ej. 123456"
-                                [(ngModel)]="
-                                  facturas[
-                                    r.id_solicitud_requisito
-                                  ]
-                                "
+                                placeholder="Número registrado en la factura"
+                                [(ngModel)]="facturas[r.id_solicitud_requisito]"
                                 [disabled]="ocupado()"
                               />
-
-                              <small>
-                                Escríbelo exactamente como aparece
-                                en la factura correspondiente.
-                              </small>
                             </label>
 
                             <button
@@ -624,37 +353,26 @@
                               [disabled]="
                                 ocupado() ||
                                 !documentoPago() ||
-                                !$any(r).codigo_concepto_externo ||
-                                !facturas[
-                                  r.id_solicitud_requisito
-                                ]?.trim()
+                                !facturas[r.id_solicitud_requisito]?.trim()
                               "
                               (click)="verificarPago(r)"
                             >
-                              @if (ocupado()) {
-                                Verificando…
-                              } @else {
-                                Verificar pago
-                              }
+                              {{ ocupado() ? 'Verificando…' : 'Verificar pago' }}
                             </button>
                           </div>
 
                           <p class="student-payment__note">
-                            La verificación es automática
-                            y no requiere aprobación del personal administrativo.
+                            La plataforma consulta la factura mediante
+                            la API de verificación correspondiente.
                           </p>
                         } @else {
                           <div class="student-requirement-feedback">
                             <app-gestion-icon tipo="reloj" />
-
                             <div>
-                              <strong>
-                                Verificación aún no disponible
-                              </strong>
-
+                              <strong>Verificación no disponible</strong>
                               <p>
-                                Esta acción se habilitará cuando
-                                el trámite llegue a la etapa correspondiente.
+                                Consulta el estado de tu solicitud
+                                para conocer las acciones pendientes.
                               </p>
                             </div>
                           </div>
@@ -667,20 +385,11 @@
             </section>
           }
 
-          <section
-            id="observaciones"
-            class="student-observations"
-          >
+          <section id="observaciones" class="student-observations">
             <header class="student-observations__header">
               <div>
-                <ng-icon
-                  name="heroChatBubbleLeftRight"
-                  aria-hidden="true"
-                />
-
-                <h2>
-                  Observaciones
-                </h2>
+                <ng-icon name="heroChatBubbleLeftRight" />
+                <h2>Observaciones</h2>
               </div>
 
               @if (pendientes()) {
@@ -691,74 +400,44 @@
             </header>
 
             <div class="student-observations__body">
-              @for (
-                o of obs();
-                track o.id_observacion
-              ) {
+              @for (o of obs(); track o.id_observacion) {
                 <article
                   class="student-observation"
-                  [class.student-observation--resolved]="
-                    o.estado === 'resuelta'
-                  "
+                  [class.student-observation--resolved]="o.estado === 'resuelta'"
                 >
                   <header>
                     <span
                       class="student-observation__status"
                       [attr.data-state]="o.estado"
                     >
-                      {{
-                        o.estado === 'resuelta'
-                          ? 'Resuelta'
-                          : 'Corrección pendiente'
-                      }}
+                      {{ o.estado === 'resuelta' ? 'Resuelta' : 'Pendiente' }}
                     </span>
 
                     <time>
-                      {{
-                        o.fecha_observacion
-                          | date: 'dd/MM/yyyy HH:mm'
-                      }}
+                      {{ o.fecha_observacion | date:'dd/MM/yyyy HH:mm' }}
                     </time>
                   </header>
 
-                  <p>
-                    {{ o.detalle }}
-                  </p>
+                  <p>{{ o.detalle }}</p>
 
                   <div class="student-observation__action">
-                    <strong>
-                      Qué debes hacer
-                    </strong>
-
-                    <span>
-                      {{ o.correccion_requerida }}
-                    </span>
+                    <strong>Corrección requerida</strong>
+                    <span>{{ o.correccion_requerida }}</span>
                   </div>
 
                   @if (o.canal_subsanacion) {
-                    <small>
-                      Canal:
-                      {{ o.canal_subsanacion }}
-                    </small>
+                    <small>Canal: {{ o.canal_subsanacion }}</small>
                   }
                 </article>
               } @empty {
                 <div class="student-observations-empty">
                   <div class="student-observations-empty__icon">
-                    <ng-icon
-                      name="heroChatBubbleLeftRight"
-                      aria-hidden="true"
-                    />
+                    <ng-icon name="heroChatBubbleLeftRight" />
                   </div>
-
                   <div>
-                    <strong>
-                      No hay observaciones
-                    </strong>
-
+                    <strong>No hay observaciones</strong>
                     <p>
-                      Si durante la revisión se requiere alguna corrección,
-                      aparecerá en esta sección.
+                      Aquí aparecerán las correcciones solicitadas.
                     </p>
                   </div>
                 </div>
@@ -768,19 +447,12 @@
         </aside>
       </div>
 
-      @if (
-        s.estado === 'borrador' ||
-        cancelable()
-      ) {
+      @if (s.estado === 'borrador' || cancelable()) {
         <footer class="tracking-actions">
           @if (s.estado === 'borrador') {
             <a
               class="tracking-action tracking-action--primary"
-              [routerLink]="[
-                '/solicitudes',
-                s.id_solicitud,
-                'preparar'
-              ]"
+              [routerLink]="['/solicitudes', s.id_solicitud, 'preparar']"
             >
               Completar y enviar
             </a>
@@ -793,58 +465,30 @@
               [disabled]="ocupado()"
               (click)="abrir('cancelar')"
             >
-              <ng-icon
-                name="heroExclamationTriangle"
-                aria-hidden="true"
-              />
-
-              <span>
-                Cancelar solicitud
-              </span>
+              <ng-icon name="heroExclamationTriangle" />
+              Cancelar solicitud
             </button>
           }
         </footer>
       }
     </div>
   } @else if (error()) {
-    <p
-      class="error"
-      role="alert"
-    >
-      {{ error() }}
-    </p>
+    <p class="error" role="alert">{{ error() }}</p>
   } @else {
-    <p
-      class="tracking-loading"
-      role="status"
-    >
+    <p class="tracking-loading" role="status">
       Cargando seguimiento…
     </p>
   }
-
 } @else {
   @if (solicitud(); as s) {
-    <div class="admin-review-page admin-review-v2">
-      <nav
-        class="admin-review-breadcrumb"
-        aria-label="Navegación"
-      >
+    <div class="admin-review-page">
+      <nav class="admin-review-breadcrumb" aria-label="Navegación">
         <a routerLink="/admin/solicitudes">
-          <ng-icon
-            name="heroArrowLeft"
-            aria-hidden="true"
-          />
-
+          <ng-icon name="heroArrowLeft" />
           Solicitudes de trámites
         </a>
-
-        <span aria-hidden="true">
-          ›
-        </span>
-
-        <strong>
-          Revisión de trámite
-        </strong>
+        <span aria-hidden="true">›</span>
+        <strong>Gestión administrativa</strong>
       </nav>
 
       @if (error()) {
@@ -853,23 +497,43 @@
           role="alert"
         >
           {{ error() }}
+          <button
+            type="button"
+            aria-label="Cerrar error"
+            (click)="error.set('')"
+          >
+            ×
+          </button>
         </div>
       }
 
-      <section class="admin-summary-card">
-        <div class="admin-summary-item admin-summary-item--request">
-          <div
-            class="admin-summary-icon"
-            aria-hidden="true"
+      @if (mensaje()) {
+        <div
+          class="tracking-message tracking-message--success"
+          role="status"
+        >
+          {{ mensaje() }}
+          <button
+            type="button"
+            aria-label="Cerrar mensaje"
+            (click)="mensaje.set('')"
           >
+            ×
+          </button>
+        </div>
+      }
+
+      <section
+        class="admin-summary-card"
+        aria-label="Datos generales de la solicitud"
+      >
+        <div class="admin-summary-item admin-summary-item--request">
+          <div class="admin-summary-icon">
             <ng-icon name="heroTicket" />
           </div>
 
           <div>
-            <span>
-              Número de solicitud
-            </span>
-
+            <span>Solicitud</span>
             <strong class="admin-request-number">
               {{ formatearNumeroSolicitud(s.id_solicitud) }}
             </strong>
@@ -877,10 +541,7 @@
         </div>
 
         <div class="admin-summary-item">
-          <span>
-            Estado actual
-          </span>
-
+          <span>Estado actual</span>
           <strong
             class="tracking-status"
             [attr.data-state]="s.estado"
@@ -890,83 +551,61 @@
         </div>
 
         <div class="admin-summary-item">
-          <span>
-            Fecha de solicitud
-          </span>
-
-          <strong>
-            {{
-              (s.fecha_envio || s.fecha_creacion)
-                | date: 'dd/MM/yyyy HH:mm'
-            }}
-          </strong>
+          <span>Trámite</span>
+          <strong>{{ nombreTramite(s) }}</strong>
         </div>
 
         <div class="admin-summary-item">
-          <span>
-            Última actualización
-          </span>
-
-          <strong>
-            {{
-              fechaUltimaActualizacion(s)
-                | date: 'dd/MM/yyyy HH:mm'
-            }}
-          </strong>
-        </div>
-
-        <div class="admin-summary-item">
-          <span>
-            Solicitado por
-          </span>
-
+          <span>Solicitante</span>
           <strong>
             {{
               s.nombre_solicitante ||
-                ('Usuario #' + s.id_solicitante)
+              ('Usuario #' + (s.id_solicitante || '—'))
+            }}
+          </strong>
+        </div>
+
+        <div class="admin-summary-item">
+          <span>Fecha de solicitud</span>
+          <strong>
+            {{
+              (s.fecha_envio || s.fecha_creacion)
+                | date:'dd/MM/yyyy HH:mm'
             }}
           </strong>
         </div>
       </section>
 
-      <nav
-        class="admin-tabs"
-        aria-label="Secciones de la solicitud"
-      >
+      <nav class="admin-tabs" aria-label="Secciones administrativas">
         <button
           type="button"
           [class.admin-tab--active]="adminTab === 'resumen'"
+          [attr.aria-current]="adminTab === 'resumen' ? 'page' : null"
           (click)="seleccionarAdminTab('resumen')"
         >
           <app-gestion-icon tipo="documento" />
-
-          <span>
-            Resumen y flujo
-          </span>
+          Resumen
         </button>
 
         <button
           type="button"
           [class.admin-tab--active]="adminTab === 'requisitos'"
+          [attr.aria-current]="adminTab === 'requisitos' ? 'page' : null"
           (click)="seleccionarAdminTab('requisitos')"
         >
           <app-gestion-icon tipo="detalle" />
-
-          <span>
-            Requisitos
-          </span>
+          Requisitos
+          <small>{{ cantidadRequisitosPendientes() }}</small>
         </button>
 
         <button
           type="button"
-          [class.admin-tab--active]="adminTab === 'historial'"
-          (click)="seleccionarAdminTab('historial')"
+          [class.admin-tab--active]="adminTab === 'actividad'"
+          [attr.aria-current]="adminTab === 'actividad' ? 'page' : null"
+          (click)="seleccionarAdminTab('actividad')"
         >
           <app-gestion-icon tipo="reloj" />
-
-          <span>
-            Historial y acciones
-          </span>
+          Historial y atención
         </button>
       </nav>
 
@@ -975,23 +614,12 @@
         s.estado === 'rechazada'
       ) {
         <div class="admin-closed-banner">
-          <ng-icon
-            name="heroExclamationTriangle"
-            aria-hidden="true"
-          />
-
+          <ng-icon name="heroExclamationTriangle" />
           <div>
-            <strong>
-              {{
-                s.estado === 'cancelada'
-                  ? 'Solicitud cancelada'
-                  : 'Solicitud rechazada'
-              }}
-            </strong>
-
+            <strong>{{ etiqueta(s.estado) }}</strong>
             <p>
-              La solicitud está cerrada.
-              El historial permanece disponible para consulta.
+              Esta solicitud está cerrada.
+              Su historial permanece disponible.
             </p>
           </div>
         </div>
@@ -999,541 +627,539 @@
 
       <div class="admin-tab-content">
         @if (adminTab === 'resumen') {
-          <section class="admin-v2-flow-card">
-            <header class="admin-v2-section-heading">
-              <app-gestion-icon tipo="proceso" />
-
-              <div>
-                <h2>
-                  Flujo del proceso del trámite
-                </h2>
-
-                <p>
-                  Hitos principales del seguimiento.
-                </p>
-              </div>
-            </header>
-
-            <div
-              class="admin-v2-stepper"
-              [style.--admin-step-count]="pasosAdministrativos(s).length"
-            >
-              @for (
-                paso of pasosAdministrativos(s);
-                track paso.clave;
-                let ultimo = $last
-              ) {
-                <div
-                  class="admin-v2-step"
-                  [attr.data-state]="paso.estado"
-                >
-                  <div class="admin-v2-step__track">
-                    <span class="admin-v2-step__point">
-                      @if (paso.estado === 'completado') {
-                        ✓
-                      } @else {
-                        •
-                      }
-                    </span>
-
-                    @if (!ultimo) {
-                      <span class="admin-v2-step__line"></span>
-                    }
-                  </div>
-
-                  <strong>
-                    {{ paso.titulo }}
-                  </strong>
-
-                  <small>
-                    {{ paso.detalle }}
-                  </small>
-                </div>
-              }
-            </div>
-          </section>
-
-          <div class="admin-v2-summary-grid">
-            <section class="admin-v2-panel">
-              <header class="admin-v2-section-heading">
-                <app-gestion-icon tipo="documento" />
-
-                <h2>
-                  Paso actual
-                </h2>
-              </header>
-
-              <div class="admin-v2-current">
-                <span
-                  class="admin-v2-current__icon"
-                  aria-hidden="true"
-                >
-                  i
-                </span>
-
-                <p>
-                  {{ mensajePasoActual(s) }}
-                </p>
-              </div>
-
-              <div class="admin-v2-facts">
-                @if (requisitosFisicos().length) {
-                  <div>
-                    <app-gestion-icon tipo="documento" />
-
-                    <span>
-                      {{ requisitosFisicos().length }}
-                      documento{{
-                        requisitosFisicos().length === 1
-                          ? ''
-                          : 's'
-                      }}
-                      físico{{
-                        requisitosFisicos().length === 1
-                          ? ''
-                          : 's'
-                      }}
-                      configurado{{
-                        requisitosFisicos().length === 1
-                          ? ''
-                          : 's'
-                      }}
-                    </span>
-                  </div>
-                }
-
-                @if (requisitosEconomicos().length) {
-                  <div>
-                    <app-gestion-icon tipo="precio" />
-
-                    <span>
-                      Pago verificado automáticamente
-                    </span>
-                  </div>
-                }
-
-                <div>
-                  <app-gestion-icon tipo="proceso" />
-
-                  <span>
-                    Siguiente estado:
-                    {{
-                      s.estado === 'en_proceso'
-                        ? 'Finalizado'
-                        : 'En procesamiento'
-                    }}
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            <section class="admin-v2-panel">
-              <header class="admin-v2-section-heading">
-                <app-gestion-icon tipo="detalle" />
-
-                <h2>
-                  Datos clave del trámite
-                </h2>
-              </header>
-
-              <dl class="admin-v2-data-list">
-                <div>
-                  <dt>
-                    Tipo de trámite
-                  </dt>
-
-                  <dd>
-                    {{ nombreTramite(s) }}
-                  </dd>
-                </div>
-
-                <div>
-                  <dt>
-                    Unidad responsable
-                  </dt>
-
-                  <dd>
-                    Dirección Académica / Kardex
-                  </dd>
-                </div>
-
-                <div>
-                  <dt>
-                    Carrera o programa
-                  </dt>
-
-                  <dd>
-                    {{ carreraPrograma(s) }}
-                  </dd>
-                </div>
-
-                <div>
-                  <dt>
-                    Resultado final
-                  </dt>
-
-                  <dd>
-                    {{ textoResultadoFinal(s) }}
-                  </dd>
-                </div>
-              </dl>
-            </section>
-          </div>
-        }
-
-        @if (adminTab === 'requisitos') {
-          <div class="admin-v2-requirements-layout">
-            <section class="admin-v2-panel admin-v2-panel--requirements">
-              <header
-                class="admin-v2-section-heading admin-v2-section-heading--between"
-              >
-                <div>
-                  <app-gestion-icon tipo="documento" />
-
-                  <div>
-                    <h2>
-                      Requisitos del trámite
-                    </h2>
-
-                    @if (requisitosFisicos().length) {
-                      <p>
-                        {{ requisitosFisicos().length }}
-                        documento{{
-                          requisitosFisicos().length === 1
-                            ? ''
-                            : 's'
-                        }}
-                        físico{{
-                          requisitosFisicos().length === 1
-                            ? ''
-                            : 's'
-                        }}
-                        configurado{{
-                          requisitosFisicos().length === 1
-                            ? ''
-                            : 's'
-                        }}.
-                      </p>
-                    }
-                  </div>
-                </div>
-
-                @if (puedeRevisarDocumentacion()) {
-                  <button
-                    type="button"
-                    class="admin-v2-primary-button"
-                    [disabled]="ocupado()"
-                    (click)="abrirRevisionDocumentacion()"
-                  >
-                    Revisar documentación
-                  </button>
-                }
-              </header>
-
-              @if (requisitosFisicos().length) {
-                <div class="admin-v2-document-list">
-                  @for (
-                    r of requisitosFisicos();
-                    track r.id_solicitud_requisito
-                  ) {
-                    <div class="admin-v2-document-row">
-                      <app-gestion-icon tipo="documento" />
-
-                      <div>
-                        <strong>
-                          {{ r.nombre }}
-                        </strong>
-
-                        @if (r.descripcion) {
-                          <span>
-                            {{ r.descripcion }}
-                          </span>
-                        }
-                      </div>
-                    </div>
-                  }
-                </div>
-              } @else {
-                <div class="admin-v2-empty">
-                  Este trámite no requiere documentación física.
-                </div>
-              }
-            </section>
-
-            <section class="admin-v2-panel admin-v2-auto-validations">
+          <div class="admin-workspace admin-summary-workspace">
+            <section class="admin-v2-flow-card">
               <header class="admin-v2-section-heading">
                 <app-gestion-icon tipo="proceso" />
-
-                <h2>
-                  Validaciones automáticas
-                </h2>
-              </header>
-
-              @if (requisitosEconomicos().length) {
-                <div class="admin-v2-auto-list">
-                  @for (
-                    r of requisitosEconomicos();
-                    track r.id_solicitud_requisito
-                  ) {
-                    <div class="admin-v2-auto-row">
-                      <span>
-                        Pago
-                      </span>
-
-                      <strong
-                        [attr.data-state]="r.estado_verificacion"
-                      >
-                        {{ estadoPago(r) }}
-                      </strong>
-                    </div>
-                  }
-                </div>
-              } @else {
-                <div class="admin-v2-auto-row">
-                  <span>
-                    Pago
-                  </span>
-
-                  <strong>
-                    No aplica
-                  </strong>
-                </div>
-              }
-            </section>
-          </div>
-        }
-
-        @if (adminTab === 'historial') {
-          <div class="admin-v2-history-layout">
-            <section class="admin-v2-panel admin-v2-history-card">
-              <header class="admin-v2-section-heading">
-                <app-gestion-icon tipo="reloj" />
-
                 <div>
-                  <h2>
-                    Historial del trámite
-                  </h2>
-
+                  <h2>Progreso del trámite</h2>
                   <p>
-                    Principales acciones registradas.
+                    Estado de los controles principales.
                   </p>
                 </div>
               </header>
 
-              <div class="admin-v2-history-list">
+              <div
+                class="admin-v2-stepper"
+                [style.--admin-step-count]="pasosAdministrativos(s).length"
+              >
                 @for (
-                  h of historialAdministrativo();
-                  track h.id_historial
+                  paso of pasosAdministrativos(s);
+                  track paso.clave;
+                  let ultimo = $last
                 ) {
-                  <article class="admin-v2-history-item">
-                    <div
-                      class="admin-v2-history-item__point"
-                      aria-hidden="true"
-                    >
-                      ✓
-                    </div>
-
-                    <time>
-                      {{ h.fecha_evento | date: 'dd/MM/yyyy' }}
-
-                      <span>
-                        {{ h.fecha_evento | date: 'HH:mm' }}
+                  <div
+                    class="admin-v2-step"
+                    [attr.data-state]="paso.estado"
+                  >
+                    <div class="admin-v2-step__track">
+                      <span class="admin-v2-step__point">
+                        {{ paso.estado === 'completado' ? '✓' : '•' }}
                       </span>
-                    </time>
 
-                    <div class="admin-v2-history-item__content">
-                      <strong>
-                        {{ tituloHistorial(h.evento) }}
-                      </strong>
-
-                      <p>
-                        {{ h.detalle }}
-                      </p>
-
-                      @if (h.id_usuario_actor) {
-                        <small>
-                          Usuario #{{ h.id_usuario_actor }}
-                        </small>
+                      @if (!ultimo) {
+                        <span class="admin-v2-step__line"></span>
                       }
                     </div>
-                  </article>
-                } @empty {
-                  <div class="admin-v2-empty">
-                    Todavía no existen eventos para mostrar.
+
+                    <strong>{{ paso.titulo }}</strong>
+                    <small>{{ paso.detalle }}</small>
                   </div>
                 }
               </div>
             </section>
 
-            <aside class="admin-v2-side">
-              <section class="admin-v2-panel admin-v2-actions-panel">
+            <div class="admin-summary-body">
+              <div class="admin-summary-column">
+                <section class="admin-v2-panel">
+                  <header class="admin-v2-section-heading">
+                    <app-gestion-icon tipo="detalle" />
+                    <div>
+                      <h2>Situación actual</h2>
+                      <p>Seguimiento administrativo de la solicitud.</p>
+                    </div>
+                  </header>
+
+                  <div class="admin-v2-current">
+                    <span class="admin-v2-current__icon">i</span>
+                    <p>{{ mensajePasoActual(s) }}</p>
+                  </div>
+
+                  <div class="admin-progress">
+                    <div class="admin-progress__track">
+                      <div
+                        class="admin-progress__fill"
+                        [style.width.%]="
+                          requisitosObligatorios().length
+                            ? cantidadRequisitosCompletos() * 100 /
+                              requisitosObligatorios().length
+                            : 100
+                        "
+                      ></div>
+                    </div>
+
+                    <strong>
+                      {{ cantidadRequisitosCompletos() }}/
+                      {{ requisitosObligatorios().length }}
+                    </strong>
+                  </div>
+
+                  <dl class="admin-v2-data-list">
+                    <div>
+                      <dt>Documentos pendientes de recepción</dt>
+                      <dd>{{ documentosPendientesRecepcion().length }}</dd>
+                    </div>
+                    <div>
+                      <dt>Observaciones pendientes</dt>
+                      <dd>{{ pendientes() }}</dd>
+                    </div>
+                    <div>
+                      <dt>Unidad de atención</dt>
+                      <dd>Dirección Académica / Kardex</dd>
+                    </div>
+                    <div>
+                      <dt>Intervención</dt>
+                      <dd>{{ etiquetaIntervencion() }}</dd>
+                    </div>
+                    <div>
+                      <dt>Tipo de finalización</dt>
+                      <dd>{{ textoResultadoFinal(s) }}</dd>
+                    </div>
+                    <div>
+                      <dt>Última actualización</dt>
+                      <dd>
+                        {{
+                          fechaUltimaActualizacion(s)
+                            | date:'dd/MM/yyyy HH:mm'
+                        }}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  @if (
+                    s.tipo_intervencion === 'firma' ||
+                    s.tipo_intervencion === 'conformidad'
+                  ) {
+                    <dl class="admin-v2-data-list">
+                      <div>
+                        <dt>Intervención presencial</dt>
+                        <dd>{{ etiquetaIntervencion() }}</dd>
+                      </div>
+
+                      <div>
+                        <dt>Última convocatoria</dt>
+                        <dd>
+                          {{
+                            ultimaIntervencion()?.estado ||
+                            'Sin convocatoria'
+                          }}
+                        </dd>
+                      </div>
+
+                      @if (s.tipo_intervencion === 'firma') {
+                        <div>
+                          <dt>Resolución institucional</dt>
+                          <dd>
+                            {{
+                              resolucion()
+                                ? 'Emisión registrada'
+                                : 'Pendiente'
+                            }}
+                          </dd>
+                        </div>
+                      }
+                    </dl>
+                  }
+                </section>
+              </div>
+
+              <div class="admin-summary-column">
+                <section class="admin-v2-panel">
+                  <header class="admin-v2-section-heading">
+                    <app-gestion-icon tipo="documento" />
+                    <div>
+                      <h2>Datos del solicitante</h2>
+                      <p>Información académica registrada.</p>
+                    </div>
+                  </header>
+
+                  <dl class="admin-v2-data-list">
+                    @for (
+                      dato of datosPerfil();
+                      track dato.clave
+                    ) {
+                      <div>
+                        <dt>{{ etiquetaPerfil(dato.clave) }}</dt>
+                        <dd>{{ dato.valor }}</dd>
+                      </div>
+                    } @empty {
+                      <div>
+                        <dt>Perfil académico</dt>
+                        <dd>Sin datos adicionales.</dd>
+                      </div>
+                    }
+                  </dl>
+                </section>
+
+                @if (tieneDatosFormulario()) {
+                  <section class="admin-v2-panel admin-summary-form">
+                    <header class="admin-v2-section-heading">
+                      <app-gestion-icon tipo="detalle" />
+                      <div>
+                        <h2>Información del formulario</h2>
+                        <p>Datos proporcionados por el solicitante.</p>
+                      </div>
+                    </header>
+
+                    <dl class="admin-v2-data-list">
+                      @for (
+                        dato of datosFormulario();
+                        track dato.id_campo
+                      ) {
+                        <div>
+                          <dt>
+                            {{
+                              dato.etiqueta_snapshot ||
+                              dato.clave_snapshot ||
+                              'Campo'
+                            }}
+                          </dt>
+                          <dd>{{ mostrarValor(dato.valor) }}</dd>
+                        </div>
+                      }
+                    </dl>
+                  </section>
+                }
+              </div>
+            </div>
+          </div>
+        }
+
+
+        @if (adminTab === 'requisitos') {
+          <div class="admin-workspace admin-requirements-workspace">
+            <section class="admin-requirements-header">
+              <div class="admin-v2-section-heading">
+                <app-gestion-icon tipo="detalle" />
+
+                <div>
+                  <h2>Verificación de requisitos</h2>
+                  <p>
+                    {{ cantidadRequisitosCompletos() }}
+                    de {{ requisitosObligatorios().length }}
+                    requisitos obligatorios verificados.
+                  </p>
+                </div>
+              </div>
+
+              @if (puedeRevisarDocumentacion()) {
+                <button
+                  type="button"
+                  class="admin-v2-primary-button"
+                  [disabled]="ocupado()"
+                  (click)="abrirRevisionDocumentacion()"
+                >
+                  Registrar recepción documental
+                </button>
+              }
+            </section>
+
+            <div class="admin-requirements-body">
+
+              <!-- DOCUMENTACIÓN FÍSICA -->
+
+              @if (requisitosFisicos().length) {
+                <section
+                  class="admin-requirement-group admin-requirement-group--physical"
+                  aria-labelledby="admin-physical-heading"
+                >
+                  <header class="admin-requirement-group__header">
+                    <h3 id="admin-physical-heading">
+                      Documentación física
+                    </h3>
+
+                    <span>
+                      {{ documentosPendientesRecepcion().length }}
+                      pendientes de recepción
+                    </span>
+                  </header>
+
+                  <table class="admin-requirements-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Requisito</th>
+                        <th scope="col">Recepción</th>
+                        <th scope="col">Verificación</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      @for (
+                        r of requisitosFisicos();
+                        track r.id_solicitud_requisito
+                      ) {
+                        <tr>
+                          <td>
+                            <strong>{{ r.nombre }}</strong>
+
+                            <small>
+                              {{
+                                r.obligatorio
+                                  ? 'Obligatorio'
+                                  : 'Opcional'
+                              }}
+                            </small>
+                          </td>
+
+                          <td>
+                            <span
+                              class="admin-status-text"
+                              [attr.data-state]="
+                                r.presentado
+                                  ? 'recibido'
+                                  : 'pendiente'
+                              "
+                            >
+                              {{
+                                r.presentado
+                                  ? 'Recibido'
+                                  : 'Pendiente'
+                              }}
+                            </span>
+                          </td>
+
+                          <td>
+                            <span
+                              class="admin-status-text"
+                              [attr.data-state]="r.estado_verificacion"
+                            >
+                              {{ estadoRequisitoTexto(r) }}
+                            </span>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </section>
+              }
+
+              <!-- REQUISITOS ADMINISTRATIVOS -->
+
+              @if (requisitosOrdinarios().length) {
+                <section
+                  class="admin-requirement-group admin-requirement-group--administrative"
+                  aria-labelledby="admin-administrative-heading"
+                >
+                  <header class="admin-requirement-group__header">
+                    <h3 id="admin-administrative-heading">
+                      Requisitos administrativos
+                    </h3>
+
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+                      <span>
+                        {{ requisitosOrdinarios().length }} registrados
+                      </span>
+
+                      @if (puedeConfirmarAdministrativos()) {
+                        <button
+                          type="button"
+                          class="modal-action modal-action--secondary"
+                          style="padding:6px 10px;font-size:12px;min-height:30px"
+                          [disabled]="ocupado()"
+                          (click)="abrirConfirmacionAdministrativa()"
+                        >
+                          Confirmar cumplimiento
+                        </button>
+                      }
+                    </div>
+                  </header>
+
+                  <table class="admin-requirements-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Requisito</th>
+                        <th scope="col">Tipo</th>
+                        <th scope="col">Verificación</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      @for (
+                        r of requisitosOrdinarios();
+                        track r.id_solicitud_requisito
+                      ) {
+                        <tr>
+                          <td>
+                            <strong>{{ r.nombre }}</strong>
+
+                            @if (r.descripcion) {
+                              <small>{{ r.descripcion }}</small>
+                            }
+                          </td>
+
+                          <td>
+                            {{
+                              r.obligatorio
+                                ? 'Obligatorio'
+                                : 'Opcional'
+                            }}
+                          </td>
+
+                          <td>
+                            <span
+                              class="admin-status-text"
+                              [attr.data-state]="r.estado_verificacion"
+                            >
+                              {{ estadoRequisitoTexto(r) }}
+                            </span>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </section>
+              }
+
+              <!-- REQUISITOS ECONÓMICOS -->
+
+              @if (requisitosEconomicos().length) {
+                <section
+                  class="admin-requirement-group admin-requirement-group--economic"
+                  aria-labelledby="admin-economic-heading"
+                >
+                  <header class="admin-requirement-group__header">
+                    <h3 id="admin-economic-heading">
+                      Requisitos económicos
+                    </h3>
+
+                    <span>
+                      Verificación de facturas
+                    </span>
+                  </header>
+
+                  <table class="admin-requirements-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Concepto</th>
+                        <th scope="col">Factura</th>
+                        <th scope="col">Verificación</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      @for (
+                        r of requisitosEconomicos();
+                        track r.id_solicitud_requisito
+                      ) {
+                        <tr>
+                          <td>
+                            <strong>{{ r.nombre }}</strong>
+
+                            <small>
+                              {{ r.monto_economico ?? '—' }}
+                              {{ r.moneda || '' }}
+                            </small>
+                          </td>
+
+                          <td>
+                            {{
+                              r.numero_factura ||
+                              'No registrada'
+                            }}
+                          </td>
+
+                          <td>
+                            <span
+                              class="admin-status-text"
+                              [attr.data-state]="r.estado_verificacion"
+                            >
+                              {{ estadoRequisitoTexto(r) }}
+                            </span>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </section>
+              }
+
+              @if (!todosRequisitos().length) {
+                <div class="admin-v2-panel admin-v2-empty">
+                  No hay requisitos registrados para esta solicitud.
+                </div>
+              }
+
+            </div>
+          </div>
+        }
+
+
+        @if (adminTab === 'actividad') {
+          <div class="admin-history-workspace">
+            <div class="admin-history-left">
+              <section class="admin-v2-panel admin-history-events">
                 <header class="admin-v2-section-heading">
-                  <app-gestion-icon tipo="proceso" />
+                  <app-gestion-icon tipo="reloj" />
 
                   <div>
-                    <h2>
-                      Acciones disponibles
-                    </h2>
-
+                    <h2>Historial del trámite</h2>
                     <p>
-                      Acciones que puedes realizar en este momento.
+                      Acciones y movimientos registrados.
                     </p>
                   </div>
                 </header>
 
-                <div
-                  class="admin-v2-actions"
-                  role="group"
-                  aria-label="Acciones disponibles para la solicitud"
-                >
-                  @if (puedeRevisarDocumentacion()) {
-                    <button
-                      type="button"
-                      class="admin-v2-action admin-v2-action--primary"
-                      [disabled]="ocupado()"
-                      (click)="abrirRevisionDocumentacion()"
-                    >
-                      <span class="admin-v2-action__content">
-                        <strong>
-                          Revisar documentación
-                        </strong>
-
-                        <small>
-                          Registra la revisión global de la documentación física.
-                        </small>
-                      </span>
-
-                      <span
-                        class="admin-v2-action__arrow"
-                        aria-hidden="true"
-                      >
-                        →
-                      </span>
-                    </button>
-                  }
-
-                  @if (
-                    s.estado === 'en_revision' ||
-                    s.estado === 'en_proceso'
+                <div class="admin-v2-history-list">
+                  @for (
+                    h of historial();
+                    track h.id_historial
                   ) {
-                    <button
-                      type="button"
-                      class="admin-v2-action admin-v2-action--secondary"
-                      [disabled]="ocupado()"
-                      (click)="abrir('observacion')"
-                    >
-                      <span class="admin-v2-action__content">
+                    <article class="admin-v2-history-item">
+                      <span class="admin-v2-history-item__point">
+                        ✓
+                      </span>
+
+                      <time>
+                        {{ h.fecha_evento | date:'dd/MM/yyyy' }}
+                        <span>
+                          {{ h.fecha_evento | date:'HH:mm' }}
+                        </span>
+                      </time>
+
+                      <div class="admin-v2-history-item__content">
                         <strong>
-                          Registrar observación
+                          {{ tituloHistorial(h.evento) }}
                         </strong>
 
-                        <small>
-                          Informa una incidencia o corrección general.
-                        </small>
-                      </span>
+                        @if (h.detalle) {
+                          <p>{{ h.detalle }}</p>
+                        }
 
-                      <span
-                        class="admin-v2-action__arrow"
-                        aria-hidden="true"
-                      >
-                        →
-                      </span>
-                    </button>
-                  }
-
-                  @if (puedeContinuarProcesamiento(s)) {
-                    <button
-                      type="button"
-                      class="admin-v2-action admin-v2-action--primary"
-                      [disabled]="ocupado()"
-                      (click)="accion('iniciar')"
-                    >
-                      <span class="admin-v2-action__content">
-                        <strong>
-                          Continuar a procesamiento
-                        </strong>
-
-                        <small>
-                          Los requisitos están completos.
-                        </small>
-                      </span>
-
-                      <span
-                        class="admin-v2-action__arrow"
-                        aria-hidden="true"
-                      >
-                        →
-                      </span>
-                    </button>
-                  }
-
-                  @if (resultadoDisponible()) {
-                    <button
-                      type="button"
-                      class="admin-v2-action admin-v2-action--finish"
-                      [disabled]="ocupado()"
-                      (click)="abrir('resultado')"
-                    >
-                      <span class="admin-v2-action__content">
-                        <strong>
-                          Finalizar trámite
-                        </strong>
-
-                        <small>
-                          Registra que el resultado del trámite ya está listo.
-                        </small>
-                      </span>
-
-                      <span
-                        class="admin-v2-action__arrow"
-                        aria-hidden="true"
-                      >
-                        →
-                      </span>
-                    </button>
-                  }
-
-                  @if (
-                    [
-                      'pendiente_recepcion',
-                      'en_revision',
-                      'en_proceso'
-                    ].includes(s.estado)
-                  ) {
-                    <div class="admin-v2-danger-zone">
-                      <button
-                        type="button"
-                        class="admin-v2-danger-action"
-                        [disabled]="ocupado()"
-                        (click)="abrir('rechazar')"
-                      >
-                        Rechazar solicitud
-                      </button>
+                        @if (h.id_usuario_actor) {
+                          <small>
+                            Usuario #{{ h.id_usuario_actor }}
+                          </small>
+                        }
+                      </div>
+                    </article>
+                  } @empty {
+                    <div class="admin-v2-empty">
+                      No hay eventos registrados.
                     </div>
                   }
                 </div>
-
-                @if (resultadoDisponible()) {
-                  <div class="admin-v2-email-note">
-                    Al finalizar el trámite, el solicitante será
-                    notificado automáticamente por correo electrónico.
-                  </div>
-                }
               </section>
 
-              <section class="admin-v2-panel admin-v2-observations-panel">
-                <header
-                  class="admin-v2-section-heading admin-v2-section-heading--between"
-                >
-                  <h2>
-                    Observaciones
-                  </h2>
+              <section class="admin-v2-panel admin-observations-card">
+                <header class="admin-v2-section-heading">
+                  <ng-icon name="heroChatBubbleLeftRight" />
 
-                  @if (pendientes()) {
-                    <span class="admin-v2-count">
-                      {{ pendientes() }}
-                    </span>
-                  }
+                  <div>
+                    <h2>Observaciones</h2>
+                    <p>
+                      {{ pendientes() }} pendientes.
+                    </p>
+                  </div>
                 </header>
 
                 <div class="admin-v2-observations">
@@ -1550,16 +1176,228 @@
                         }}
                       </strong>
 
-                      <p>
-                        {{ o.detalle }}
-                      </p>
+                      <p>{{ o.detalle }}</p>
+
+                      @if (o.correccion_requerida) {
+                        <small>
+                          Corrección: {{ o.correccion_requerida }}
+                        </small>
+                      }
+
+                      @if (o.canal_subsanacion) {
+                        <small>
+                          Canal: {{ o.canal_subsanacion }}
+                        </small>
+                      }
+
+                      @if (
+                        o.estado === 'pendiente' &&
+                        (
+                          s.estado === 'en_revision' ||
+                          s.estado === 'en_proceso'
+                        )
+                      ) {
+                        <div style="margin-top:8px">
+                          <button
+                            type="button"
+                            class="admin-v2-primary-button"
+                            [disabled]="ocupado()"
+                            (click)="resolverObservacion(o.id_observacion)"
+                          >
+                            Marcar como resuelta
+                          </button>
+                        </div>
+                      }
                     </article>
                   } @empty {
                     <div class="admin-v2-empty">
-                      No hay observaciones registradas.
+                      No existen observaciones registradas.
                     </div>
                   }
                 </div>
+              </section>
+            </div>
+
+            <aside class="admin-history-right">
+              <section class="admin-v2-panel">
+                <header class="admin-v2-section-heading">
+                  <app-gestion-icon tipo="proceso" />
+
+                  <div>
+                    <h2>Atención administrativa</h2>
+                    <p>
+                      Acciones disponibles según el estado.
+                    </p>
+                  </div>
+                </header>
+
+                <div class="admin-v2-actions">
+                  @if (puedeContinuarProcesamiento(s)) {
+                    <button
+                      type="button"
+                      class="admin-v2-action admin-v2-action--primary"
+                      [disabled]="ocupado()"
+                      (click)="iniciarAtencion()"
+                    >
+                      <span class="admin-v2-action__content">
+                        <strong>Iniciar atención</strong>
+                        <small>
+                          Inicia el procesamiento de la solicitud.
+                        </small>
+                      </span>
+                      <span class="admin-v2-action__arrow">→</span>
+                    </button>
+                  }
+
+                  @if (puedeRevisarDocumentacion()) {
+                    <button
+                      type="button"
+                      class="admin-v2-action admin-v2-action--primary"
+                      [disabled]="ocupado()"
+                      (click)="abrirRevisionDocumentacion()"
+                    >
+                      <span class="admin-v2-action__content">
+                        <strong>Registrar recepción documental</strong>
+                        <small>
+                          Confirma los documentos físicos presentados.
+                        </small>
+                      </span>
+                      <span class="admin-v2-action__arrow">→</span>
+                    </button>
+                  }
+
+                  @if (
+                    s.estado === 'en_revision' ||
+                    s.estado === 'en_proceso'
+                  ) {
+                    <button
+                      type="button"
+                      class="admin-v2-action admin-v2-action--secondary"
+                      [disabled]="ocupado()"
+                      (click)="abrir('observacion')"
+                    >
+                      <span class="admin-v2-action__content">
+                        <strong>Registrar observación</strong>
+                        <small>
+                          Solicita una corrección al estudiante.
+                        </small>
+                      </span>
+                      <span class="admin-v2-action__arrow">→</span>
+                    </button>
+                  }
+
+                  @if (puedeEmitirResolucion()) {
+                    <button
+                      type="button"
+                      class="admin-v2-action admin-v2-action--primary"
+                      [disabled]="ocupado()"
+                      (click)="abrir('resolucion')"
+                    >
+                      <span class="admin-v2-action__content">
+                        <strong>Confirmar resolución emitida</strong>
+                        <small>
+                          Registra la emisión institucional existente.
+                        </small>
+                      </span>
+                      <span class="admin-v2-action__arrow">→</span>
+                    </button>
+                  }
+
+                  @if (puedeConvocar()) {
+                    <button
+                      type="button"
+                      class="admin-v2-action admin-v2-action--primary"
+                      [disabled]="ocupado()"
+                      (click)="abrir('convocatoria')"
+                    >
+                      <span class="admin-v2-action__content">
+                        <strong>
+                          {{
+                            s.tipo_intervencion === 'firma'
+                              ? 'Convocar a firma'
+                              : 'Convocar a conformidad'
+                          }}
+                        </strong>
+                        <small>
+                          Registra la convocatoria institucional.
+                        </small>
+                      </span>
+                      <span class="admin-v2-action__arrow">→</span>
+                    </button>
+                  }
+
+                  @if (puedeRegistrarIntervencion()) {
+                    <button
+                      type="button"
+                      class="admin-v2-action admin-v2-action--primary"
+                      [disabled]="ocupado()"
+                      (click)="abrir('intervencion')"
+                    >
+                      <span class="admin-v2-action__content">
+                        <strong>
+                          Registrar intervención presencial
+                        </strong>
+                        <small>
+                          Confirma la firma o conformidad correspondiente.
+                        </small>
+                      </span>
+                      <span class="admin-v2-action__arrow">→</span>
+                    </button>
+                  }
+
+                  @if (resultadoDisponible()) {
+                    <button
+                      type="button"
+                      class="admin-v2-action admin-v2-action--finish"
+                      [disabled]="ocupado()"
+                      (click)="abrir('resultado')"
+                    >
+                      <span class="admin-v2-action__content">
+                        <strong>Registrar resultado final</strong>
+                        <small>
+                          Aplica las condiciones de finalización.
+                        </small>
+                      </span>
+                      <span class="admin-v2-action__arrow">→</span>
+                    </button>
+                  }
+
+
+
+                  @if (
+                    !puedeContinuarProcesamiento(s) &&
+                    !puedeRevisarDocumentacion() &&
+                    s.estado !== 'en_revision' &&
+                    s.estado !== 'en_proceso' &&
+                    !puedeEmitirResolucion() &&
+                    !puedeConvocar() &&
+                    !puedeRegistrarIntervencion() &&
+                    !resultadoDisponible() &&
+                    s.estado !== 'lista_para_entrega'
+                  ) {
+                    <div class="admin-v2-empty">
+                      No existen acciones disponibles
+                      para el estado actual.
+                    </div>
+                  }
+                </div>
+
+                @if (
+                  s.estado === 'pendiente_recepcion' ||
+                  s.estado === 'en_revision' ||
+                  s.estado === 'en_proceso'
+                ) {
+                  <div class="admin-v2-danger-zone">
+                    <button
+                      type="button"
+                      class="admin-v2-danger-action"
+                      [disabled]="ocupado()"
+                      (click)="abrir('rechazar')"
+                    >
+                      Rechazar solicitud
+                    </button>
+                  </div>
+                }
               </section>
             </aside>
           </div>
@@ -1567,17 +1405,9 @@
       </div>
     </div>
   } @else if (error()) {
-    <p
-      class="error"
-      role="alert"
-    >
-      {{ error() }}
-    </p>
+    <p class="error" role="alert">{{ error() }}</p>
   } @else {
-    <p
-      class="tracking-loading"
-      role="status"
-    >
+    <p class="tracking-loading" role="status">
       Cargando solicitud…
     </p>
   }
@@ -1587,117 +1417,58 @@
   @if (modal) {
     <app-gestion-modal
       [titulo]="
-        modal === 'cancelar'
-          ? '¿Deseas cancelar esta solicitud?'
-          : modal === 'rechazar'
-            ? 'Rechazar solicitud'
-            : modal === 'resultado'
-              ? 'Finalizar trámite'
-              : modal === 'entrega'
-                ? 'Registrar entrega o recojo'
-                : modal === 'entrega_estudiante'
-                  ? 'Confirmar entrega de documentación'
-                  : modal === 'observacion'
-                    ? 'Registrar observación'
-                    : 'Revisar documentación'
+        modal === 'cancelar' ? 'Cancelar solicitud' :
+        modal === 'rechazar' ? 'Rechazar solicitud' :
+        modal === 'resultado' ? 'Registrar resultado final' :
+        modal === 'entrega_estudiante' ? 'Confirmar entrega física' :
+        modal === 'fisico' ? 'Recepción documental' :
+        modal === 'observacion' ? 'Registrar observación' :
+        modal === 'resolucion' ? 'Resolución institucional' :
+        modal === 'convocatoria' ? 'Convocatoria presencial' :
+        modal === 'intervencion' ? 'Intervención presencial' :
+        modal === 'verificar_requisito' ? 'Verificar requisito' :
+        modal === 'confirmar_administrativos' ? 'Confirmar requisitos administrativos' :
+        'Reintentar notificación'
       "
-      [compacto]="
-        modal === 'cancelar' ||
-        modal === 'rechazar'
-      "
-      [operativo]="
-        modal === 'resultado' ||
-        modal === 'entrega' ||
-        modal === 'fisico' ||
-        modal === 'observacion' ||
-        modal === 'entrega_estudiante'
-      "
+      [compacto]="modal === 'cancelar' || modal === 'rechazar'"
+      [operativo]="modal !== 'cancelar' && modal !== 'rechazar'"
       [ocupado]="ocupado()"
       (cerrar)="cerrarModal()"
     >
-      @if (
-        modal === 'cancelar' ||
-        modal === 'rechazar'
-      ) {
-        <div
-          class="decision-modal"
-          [class.decision-modal--danger]="
-            modal === 'rechazar'
-          "
-        >
-          <div
-            class="decision-modal__icon"
-            aria-hidden="true"
-          >
+      @if (error()) {
+        <p class="modal-inline-error" role="alert">
+          {{ error() }}
+        </p>
+      }
+
+      @if (modal === 'cancelar' || modal === 'rechazar') {
+        <div class="decision-modal">
+          <div class="decision-modal__icon">
             <ng-icon name="heroExclamationTriangle" />
           </div>
 
           <h2>
             {{
               modal === 'cancelar'
-                ? '¿Deseas cancelar esta solicitud?'
-                : 'Rechazar solicitud'
+                ? 'Cancelar esta solicitud'
+                : 'Rechazar esta solicitud'
             }}
           </h2>
 
           <p class="decision-modal__description">
-            {{
-              modal === 'cancelar'
-                ? 'La cancelación solo está disponible antes de la recepción de la solicitud y mientras no exista una factura registrada ni un pago acreditado.'
-                : 'Al rechazar esta solicitud, el trámite se detendrá y el solicitante deberá iniciar un nuevo proceso si corresponde.'
-            }}
+            Esta operación quedará registrada en el historial.
           </p>
 
-          @if (error()) {
-            <p
-              class="modal-inline-error"
-              role="alert"
-            >
-              {{ error() }}
-            </p>
-          }
-
-          <fieldset
-            [disabled]="ocupado()"
-            class="decision-modal__form"
-          >
+          <fieldset class="decision-modal__form" [disabled]="ocupado()">
             <label>
-              {{
-                modal === 'cancelar'
-                  ? 'Motivo de cancelación'
-                  : 'Motivo del rechazo'
-              }}
-
-              <span class="modal-required">
-                *
-              </span>
-
+              Motivo <span class="modal-required">*</span>
               <textarea
                 maxlength="2000"
-                [placeholder]="
-                  modal === 'cancelar'
-                    ? 'Cuéntanos el motivo de la cancelación...'
-                    : 'Escribe el motivo del rechazo...'
-                "
                 [(ngModel)]="motivo"
+                placeholder="Describe el motivo..."
               ></textarea>
-
-              <small class="modal-character-count">
-                {{ motivo.length }}/2000
-              </small>
             </label>
           </fieldset>
-
-          @if (modal === 'rechazar') {
-            <div class="decision-modal__warning">
-              <ng-icon
-                name="heroExclamationTriangle"
-                aria-hidden="true"
-              />
-
-              Esta acción no se puede deshacer.
-            </div>
-          }
 
           <div class="decision-modal__actions">
             <button
@@ -1706,37 +1477,19 @@
               [disabled]="ocupado()"
               (click)="cerrarModal()"
             >
-              <ng-icon
-                name="heroArrowLeft"
-                aria-hidden="true"
-              />
-
               Volver
             </button>
 
             <button
               type="button"
               class="modal-action modal-action--danger"
-              [disabled]="
-                ocupado() ||
-                !motivo.trim()
-              "
-              (click)="
-                accion(
-                  modal === 'rechazar'
-                    ? 'rechazar'
-                    : 'cancelar',
-                  {
-                    motivo: motivo
-                  }
-                )
-              "
+              [disabled]="ocupado() || !motivo.trim()"
+              (click)="accion(
+                modal === 'cancelar' ? 'cancelar' : 'rechazar',
+                { motivo: motivo.trim() }
+              )"
             >
-              {{
-                modal === 'rechazar'
-                  ? 'Confirmar rechazo'
-                  : 'Confirmar cancelación'
-              }}
+              Confirmar
             </button>
           </div>
         </div>
@@ -1745,56 +1498,21 @@
       @if (modal === 'entrega_estudiante') {
         <div class="student-delivery-modal">
           <header class="student-delivery-modal__heading">
-            <div
-              class="student-delivery-modal__icon"
-              aria-hidden="true"
-            >
+            <div class="student-delivery-modal__icon">
               <ng-icon name="heroDocumentText" />
             </div>
 
             <div>
-              <h2>
-                Confirmar entrega de documentación
-              </h2>
-
+              <h2>Confirmar entrega de documentación</h2>
               <p>
-                Confirma únicamente si ya presentaste físicamente
-                los documentos indicados.
+                Registra que ya presentaste los documentos físicamente.
               </p>
             </div>
           </header>
 
-          @if (error()) {
-            <p
-              class="modal-inline-error"
-              role="alert"
-            >
-              {{ error() }}
-            </p>
-          }
-
-          <div class="student-delivery-modal__warning">
-            <ng-icon
-              name="heroExclamationTriangle"
-              aria-hidden="true"
-            />
-
-            <div>
-              <strong>
-                Importante
-              </strong>
-
-              <p>
-                Esta confirmación informa que realizaste la entrega.
-                No significa que los documentos hayan sido recibidos,
-                revisados o aprobados por la Universidad.
-              </p>
-            </div>
-          </div>
-
           <div class="student-delivery-modal__documents">
             <span class="student-delivery-modal__label">
-              Documentación que estás confirmando
+              Documentos que se declararán entregados
             </span>
 
             @for (
@@ -1802,19 +1520,12 @@
               track r.id_solicitud_requisito
             ) {
               <div class="student-delivery-modal__document">
-                <span aria-hidden="true">
-                  •
-                </span>
-
+                <span>•</span>
                 <div>
-                  <strong>
-                    {{ r.nombre }}
-                  </strong>
+                  <strong>{{ r.nombre }}</strong>
 
                   @if (r.descripcion) {
-                    <small>
-                      {{ r.descripcion }}
-                    </small>
+                    <small>{{ r.descripcion }}</small>
                   }
                 </div>
               </div>
@@ -1827,16 +1538,11 @@
               [(ngModel)]="confirmado"
               [disabled]="ocupado()"
             />
-
             <span>
-              Confirmo que ya entregué físicamente la documentación indicada.
+              Confirmo que entregué físicamente la documentación.
+              Esta declaración no constituye su aprobación.
             </span>
           </label>
-
-          <p class="student-delivery-modal__footnote">
-            Después de confirmar, la solicitud quedará pendiente
-            de recepción y verificación por parte del personal administrativo.
-          </p>
 
           <div class="student-delivery-modal__actions">
             <button
@@ -1851,18 +1557,10 @@
             <button
               type="button"
               class="modal-action modal-action--primary"
-              [disabled]="
-                ocupado() ||
-                !confirmado ||
-                !requisitosFisicosDeclarables().length
-              "
+              [disabled]="ocupado() || !confirmado"
               (click)="declararDocumentos()"
             >
-              @if (ocupado()) {
-                Registrando…
-              } @else {
-                Confirmar entrega
-              }
+              Confirmar entrega
             </button>
           </div>
         </div>
@@ -1871,75 +1569,112 @@
       @if (modal === 'fisico') {
         <div class="operation-modal admin-v2-review-modal">
           <header class="operation-modal__heading">
-            <div
-              class="operation-modal__icon operation-modal__icon--blue"
-            >
+            <div class="operation-modal__icon operation-modal__icon--blue">
               <app-gestion-icon tipo="documento" />
             </div>
 
             <div>
-              <h2>
-                Revisar documentación
-              </h2>
-
+              <h2>Recepción selectiva de documentación</h2>
               <p>
-                La revisión se registra en una sola operación global.
+                Marca únicamente los documentos presentados físicamente.
+                La recepción registra también el cumplimiento del documento.
               </p>
             </div>
           </header>
 
-          @if (error()) {
-            <p
-              class="modal-inline-error"
-              role="alert"
-            >
-              {{ error() }}
-            </p>
-          }
-
           <section class="admin-v2-review-documents">
-            <strong>
-              Documentación presentada
-            </strong>
+            <strong>Documentos pendientes de recepción</strong>
+            <p>
+              {{ cantidadDocumentosMarcados() }} de
+              {{ documentosPendientesRecepcion().length }}
+              seleccionados.
+            </p>
 
             <div>
               @for (
-                r of requisitosFisicos();
+                r of documentosPendientesRecepcion();
                 track r.id_solicitud_requisito
               ) {
-                <span>
-                  <app-gestion-icon tipo="documento" />
+                <label
+                  style="display:flex;align-items:flex-start;gap:12px;width:100%;cursor:pointer;padding:8px 0"
+                >
+                  <input
+                    type="checkbox"
+                    [name]="'recepcion-' + r.id_solicitud_requisito"
+                    [(ngModel)]="documentosSeleccionados[r.id_solicitud_requisito]"
+                    [disabled]="ocupado()"
+                    style="flex:none;margin-top:3px"
+                  />
 
-                  {{ r.nombre }}
-                </span>
+                  <span
+                    style="display:flex;flex-direction:column;gap:3px;min-width:0"
+                  >
+                    <strong>{{ r.nombre }}</strong>
+
+                    @if (r.descripcion) {
+                      <small>{{ r.descripcion }}</small>
+                    }
+
+                    <small>
+                      {{
+                        r.obligatorio
+                          ? 'Obligatorio'
+                          : 'Opcional'
+                      }}
+                      · Pendiente de recepción
+                    </small>
+                  </span>
+                </label>
+              } @empty {
+                <p>
+                  No quedan documentos pendientes de recepción.
+                </p>
               }
             </div>
+
+            @if (documentosPendientesRecepcion().length > 1) {
+              <div
+                style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"
+              >
+                <button
+                  type="button"
+                  class="modal-action modal-action--secondary"
+                  [disabled]="ocupado()"
+                  (click)="seleccionarTodosDocumentosPendientes(true)"
+                >
+                  Seleccionar todos
+                </button>
+
+                <button
+                  type="button"
+                  class="modal-action modal-action--secondary"
+                  [disabled]="ocupado()"
+                  (click)="seleccionarTodosDocumentosPendientes(false)"
+                >
+                  Limpiar selección
+                </button>
+              </div>
+            }
           </section>
 
-          <fieldset
-            class="operation-modal__form"
-            [disabled]="ocupado()"
-          >
+          <fieldset class="operation-modal__form" [disabled]="ocupado()">
             <div class="admin-v2-review-result">
               <strong>
-                Resultado de la revisión
+                Acción sobre los documentos seleccionados
               </strong>
 
               <label>
                 <input
                   type="radio"
-                  name="resultadoRevision"
+                  name="resultadoRevisionFisica"
                   value="conforme"
                   [(ngModel)]="revisionResultado"
                 />
-
                 <span>
-                  <strong>
-                    Todo conforme
-                  </strong>
-
+                  <strong>Registrar recepción</strong>
                   <small>
-                    La documentación presentada cumple con los requisitos.
+                    La recepción registra también el cumplimiento,
+                    sin otra verificación.
                   </small>
                 </span>
               </label>
@@ -1947,18 +1682,14 @@
               <label>
                 <input
                   type="radio"
-                  name="resultadoRevision"
+                  name="resultadoRevisionFisica"
                   value="correccion"
                   [(ngModel)]="revisionResultado"
                 />
-
                 <span>
-                  <strong>
-                    Requiere corrección
-                  </strong>
-
+                  <strong>Registrar observación</strong>
                   <small>
-                    Se registrará una observación general para el trámite.
+                    Solicita una corrección sin registrar recepción.
                   </small>
                 </span>
               </label>
@@ -1966,39 +1697,13 @@
 
             @if (revisionResultado === 'correccion') {
               <label>
-                Observación general
-
-                <span class="modal-required">
-                  *
-                </span>
-
+                Corrección requerida
+                <span class="modal-required">*</span>
                 <textarea
                   maxlength="1000"
-                  placeholder="Indica de forma clara qué debe corregirse o completarse..."
                   [(ngModel)]="revisionObservacion"
+                  placeholder="Describe qué debe corregirse..."
                 ></textarea>
-
-                <small class="modal-character-count">
-                  {{ revisionObservacion.length }}/1000
-                </small>
-              </label>
-            } @else {
-              <label>
-                Observación general
-
-                <small>
-                  (opcional)
-                </small>
-
-                <textarea
-                  maxlength="1000"
-                  placeholder="Comentario adicional sobre la revisión..."
-                  [(ngModel)]="revisionObservacion"
-                ></textarea>
-
-                <small class="modal-character-count">
-                  {{ revisionObservacion.length }}/1000
-                </small>
               </label>
             }
           </fieldset>
@@ -2018,6 +1723,7 @@
               class="modal-action modal-action--primary"
               [disabled]="
                 ocupado() ||
+                cantidadDocumentosMarcados() === 0 ||
                 (
                   revisionResultado === 'correccion' &&
                   !revisionObservacion.trim()
@@ -2025,82 +1731,359 @@
               "
               (click)="guardarRevisionDocumentacion()"
             >
-              @if (ocupado()) {
-                Guardando…
-              } @else {
-                Guardar revisión
-              }
+              {{
+                revisionResultado === 'correccion'
+                  ? 'Registrar observación'
+                  : 'Registrar recepción de ' + cantidadDocumentosMarcados()
+              }}
             </button>
           </div>
         </div>
       }
 
-      @if (modal === 'observacion') {
-        <div class="operation-modal">
+
+      @if (modal === 'confirmar_administrativos') {
+        <div class="operation-modal admin-v2-review-modal">
           <header class="operation-modal__heading">
-            <div
-              class="operation-modal__icon operation-modal__icon--blue"
-            >
-              <ng-icon name="heroChatBubbleLeftRight" />
+            <div class="operation-modal__icon operation-modal__icon--blue">
+              <app-gestion-icon tipo="detalle" />
             </div>
 
             <div>
-              <h2>
-                Registrar observación
-              </h2>
-
+              <h2>Confirmación de requisitos administrativos</h2>
               <p>
-                Registra una observación general asociada al trámite.
+                Selecciona únicamente los requisitos cuya aprobación
+                institucional has comprobado.
               </p>
             </div>
           </header>
 
-          @if (error()) {
-            <p
-              class="modal-inline-error"
-              role="alert"
-            >
-              {{ error() }}
+          <section class="admin-v2-review-documents">
+            <strong>Requisitos pendientes</strong>
+
+            <p>
+              {{ administrativosMarcados().length }} de
+              {{ requisitosAdministrativosPendientes().length }}
+              seleccionados.
             </p>
+
+            <div>
+              @for (
+                r of requisitosAdministrativosPendientes();
+                track r.id_solicitud_requisito
+              ) {
+                <label
+                  style="display:flex;align-items:flex-start;gap:12px;width:100%;padding:9px 0;cursor:pointer"
+                >
+                  <input
+                    type="checkbox"
+                    [name]="'admin-requisito-' + r.id_solicitud_requisito"
+                    [(ngModel)]="administrativosSeleccionados[r.id_solicitud_requisito]"
+                    [disabled]="ocupado()"
+                    style="flex:none;margin-top:4px"
+                  />
+
+                  <span
+                    style="display:flex;flex-direction:column;gap:3px;min-width:0"
+                  >
+                    <strong>{{ r.nombre }}</strong>
+
+                    @if (r.descripcion) {
+                      <small>{{ r.descripcion }}</small>
+                    }
+
+                    <small>
+                      {{ r.obligatorio ? 'Obligatorio' : 'Opcional' }}
+                      · {{ estadoRequisitoTexto(r) }}
+                    </small>
+                  </span>
+                </label>
+              } @empty {
+                <p>No quedan requisitos administrativos pendientes.</p>
+              }
+            </div>
+
+            @if (requisitosAdministrativosPendientes().length > 1) {
+              <div
+                style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"
+              >
+                <button
+                  type="button"
+                  class="modal-action modal-action--secondary"
+                  [disabled]="ocupado()"
+                  (click)="seleccionarTodosAdministrativos(true)"
+                >
+                  Seleccionar todos
+                </button>
+
+                <button
+                  type="button"
+                  class="modal-action modal-action--secondary"
+                  [disabled]="ocupado()"
+                  (click)="seleccionarTodosAdministrativos(false)"
+                >
+                  Limpiar selección
+                </button>
+              </div>
+            }
+          </section>
+
+          <fieldset class="operation-modal__form" [disabled]="ocupado()">
+            <label>
+              Detalle de confirmación
+              <small>(opcional)</small>
+
+              <textarea
+                maxlength="2000"
+                [(ngModel)]="detalleConfirmacionAdministrativa"
+                placeholder="Ej. Aprobación comprobada en los registros de la universidad"
+              ></textarea>
+            </label>
+          </fieldset>
+
+          <div class="operation-modal__actions">
+            <button
+              type="button"
+              class="modal-action modal-action--secondary"
+              [disabled]="ocupado()"
+              (click)="cerrarModal()"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              class="modal-action modal-action--primary"
+              [disabled]="ocupado() || administrativosMarcados().length === 0"
+              (click)="guardarConfirmacionAdministrativa()"
+            >
+              Confirmar {{ administrativosMarcados().length }} requisito(s)
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (modal === 'verificar_requisito') {
+        <div class="operation-modal">
+          <header class="operation-modal__heading">
+            <div class="operation-modal__icon operation-modal__icon--blue">
+              <app-gestion-icon tipo="detalle" />
+            </div>
+
+            <div>
+              <h2>Verificar requisito</h2>
+              <p>
+                {{ requisitoSeleccionado?.nombre || 'Requisito' }}
+              </p>
+            </div>
+          </header>
+
+          @if (requisitoSeleccionado; as r) {
+            <div class="operation-result-summary">
+              <div>
+                <span>Requisito</span>
+                <strong>{{ r.nombre }}</strong>
+              </div>
+
+              <div>
+                <span>Obligatoriedad</span>
+                <strong>
+                  {{
+                    r.obligatorio
+                      ? 'Obligatorio'
+                      : 'Opcional'
+                  }}
+                </strong>
+              </div>
+
+              <div>
+                <span>Estado actual</span>
+                <strong>{{ estadoRequisitoTexto(r) }}</strong>
+              </div>
+            </div>
+
+            @if (
+              r.requiere_presentacion_fisica &&
+              !r.presentado
+            ) {
+              <div class="operation-modal__info">
+                Este requisito necesita recepción física
+                antes de marcarse como conforme.
+              </div>
+            }
+
+            <fieldset class="operation-modal__form" [disabled]="ocupado()">
+              <label>
+                Resultado de la verificación
+                <span class="modal-required">*</span>
+                <select [(ngModel)]="estadoRequisito">
+                  <option value="cumple">Cumple</option>
+                  <option value="no_cumple">No cumple</option>
+                </select>
+              </label>
+
+              <label>
+                Detalle de la verificación
+                @if (estadoRequisito === 'no_cumple') {
+                  <span class="modal-required">*</span>
+                }
+
+                <textarea
+                  maxlength="2000"
+                  [(ngModel)]="detalleVerificacion"
+                  placeholder="Registra los detalles de la revisión..."
+                ></textarea>
+              </label>
+            </fieldset>
+
+            <div class="operation-modal__actions">
+              <button
+                type="button"
+                class="modal-action modal-action--secondary"
+                [disabled]="ocupado()"
+                (click)="cerrarModal()"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                class="modal-action modal-action--primary"
+                [disabled]="
+                  ocupado() ||
+                  (
+                    estadoRequisito === 'cumple' &&
+                    r.requiere_presentacion_fisica &&
+                    !r.presentado
+                  ) ||
+                  (
+                    estadoRequisito === 'no_cumple' &&
+                    !detalleVerificacion.trim()
+                  )
+                "
+                (click)="guardarVerificacionIndividual()"
+              >
+                Guardar verificación
+              </button>
+            </div>
           }
+        </div>
+      }
+
+      @if (modal === 'observacion') {
+        <div class="operation-modal ucb-observation-form">
+          <header class="operation-modal__heading">
+            <div class="operation-modal__icon operation-modal__icon--blue">
+              <ng-icon name="heroChatBubbleLeftRight" />
+            </div>
+
+            <div>
+              <h2>Registrar observación</h2>
+              <p>
+                Indica el problema identificado y lo que debe
+                corregir el solicitante.
+              </p>
+            </div>
+          </header>
 
           <fieldset
+            class="operation-modal__form ucb-observation-form__fields"
             [disabled]="ocupado()"
-            class="operation-modal__form"
           >
-            <label>
-              Detalle
+            <label class="ucb-observation-form__field">
+              <span class="ucb-observation-form__label">
+                Observación
+                <span class="modal-required">*</span>
+              </span>
 
               <textarea
+                rows="2"
                 maxlength="3000"
-                placeholder="Describe la observación..."
                 [(ngModel)]="observacion.detalle"
+                placeholder="Describe el problema encontrado en la solicitud"
               ></textarea>
-            </label>
-
-            <label>
-              Qué corregir o completar
-
-              <textarea
-                maxlength="3000"
-                placeholder="Indica la corrección requerida..."
-                [(ngModel)]="observacion.correccion_requerida"
-              ></textarea>
-            </label>
-
-            <label>
-              Canal de subsanación
 
               <small>
-                (opcional)
+                Describe qué se encontró durante la revisión.
               </small>
-
-              <input
-                maxlength="1000"
-                placeholder="Ej.: presentación física en Kardex"
-                [(ngModel)]="observacion.canal_subsanacion"
-              />
             </label>
+
+            <label class="ucb-observation-form__field">
+              <span class="ucb-observation-form__label">
+                Corrección requerida
+                <span class="modal-required">*</span>
+              </span>
+
+              <textarea
+                rows="2"
+                maxlength="3000"
+                [(ngModel)]="observacion.correccion_requerida"
+                placeholder="Indica qué debe presentar o corregir el estudiante"
+              ></textarea>
+
+              <small>
+                Explica la acción concreta necesaria para subsanar.
+              </small>
+            </label>
+
+            <div class="ucb-observation-form__field">
+              <label for="ucb-canal-subsanacion">
+                <span class="ucb-observation-form__label">
+                  Unidad o canal de subsanación
+                  <small>(opcional)</small>
+                </span>
+              </label>
+
+              <select
+                id="ucb-canal-subsanacion"
+                name="ucbCanalSubsanacion"
+                [ngModel]="canalSubsanacionSeleccionado"
+                (ngModelChange)="seleccionarCanalSubsanacion($event)"
+                [disabled]="ocupado() || cargandoUnidadesSubsanacion()"
+              >
+                <option value="">No especificar</option>
+
+                @for (
+                  unidad of unidadesSubsanacion();
+                  track unidad.id_unidad
+                ) {
+                  <option [value]="unidad.nombre">
+                    {{ unidad.nombre }}
+                  </option>
+                }
+
+                <option value="__otra__">
+                  Otra unidad o canal (escribir)
+                </option>
+              </select>
+
+              @if (cargandoUnidadesSubsanacion()) {
+                <small>Cargando unidades disponibles...</small>
+              } @else if (errorUnidadesSubsanacion()) {
+                <small class="ucb-observation-form__notice">
+                  {{ errorUnidadesSubsanacion() }}
+                </small>
+              }
+
+              @if (canalSubsanacionSeleccionado === '__otra__') {
+                <label
+                  class="ucb-observation-form__custom"
+                  for="ucb-canal-personalizado"
+                >
+                  Nombre de la unidad o canal
+
+                  <input
+                    id="ucb-canal-personalizado"
+                    name="ucbCanalPersonalizado"
+                    type="text"
+                    maxlength="1000"
+                    [(ngModel)]="canalSubsanacionPersonalizado"
+                    [disabled]="ocupado()"
+                    placeholder="Escribe la unidad o el canal de atención"
+                  />
+                </label>
+              }
+            </div>
           </fieldset>
 
           <div class="operation-modal__actions">
@@ -2119,7 +2102,11 @@
               [disabled]="
                 ocupado() ||
                 !observacion.detalle.trim() ||
-                !observacion.correccion_requerida.trim()
+                !observacion.correccion_requerida.trim() ||
+                (
+                  canalSubsanacionSeleccionado === '__otra__' &&
+                  !canalSubsanacionPersonalizado.trim()
+                )
               "
               (click)="crearObservacion()"
             >
@@ -2129,96 +2116,385 @@
         </div>
       }
 
-      @if (modal === 'resultado') {
-        <div class="operation-modal operation-modal--result">
+      @if (modal === 'resolucion') {
+        <div class="operation-modal">
           <header class="operation-modal__heading">
-            <div
-              class="operation-modal__icon operation-modal__icon--blue"
-            >
-              <app-gestion-icon tipo="proceso" />
+            <div class="operation-modal__icon operation-modal__icon--blue">
+              <app-gestion-icon tipo="documento" />
             </div>
 
             <div>
-              <h2>
-                Finalizar trámite
-              </h2>
-
+              <h2>Confirmar resolución emitida</h2>
               <p>
-                Confirma que el proceso administrativo ha concluido correctamente.
+                Registra una resolución institucional ya emitida.
               </p>
             </div>
           </header>
 
-          @if (error()) {
-            <p
-              class="modal-inline-error"
-              role="alert"
+          <div class="operation-modal__info">
+            Esta acción no genera la resolución ni la firma.
+            Registra su emisión institucional.
+          </div>
+
+          <label class="operation-modal__check">
+            <input
+              type="checkbox"
+              [(ngModel)]="confirmado"
+              [disabled]="ocupado()"
+            />
+            <span>
+              Confirmo que la resolución ya fue emitida.
+            </span>
+          </label>
+
+          <div class="operation-modal__actions">
+            <button
+              type="button"
+              class="modal-action modal-action--secondary"
+              [disabled]="ocupado()"
+              (click)="cerrarModal()"
             >
-              {{ error() }}
-            </p>
-          }
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              class="modal-action modal-action--primary"
+              [disabled]="
+                ocupado() ||
+                !confirmado ||
+                !puedeEmitirResolucion()
+              "
+              (click)="emitirResolucion()"
+            >
+              Registrar emisión
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (modal === 'convocatoria') {
+        <div class="operation-modal">
+          <header class="operation-modal__heading">
+            <div class="operation-modal__icon operation-modal__icon--blue">
+              <app-gestion-icon tipo="proceso" />
+            </div>
+
+            <div>
+              <h2>Convocatoria presencial</h2>
+              <p>
+                {{
+                  s.tipo_intervencion === 'firma'
+                    ? 'Convoca al estudiante para firmar la resolución.'
+                    : 'Convoca al estudiante para confirmar su conformidad.'
+                }}
+              </p>
+            </div>
+          </header>
+
+          <div class="operation-modal__info">
+            El sistema registra la convocatoria
+            y solicita el envío de correo mediante Brevo.
+          </div>
+
+          <label class="operation-modal__check">
+            <input
+              type="checkbox"
+              [(ngModel)]="confirmado"
+              [disabled]="ocupado()"
+            />
+            <span>
+              Confirmo que corresponde realizar esta convocatoria.
+            </span>
+          </label>
+
+          <div class="operation-modal__actions">
+            <button
+              type="button"
+              class="modal-action modal-action--secondary"
+              [disabled]="ocupado()"
+              (click)="cerrarModal()"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              class="modal-action modal-action--primary"
+              [disabled]="
+                ocupado() ||
+                !confirmado ||
+                !puedeConvocar()
+              "
+              (click)="convocarIntervencion()"
+            >
+              Registrar y enviar convocatoria
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (modal === 'intervencion') {
+        <div class="operation-modal operation-modal--intervencion">
+          <header class="operation-modal__heading">
+            <div class="operation-modal__icon operation-modal__icon--blue">
+              <app-gestion-icon tipo="proceso" />
+            </div>
+
+            <div>
+              <h2>Registrar intervención presencial</h2>
+              <p>Registra el resultado de la atención al estudiante.</p>
+            </div>
+          </header>
+
+          <div class="operation-modal__info intervencion-convocatoria">
+            <span>Convocatoria</span>
+            <strong>
+              #{{ ultimaIntervencion()?.id_intervencion || '—' }}
+            </strong>
+          </div>
+
+          <fieldset
+            class="operation-modal__form intervencion-form"
+            [disabled]="ocupado()"
+          >
+            <div class="intervencion-field">
+              <label for="intervencion-fecha">
+                Fecha de revisión <span class="modal-required">*</span>
+              </label>
+
+              <input
+                id="intervencion-fecha"
+                type="date"
+                name="fechaRevision"
+                [(ngModel)]="fechaRevision"
+              />
+            </div>
+
+            <div class="intervencion-field">
+              <span class="intervencion-field__title">
+                Resultado de la intervención
+              </span>
+
+              <div
+                class="intervencion-options"
+                role="group"
+                aria-label="Resultado de la intervención"
+              >
+                @if (s.tipo_intervencion === 'firma') {
+                  <label
+                    class="intervencion-choice"
+                    [class.intervencion-choice--selected]="
+                      resultadoIntervencion === 'firmada'
+                    "
+                  >
+                    <input
+                      type="radio"
+                      name="resultadoIntervencion"
+                      value="firmada"
+                      [(ngModel)]="resultadoIntervencion"
+                    />
+                    <span class="intervencion-choice__indicator"></span>
+                    <span class="intervencion-choice__content">
+                      <strong>Firma presencial registrada</strong>
+                      <small>
+                        Se deja constancia de la firma del estudiante.
+                      </small>
+                    </span>
+                  </label>
+                } @else {
+                  <label
+                    class="intervencion-choice"
+                    [class.intervencion-choice--selected]="
+                      resultadoIntervencion === 'conforme'
+                    "
+                  >
+                    <input
+                      type="radio"
+                      name="resultadoIntervencion"
+                      value="conforme"
+                      [(ngModel)]="resultadoIntervencion"
+                    />
+                    <span class="intervencion-choice__indicator"></span>
+                    <span class="intervencion-choice__content">
+                      <strong>El estudiante está conforme</strong>
+                      <small>Registrar su conformidad con la revisión.</small>
+                    </span>
+                  </label>
+
+                  <label
+                    class="intervencion-choice"
+                    [class.intervencion-choice--selected]="
+                      resultadoIntervencion === 'no_conforme'
+                    "
+                  >
+                    <input
+                      type="radio"
+                      name="resultadoIntervencion"
+                      value="no_conforme"
+                      [(ngModel)]="resultadoIntervencion"
+                    />
+                    <span class="intervencion-choice__indicator"></span>
+                    <span class="intervencion-choice__content">
+                      <strong>El estudiante no está conforme</strong>
+                      <small>Registrar los motivos del desacuerdo.</small>
+                    </span>
+                  </label>
+                }
+              </div>
+            </div>
+
+            @if (resultadoIntervencion === 'no_conforme') {
+              <div class="intervencion-field">
+                <label for="intervencion-motivo">
+                  Motivo de desacuerdo
+                  <span class="modal-required">*</span>
+                </label>
+                <textarea
+                  id="intervencion-motivo"
+                  name="motivoDesacuerdo"
+                  maxlength="3000"
+                  rows="3"
+                  [(ngModel)]="motivoDesacuerdo"
+                  placeholder="Describe los motivos del desacuerdo..."
+                ></textarea>
+              </div>
+            }
+          </fieldset>
+
+          <div class="operation-modal__actions">
+            <button
+              type="button"
+              class="modal-action modal-action--secondary"
+              [disabled]="ocupado()"
+              (click)="cerrarModal()"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              class="modal-action modal-action--primary"
+              [disabled]="
+                ocupado() ||
+                !fechaRevision ||
+                !puedeRegistrarIntervencion() ||
+                (
+                  resultadoIntervencion === 'no_conforme' &&
+                  !motivoDesacuerdo.trim()
+                )
+              "
+              (click)="registrarIntervencion()"
+            >
+              Guardar intervención
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (modal === 'reenviar') {
+        <div class="operation-modal">
+          <header class="operation-modal__heading">
+            <div class="operation-modal__icon operation-modal__icon--blue">
+              <ng-icon name="heroChatBubbleLeftRight" />
+            </div>
+
+            <div>
+              <h2>Reintentar notificación</h2>
+              <p>
+                Se intentará enviar nuevamente el correo institucional.
+              </p>
+            </div>
+          </header>
+
+          <label class="operation-modal__check">
+            <input
+              type="checkbox"
+              [(ngModel)]="confirmado"
+              [disabled]="ocupado()"
+            />
+            <span>
+              Confirmo que deseo reintentar el envío.
+            </span>
+          </label>
+
+          <div class="operation-modal__actions">
+            <button
+              type="button"
+              class="modal-action modal-action--secondary"
+              [disabled]="ocupado()"
+              (click)="cerrarModal()"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              class="modal-action modal-action--primary"
+              [disabled]="ocupado() || !confirmado"
+              (click)="reenviarNotificacion()"
+            >
+              Reintentar envío
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (modal === 'resultado') {
+        <div class="operation-modal operation-modal--result">
+          <header class="operation-modal__heading">
+            <div class="operation-modal__icon operation-modal__icon--blue">
+              <app-gestion-icon tipo="proceso" />
+            </div>
+
+            <div>
+              <h2>Registrar resultado final</h2>
+              <p>
+                Completa el cierre administrativo del trámite.
+              </p>
+            </div>
+          </header>
 
           <div class="operation-result-summary">
             <div>
-              <span>
-                Número de solicitud
-              </span>
-
+              <span>Solicitud</span>
               <strong>
                 {{ formatearNumeroSolicitud(s.id_solicitud) }}
               </strong>
             </div>
 
             <div>
-              <span>
-                Trámite
-              </span>
-
-              <strong>
-                {{ nombreTramite(s) }}
-              </strong>
+              <span>Trámite</span>
+              <strong>{{ nombreTramite(s) }}</strong>
             </div>
 
             <div>
-              <span>
-                Estado actual
-              </span>
-
-              <strong>
-                {{ etiqueta(s.estado) }}
-              </strong>
+              <span>Estado</span>
+              <strong>{{ etiqueta(s.estado) }}</strong>
             </div>
           </div>
 
-          <fieldset
-            [disabled]="ocupado()"
-            class="operation-modal__form"
-          >
+          <fieldset class="operation-modal__form" [disabled]="ocupado()">
             @if (s.tipo_finalizacion) {
               <div class="operation-modal__info">
-                Modalidad configurada:
-
+                Modalidad:
                 <strong>
-                  {{ etiqueta(s.tipo_finalizacion) }}
+                  {{ etiquetaFinalizacion(s.tipo_finalizacion) }}
                 </strong>
               </div>
             } @else {
               <label>
                 Modalidad de finalización
+                <span class="modal-required">*</span>
 
                 <select [(ngModel)]="tipoFinalizacion">
-                  <option value="">
-                    Selecciona
-                  </option>
-
+                  <option value="">Seleccionar...</option>
                   <option value="entrega">
                     Entrega o recojo
                   </option>
-
                   <option value="resultado_registrado">
                     Resultado registrado
                   </option>
-
                   <option value="externo">
                     Proceso externo
                   </option>
@@ -2227,16 +2503,10 @@
             }
 
             <div class="operation-modal__result-state">
-              <span>
-                Estado resultante
-              </span>
-
+              <span>Estado resultante</span>
               <strong>
                 {{
-                  (
-                    s.tipo_finalizacion ||
-                    tipoFinalizacion
-                  ) === 'entrega'
+                  (s.tipo_finalizacion || tipoFinalizacion) === 'entrega'
                     ? 'Lista para entrega'
                     : 'Finalizada'
                 }}
@@ -2245,15 +2515,11 @@
 
             <label>
               Detalle del resultado
-
-              <small>
-                (opcional)
-              </small>
-
+              <small>(opcional)</small>
               <textarea
                 maxlength="3000"
-                placeholder="Agrega una observación final si corresponde..."
                 [(ngModel)]="detalleResultado"
+                placeholder="Describe el resultado..."
               ></textarea>
             </label>
 
@@ -2262,9 +2528,10 @@
                 type="checkbox"
                 [(ngModel)]="confirmado"
               />
-
               <span>
-                Confirmo que el proceso correspondiente ha concluido.
+                Confirmo que los requisitos obligatorios,
+                observaciones e intervenciones correspondientes
+                han sido completados.
               </span>
             </label>
           </fieldset>
@@ -2286,145 +2553,17 @@
                 ocupado() ||
                 !confirmado ||
                 !resultadoDisponible() ||
-                (
-                  !s.tipo_finalizacion &&
-                  !tipoFinalizacion
-                )
+                (!s.tipo_finalizacion && !tipoFinalizacion)
               "
               (click)="finalizar()"
             >
-              Confirmar finalización
+              Registrar resultado
             </button>
           </div>
         </div>
       }
 
-      @if (modal === 'entrega') {
-        <div class="operation-modal">
-          <header class="operation-modal__heading">
-            <div
-              class="operation-modal__icon operation-modal__icon--blue"
-            >
-              <app-gestion-icon tipo="documento" />
-            </div>
 
-            <div>
-              <h2>
-                Registrar entrega o recojo
-              </h2>
-
-              <p>
-                Registra quién recibe el resultado físico del trámite.
-              </p>
-            </div>
-          </header>
-
-          @if (error()) {
-            <p
-              class="modal-inline-error"
-              role="alert"
-            >
-              {{ error() }}
-            </p>
-          }
-
-          <div class="operation-modal__info">
-            La fecha de entrega se registra automáticamente
-            al confirmar la operación.
-          </div>
-
-          <fieldset
-            [disabled]="ocupado()"
-            class="operation-modal__form"
-          >
-            <label>
-              Persona que recibe
-
-              <select [(ngModel)]="receptor">
-                <option value="titular">
-                  Titular
-                </option>
-
-                <option value="tercero">
-                  Tercera persona
-                </option>
-              </select>
-            </label>
-
-            <div class="operation-modal__two-columns">
-              <label>
-                Nombre de quien recibe
-
-                <small>
-                  {{
-                    receptor === 'tercero'
-                      ? '(obligatorio)'
-                      : '(opcional)'
-                  }}
-                </small>
-
-                <input
-                  maxlength="200"
-                  [(ngModel)]="nombreReceptor"
-                />
-              </label>
-
-              <label>
-                Documento de identidad
-
-                <small>
-                  (opcional)
-                </small>
-
-                <input
-                  maxlength="50"
-                  [(ngModel)]="documento"
-                />
-              </label>
-            </div>
-
-            <label>
-              Observación
-
-              <small>
-                (opcional)
-              </small>
-
-              <textarea
-                maxlength="2000"
-                placeholder="Agrega una observación sobre la entrega o recojo..."
-                [(ngModel)]="detalleEntrega"
-              ></textarea>
-            </label>
-          </fieldset>
-
-          <div class="operation-modal__actions">
-            <button
-              type="button"
-              class="modal-action modal-action--secondary"
-              [disabled]="ocupado()"
-              (click)="cerrarModal()"
-            >
-              Cancelar
-            </button>
-
-            <button
-              type="button"
-              class="modal-action modal-action--primary"
-              [disabled]="
-                ocupado() ||
-                (
-                  receptor === 'tercero' &&
-                  nombreReceptor.trim().length < 2
-                )
-              "
-              (click)="entregar()"
-            >
-              Registrar entrega
-            </button>
-          </div>
-        </div>
-      }
     </app-gestion-modal>
   }
 }

@@ -99,7 +99,13 @@ def listar_solicitudes_administrativas(
             )
         )
 
-    if estado is not None:
+    if estado == "finalizada":
+        filtros.append(
+            Solicitud.estado.in_(
+                ("finalizada", "lista_para_entrega")
+            )
+        )
+    elif estado is not None:
         filtros.append(
             Solicitud.estado == estado
         )

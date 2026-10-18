@@ -367,46 +367,12 @@
                     <h3>Información académica</h3>
 
                     <p>
-                      Selecciona el área y la carrera a la que perteneces.
+                      Selecciona tu carrera o programa e ingresa tu documento de identidad.
                     </p>
                   </div>
                 </div>
 
                 <div class="academic-fields">
-                  <fieldset class="academic-area-group">
-                    <legend>
-                      Área académica
-                      <strong>*</strong>
-                    </legend>
-
-                    <div class="academic-area-grid">
-                      @for (grupo of carreras; track grupo.grupo) {
-                        <label
-                          class="academic-area-option"
-                          [class.academic-area-option--selected]="
-                            areaAcademica === grupo.grupo
-                          "
-                        >
-                          <input
-                            type="radio"
-                            name="area-academica"
-                            [value]="grupo.grupo"
-                            [ngModel]="areaAcademica"
-                            (ngModelChange)="seleccionarArea($event)"
-                          />
-
-                          <span class="academic-area-option__mark">
-                            <span></span>
-                          </span>
-
-                          <span class="academic-area-option__text">
-                            {{ grupo.nombreCorto }}
-                          </span>
-                        </label>
-                      }
-                    </div>
-                  </fieldset>
-
                   <div class="academic-data-grid">
                     <!-- CARRERA -->
 
@@ -418,23 +384,15 @@
 
                       <div
                         class="select-shell"
-                        [class.select-shell--disabled]="!areaAcademica"
                       >
                         <select
                           [(ngModel)]="perfil['carrera_programa']"
                           (ngModelChange)="cambiar()"
-                          [disabled]="!areaAcademica"
                         >
-                          <option value="">
-                            {{
-                              areaAcademica
-                                ? 'Selecciona tu carrera'
-                                : 'Selecciona primero un área'
-                            }}
-                          </option>
+                          <option value="">Selecciona tu carrera</option>
 
                           @for (
-                            carrera of carrerasDelArea();
+                            carrera of carrerasDisponibles;
                             track carrera.valor
                           ) {
                             <option [value]="carrera.valor">
@@ -858,7 +816,7 @@
                       <strong>Información académica</strong>
 
                       <span>
-                        Área, carrera y documento de identidad.
+                        Carrera o programa y documento de identidad.
                       </span>
                     </div>
                   </div>

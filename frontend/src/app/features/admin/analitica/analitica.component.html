@@ -1,0 +1,436 @@
+
+<section class="analytics-page">
+
+  <!-- ENCABEZADO -->
+  <header class="analytics-header">
+    <div class="analytics-header__content">
+      <h1>Analítica e indicadores</h1>
+      <p>
+        Consulta la actividad de los trámites académicos
+        y del módulo informativo.
+      </p>
+    </div>
+  </header>
+
+  <!-- FILTROS -->
+  <form
+    class="analytics-filters"
+    (ngSubmit)="actualizar()"
+    aria-label="Filtros de analítica"
+  >
+    <div class="filter-control filter-period">
+      <select
+        name="periodo"
+        [(ngModel)]="periodo"
+        [disabled]="cargando()"
+        aria-label="Período de análisis"
+      >
+        <option value="30_dias">Últimos 30 días</option>
+        <option value="90_dias">Últimos 90 días</option>
+        <option value="12_meses">Últimos 12 meses</option>
+      </select>
+      <svg viewBox="0 0 24 24"
+        fill="none" stroke="currentColor"
+        stroke-width="2" aria-hidden="true">
+        <path d="m6 9 6 6 6-6"/>
+      </svg>
+    </div>
+
+    <div class="filter-control filter-tramite">
+      <select
+        name="tramite"
+        [(ngModel)]="idTramite"
+        [disabled]="cargando()"
+        aria-label="Filtrar estadísticas de solicitudes por trámite"
+        title="Este filtro no afecta las consultas RAG"
+      >
+        <option [ngValue]="null">
+          Todos los trámites
+        </option>
+
+        @for (tramite of tramites(); track tramite.id_tramite) {
+          <option [ngValue]="tramite.id_tramite">
+            {{ tramite.nombre }}
+          </option>
+        }
+      </select>
+      <svg viewBox="0 0 24 24"
+        fill="none" stroke="currentColor"
+        stroke-width="2" aria-hidden="true">
+        <path d="m6 9 6 6 6-6"/>
+      </svg>
+    </div>
+
+    <button
+      class="filter-button"
+      type="submit"
+      [disabled]="cargando()"
+    >
+      {{ cargando() ? 'Consultando...' : 'Consultar' }}
+    </button>
+  </form>
+
+  <!-- CONTENIDO -->
+  <div class="analytics-body">
+
+    @if (error()) {
+      <div class="analytics-error" role="alert">
+        <span>{{ error() }}</span>
+        <button type="button" (click)="actualizar()">
+          Reintentar
+        </button>
+      </div>
+    }
+
+    @if (cargando() && !datos()) {
+      <div class="analytics-loading" role="status">
+        <span class="loading-spinner"></span>
+        Cargando indicadores...
+      </div>
+    }
+
+    @if (datos(); as d) {
+
+      <div class="analytics-context">
+        <span>
+          {{ d.desde | date:'dd/MM/yyyy':'-0400' }}
+          –
+          {{ d.hasta | date:'dd/MM/yyyy':'-0400' }}
+        </span>
+
+        <span class="context-separator">·</span>
+
+        <span class="context-tramite">
+          {{ nombreAmbito(d) }}
+        </span>
+
+        @if (cargando()) {
+          <span class="context-updating">
+            Actualizando...
+          </span>
+        }
+      </div>
+
+      <!-- INDICADORES -->
+      <dl class="indicator-grid">
+
+        <div class="indicator-card">
+          <dt>Solicitudes recibidas</dt>
+          <dd>
+            {{ d.indicadores.solicitudes_recibidas | number:'1.0-0' }}
+          </dd>
+          <small>Registros creados en el período</small>
+        </div>
+
+        <div class="indicator-card">
+          <dt>Solicitudes concluidas</dt>
+          <dd>
+            @if (d.indicadores.solicitudes_concluidas !== null) {
+              {{ d.indicadores.solicitudes_concluidas | number:'1.0-0' }}
+            } @else {
+              <span class="unavailable">—</span>
+            }
+          </dd>
+          <small>
+            {{
+              d.indicadores.solicitudes_concluidas === null
+                ? 'Dato no disponible'
+                : 'Finalizadas en el período'
+            }}
+          </small>
+        </div>
+
+        <div class="indicator-card">
+          <dt>Tiempo mediano de atención</dt>
+          <dd>
+            @if (d.indicadores.tiempo_mediano_dias !== null) {
+              {{ d.indicadores.tiempo_mediano_dias | number:'1.0-1' }}
+              <span class="indicator-unit">días</span>
+            } @else {
+              <span class="unavailable">—</span>
+            }
+          </dd>
+          <small>
+            {{
+              d.indicadores.tiempo_mediano_dias === null
+                ? 'Dato no disponible'
+                : 'Duración de solicitudes concluidas'
+            }}
+          </small>
+        </div>
+
+        <div class="indicator-card indicator-card--rag">
+          <dt>Consultas al módulo informativo</dt>
+          <dd>
+            {{ d.indicadores.consultas_rag | number:'1.0-0' }}
+          </dd>
+          <small>Preguntas registradas en el período</small>
+        </div>
+
+      </dl>
+
+      <!-- GRÁFICOS -->
+      <div class="analytics-charts">
+
+        <!-- SOLICITUDES -->
+        <section
+          class="analytics-panel requests-panel"
+          aria-labelledby="requests-title"
+        >
+          <div class="panel-heading">
+            <div>
+              <h2 id="requests-title">
+                Evolución de solicitudes
+              </h2>
+              <p>Actividad por {{ d.agrupacion }}</p>
+            </div>
+
+            <div class="chart-legend">
+              <span>
+                <i class="legend-dot legend-dot--blue"></i>
+                Recibidas
+              </span>
+              <span>
+                <i class="legend-dot legend-dot--green"></i>
+                Concluidas
+              </span>
+            </div>
+          </div>
+
+          @if (haySolicitudes(d)) {
+            <div class="requests-graphic" tabindex="0" role="region" aria-label="Gráfico de solicitudes con desplazamiento horizontal">
+              <svg
+                viewBox="0 0 800 203"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Solicitudes recibidas y concluidas por período"
+              >
+                @for (linea of [0, 1, 2, 3]; track linea) {
+                  <line
+                    class="chart-gridline"
+                    x1="45"
+                    [attr.y1]="15 + linea * 49"
+                    x2="755"
+                    [attr.y2]="15 + linea * 49"
+                  />
+                  <text
+                    class="chart-axis"
+                    x="36"
+                    [attr.y]="19 + linea * 49"
+                    text-anchor="end"
+                  >
+                    {{
+                      maximoSolicitudes() * (3 - linea) / 3
+                        | number:'1.0-0'
+                    }}
+                  </text>
+                }
+
+                @for (tramo of lineasSolicitudes('recibidas'); track $index) {
+                  <polyline
+                    class="chart-line chart-line--blue"
+                    [attr.points]="tramo"
+                  />
+                }
+
+                @for (tramo of lineasSolicitudes('concluidas'); track $index) {
+                  <polyline
+                    class="chart-line chart-line--green"
+                    [attr.points]="tramo"
+                  />
+                }
+
+                @for (
+                  punto of d.evolucion_solicitudes;
+                  track punto.periodo;
+                  let i = $index
+                ) {
+                  @if (mostrarEtiqueta(i, d.evolucion_solicitudes.length)) {
+                    <text
+                      class="chart-axis"
+                      [attr.x]="xPunto(i, d.evolucion_solicitudes.length)"
+                      y="188"
+                      text-anchor="middle"
+                    >
+                      {{ etiquetaPeriodo(punto.periodo) }}
+                    </text>
+                  }
+
+                  @if (punto.recibidas > 0) {
+                    <circle
+                      class="chart-point chart-point--blue"
+                      [attr.cx]="xPunto(i, d.evolucion_solicitudes.length)"
+                      [attr.cy]="yPunto(punto.recibidas, maximoSolicitudes())"
+                      r="4"
+                    >
+                      <title>
+                        {{ etiquetaPeriodo(punto.periodo) }}:
+                        {{ punto.recibidas }} recibidas
+                      </title>
+                    </circle>
+                  }
+
+                  @if (punto.concluidas !== null && punto.concluidas > 0) {
+                    <circle
+                      class="chart-point chart-point--green"
+                      [attr.cx]="xPunto(i, d.evolucion_solicitudes.length)"
+                      [attr.cy]="yPunto(punto.concluidas, maximoSolicitudes())"
+                      r="4"
+                    >
+                      <title>
+                        {{ etiquetaPeriodo(punto.periodo) }}:
+                        {{ punto.concluidas }} concluidas
+                      </title>
+                    </circle>
+                  }
+                }
+              </svg>
+            </div>
+          } @else {
+            <div class="chart-empty">
+              No hay actividad de solicitudes en este período.
+            </div>
+          }
+        </section>
+
+        <!-- TRÁMITES TOP 5 -->
+        <section
+          class="analytics-panel top-panel"
+          aria-labelledby="top-title"
+        >
+          <div class="panel-heading">
+            <div>
+              <h2 id="top-title">
+                Trámites más solicitados
+              </h2>
+              <p>
+                {{
+                  d.filtros.id_tramite === null
+                    ? 'Mayor demanda en el período'
+                    : 'Trámite seleccionado'
+                }}
+              </p>
+            </div>
+          </div>
+
+          <div class="top-items">
+            @for (
+              tramite of d.top_tramites;
+              track tramite.id_tramite
+            ) {
+              <a
+                class="top-item"
+                routerLink="/admin/solicitudes"
+                [queryParams]="{
+                  id_tramite: tramite.id_tramite
+                }"
+                [title]="'Ver solicitudes de ' + tramite.nombre"
+              >
+                <div class="top-item__row">
+                  <span class="top-item__name">
+                    {{ tramite.nombre }}
+                  </span>
+                  <strong>{{ tramite.cantidad }}</strong>
+                </div>
+                <div class="top-item__track">
+                  <span
+                    [style.width.%]="porcentaje(
+                      tramite.cantidad,
+                      maximoTop()
+                    )"
+                  ></span>
+                </div>
+              </a>
+            } @empty {
+              <div class="chart-empty">
+                No hay trámites registrados en este período.
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- CONSULTAS RAG -->
+        <section
+          class="analytics-panel rag-panel"
+          aria-labelledby="rag-title"
+        >
+          <div class="panel-heading">
+            <div>
+              <h2 id="rag-title">
+                Actividad del módulo informativo
+              </h2>
+              <p>
+                Consultas por {{ d.agrupacion }}
+                · independiente del filtro de trámite
+              </p>
+            </div>
+            <span class="rag-label">RAG</span>
+          </div>
+
+          @if (hayConsultasRag(d)) {
+            <div class="rag-bars">
+              @for (
+                punto of d.evolucion_rag;
+                track punto.periodo
+              ) {
+                <div
+                  class="rag-bar-group"
+                  [title]="etiquetaPeriodo(punto.periodo) +
+                    ': ' + punto.consultas + ' consultas'"
+                >
+                  <div class="rag-bar-value">
+                    {{ punto.consultas }}
+                  </div>
+                  <div class="rag-bar-track">
+                    <div
+                      class="rag-bar"
+                      [style.height.%]="porcentaje(
+                        punto.consultas,
+                        maximoRag()
+                      )"
+                    ></div>
+                  </div>
+                  <span class="rag-bar-label">
+                    {{ etiquetaPeriodo(punto.periodo) }}
+                  </span>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="chart-empty">
+              No hay consultas registradas en este período.
+            </div>
+          }
+        </section>
+
+      </div>
+
+      <!-- ALCANCE DE LOS DATOS -->
+      <div class="analytics-notes">
+        <span>
+          Las solicitudes recibidas incluyen borradores.
+          El tiempo se expresa en días transcurridos.
+        </span>
+
+        @if (d.limitaciones.length) {
+          <button
+            type="button"
+            class="notes-button"
+            (click)="mostrarDetalles.set(!mostrarDetalles())"
+            [attr.aria-expanded]="mostrarDetalles()"
+          >
+            {{ mostrarDetalles() ? 'Ocultar detalles' : 'Acerca de los datos' }}
+          </button>
+        }
+      </div>
+
+      @if (mostrarDetalles() && d.limitaciones.length) {
+        <div class="analytics-limitations">
+          @for (limitacion of d.limitaciones; track limitacion) {
+            <p>{{ limitacion }}</p>
+          }
+        </div>
+      }
+    }
+  </div>
+</section>

@@ -1,43 +1,14 @@
+
 from __future__ import annotations
-from app.repositories.gestion_seguimiento import tramite_repository as configuracion_repo
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from app.repositories.gestion_seguimiento import tramite_repository
-from app.services.gestion_seguimiento.configuracion_flujo_service import validar_condicion
 
-from app.repositories.gestion_seguimiento.tramite_repository import (
-    actualizar_campo,
-    actualizar_configuracion_economica,
-    actualizar_etapa,
-    actualizar_requisito,
-    actualizar_tramite,
-    crear_campo,
-    crear_configuracion_economica,
-    crear_etapa,
-    crear_requisito,
-    crear_tramite,
-    listar_catalogo_publicado,
-    listar_tramites,
-    obtener_campo_por_clave,
-    obtener_campo_por_id,
-    obtener_configuracion_economica_por_gestion,
-    obtener_configuracion_economica_por_id,
-    obtener_etapa_final,
-    obtener_etapa_inicial,
-    obtener_etapa_por_id,
-    obtener_etapa_por_orden,
-    obtener_requisito_por_id,
-    obtener_requisito_por_nombre,
-    obtener_tramite_por_id,
-    obtener_tramite_por_id_completo,
-    obtener_tramite_por_nombre,
-)
-from app.repositories.gestion_seguimiento.unidad_repository import (
-    obtener_unidad_por_id,
+from app.repositories.gestion_seguimiento import (
+    tramite_repository as repo,
 )
 from app.schemas.gestion_seguimiento.tramite import (
     ListaCatalogoTramitesResponse,
@@ -57,11 +28,6 @@ from app.schemas.gestion_seguimiento.tramite_campo import (
     TramiteCampoCrearRequest,
     TramiteCampoResponse,
 )
-from app.schemas.gestion_seguimiento.tramite_etapa import (
-    TramiteEtapaActualizarRequest,
-    TramiteEtapaCrearRequest,
-    TramiteEtapaResponse,
-)
 from app.schemas.gestion_seguimiento.tramite_requisito import (
     RequisitoEconomicoActualizarRequest,
     RequisitoEconomicoCrearRequest,
@@ -70,20 +36,14 @@ from app.schemas.gestion_seguimiento.tramite_requisito import (
     TramiteRequisitoCrearRequest,
     TramiteRequisitoResponse,
 )
-from app.services.auth.audit_service import (
-    registrar_accion_simple,
+from app.services.auth.audit_service import registrar_accion_simple
+from app.services.gestion_seguimiento.configuracion_flujo_service import (
+    validar_condicion,
 )
 
 
-# ============================================================
-# EXCEPCIONES
-# ============================================================
-
-
 class TramiteServiceError(Exception):
-    """
-    Error base del catálogo de trámites.
-    """
+    pass
 
 
 class TramiteNoEncontradoError(TramiteServiceError):
@@ -114,15 +74,11 @@ class RequisitoNoPerteneceTramiteError(TramiteServiceError):
     pass
 
 
-class ConfiguracionEconomicaNoEncontradaError(
-    TramiteServiceError
-):
+class ConfiguracionEconomicaNoEncontradaError(TramiteServiceError):
     pass
 
 
-class ConfiguracionEconomicaDuplicadaError(
-    TramiteServiceError
-):
+class ConfiguracionEconomicaDuplicadaError(TramiteServiceError):
     pass
 
 
@@ -138,58 +94,113 @@ class CampoNoPerteneceTramiteError(TramiteServiceError):
     pass
 
 
-class EtapaNoEncontradaError(TramiteServiceError):
-    pass
+CAMPOS_ATENCION = (
+    "tiempo_estimado",
+    "canales_atencion",
+    "instrucciones",
+    "condiciones",
+    "tipo_finalizacion",
+    "tipo_intervencion",
+)
 
 
-class EtapaNoPerteneceTramiteError(TramiteServiceError):
-    pass
-
-
-class EtapaDuplicadaError(TramiteServiceError):
-    pass
-
-
-class UnidadNoEncontradaError(TramiteServiceError):
-    pass
-
-
-class UnidadInactivaError(TramiteServiceError):
-    pass
-
-
-CAMPOS_ATENCION = ('tiempo_estimado', 'canales_atencion', 'instrucciones', 'condiciones', 'tipo_finalizacion')
-
+# ============================================================
+# VALIDACIONES Y HELPERS
+# ============================================================
 
 def _aplicar_extension(db, entidad, datos, campos):
-    cambios = datos.model_dump(mode='json', exclude_unset=True)
+    cambios = datos.model_dump(
+        mode="json",
+        exclude_unset=True,
+    )
+
     for campo in campos:
-        if campo in cambios:
-            valor = cambios[campo]
-            if campo in ('visible_solicitante', 'requiere_presentacion_fisica') and valor is None:
-                raise ConfiguracionTramiteInvalidaError(f'{campo} no puede ser nulo.')
-            setattr(entidad, campo, valor)
+        if campo not in cambios:
+            continue
+
+        valor = cambios[campo]
+
+        if (
+            campo == "requiere_presentacion_fisica"
+            and valor is None
+        ):
+            raise ConfiguracionTramiteInvalidaError(
+                "La presentación física no puede ser nula."
+            )
+
+        setattr(entidad, campo, valor)
+
     db.flush()
 
 
-def _validar_extension_requisito(db, id_tramite, datos, requisito=None):
-    valores = datos.model_dump(mode='json', exclude_unset=True)
-    activo = valores.get('activo')
+def _validar_extension_requisito(
+    db,
+    id_tramite,
+    datos,
+    requisito=None,
+):
+    valores = datos.model_dump(
+        mode="json",
+        exclude_unset=True,
+    )
+
+    if valores.get("id_etapa") is not None:
+        raise ConfiguracionTramiteInvalidaError(
+            "Los requisitos ya no se asocian a etapas. "
+            "Elimina id_etapa de la petición."
+        )
+
+    activo = valores.get(
+        "activo",
+        getattr(requisito, "activo", True),
+    )
+
     if activo is None:
-        activo = getattr(requisito, 'activo', True)
-    etapa = valores.get('id_etapa', getattr(requisito, 'id_etapa', None))
-    if etapa is not None:
-        configurada = _obtener_etapa_del_tramite(db, id_tramite=id_tramite, id_etapa=etapa)
-        if activo and not configurada.activo:
-            raise ConfiguracionTramiteInvalidaError('La etapa del requisito debe estar activa.')
-    condicion = valores.get('condicion', getattr(requisito, 'condicion', None))
+        activo = getattr(requisito, "activo", True)
+
+    condicion = valores.get(
+        "condicion",
+        getattr(requisito, "condicion", None),
+    )
+
     if activo:
-        validar_condicion(condicion, tramite_repository.listar_campos_tramite(db, id_tramite, solo_activos=True))
+        campos = repo.listar_campos_tramite(
+            db,
+            id_tramite,
+            solo_activos=True,
+        )
+        validar_condicion(condicion, campos)
 
 
-# ============================================================
-# FUNCIONES INTERNAS
-# ============================================================
+def _validar_intervencion(tramite, datos):
+    valores = datos.model_dump(exclude_unset=True)
+
+    tipo = valores.get(
+        "tipo_intervencion",
+        getattr(tramite, "tipo_intervencion", "ninguna"),
+    )
+
+    finalizacion = valores.get(
+        "tipo_finalizacion",
+        getattr(tramite, "tipo_finalizacion", None),
+    )
+
+    if tipo not in {"ninguna", "firma", "conformidad"}:
+        raise ConfiguracionTramiteInvalidaError(
+            "Tipo de intervención inválido."
+        )
+
+    if (
+        tipo != "ninguna"
+        and finalizacion not in (
+            None,
+            "resultado_registrado",
+        )
+    ):
+        raise ConfiguracionTramiteInvalidaError(
+            "La firma o conformidad requiere finalización "
+            "por resultado registrado."
+        )
 
 
 def _validar_estado_tramite(
@@ -197,35 +208,23 @@ def _validar_estado_tramite(
     activo: bool,
     publicado: bool,
     permite_solicitudes: bool,
-) -> None:
-    """
-    Garantiza coherencia básica entre los estados del catálogo.
-    """
+):
     if publicado and not activo:
         raise ConfiguracionTramiteInvalidaError(
-            "Un trámite inactivo no puede permanecer publicado."
+            "Un trámite inactivo no puede estar publicado."
         )
 
-    if permite_solicitudes and not activo:
+    if permite_solicitudes and (
+        not activo or not publicado
+    ):
         raise ConfiguracionTramiteInvalidaError(
-            "Un trámite inactivo no puede permitir solicitudes."
-        )
-
-    if permite_solicitudes and not publicado:
-        raise ConfiguracionTramiteInvalidaError(
-            "Un trámite debe estar publicado antes de permitir "
-            "solicitudes."
+            "El trámite debe estar activo y publicado "
+            "para permitir solicitudes."
         )
 
 
-def _obtener_tramite_o_error(
-    db: Session,
-    id_tramite: int,
-):
-    tramite = obtener_tramite_por_id(
-        db,
-        id_tramite,
-    )
+def _obtener_tramite_o_error(db, id_tramite):
+    tramite = repo.obtener_tramite_por_id(db, id_tramite)
 
     if tramite is None:
         raise TramiteNoEncontradoError(
@@ -236,12 +235,12 @@ def _obtener_tramite_o_error(
 
 
 def _obtener_requisito_del_tramite(
-    db: Session,
+    db,
     *,
-    id_tramite: int,
-    id_requisito: int,
+    id_tramite,
+    id_requisito,
 ):
-    requisito = obtener_requisito_por_id(
+    requisito = repo.obtener_requisito_por_id(
         db,
         id_requisito,
     )
@@ -253,22 +252,19 @@ def _obtener_requisito_del_tramite(
 
     if requisito.id_tramite != id_tramite:
         raise RequisitoNoPerteneceTramiteError(
-            "El requisito no pertenece al trámite indicado."
+            "El requisito pertenece a otro trámite."
         )
 
     return requisito
 
 
 def _obtener_campo_del_tramite(
-    db: Session,
+    db,
     *,
-    id_tramite: int,
-    id_campo: int,
+    id_tramite,
+    id_campo,
 ):
-    campo = obtener_campo_por_id(
-        db,
-        id_campo,
-    )
+    campo = repo.obtener_campo_por_id(db, id_campo)
 
     if campo is None:
         raise CampoNoEncontradoError(
@@ -277,67 +273,43 @@ def _obtener_campo_del_tramite(
 
     if campo.id_tramite != id_tramite:
         raise CampoNoPerteneceTramiteError(
-            "El campo no pertenece al trámite indicado."
+            "El campo pertenece a otro trámite."
         )
 
     return campo
 
 
-def _obtener_etapa_del_tramite(
-    db: Session,
-    *,
-    id_tramite: int,
-    id_etapa: int,
-):
-    etapa = obtener_etapa_por_id(
-        db,
-        id_etapa,
-    )
-
-    if etapa is None:
-        raise EtapaNoEncontradaError(
-            "La etapa indicada no existe."
-        )
-
-    if etapa.id_tramite != id_tramite:
-        raise EtapaNoPerteneceTramiteError(
-            "La etapa no pertenece al trámite indicado."
-        )
-
-    return etapa
-
-
-def _validar_unidad_etapa(
-    db: Session,
-    id_unidad: int | None,
-) -> None:
+def _respuesta_tramite(tramite) -> TramiteResponse:
     """
-    Valida una unidad únicamente cuando la etapa ya tiene
-    una unidad institucional confirmada.
+    Construye la respuesta sin consultar Tramite.etapas.
     """
-    if id_unidad is None:
-        return
 
-    unidad = obtener_unidad_por_id(
-        db,
-        id_unidad,
-    )
-
-    if unidad is None:
-        raise UnidadNoEncontradaError(
-            "La unidad administrativa indicada no existe."
-        )
-
-    if not unidad.activo:
-        raise UnidadInactivaError(
-            "No puede asociarse una etapa a una unidad inactiva."
-        )
+    return TramiteResponse.model_validate({
+        "id_tramite": tramite.id_tramite,
+        "nombre": tramite.nombre,
+        "descripcion": tramite.descripcion,
+        "activo": tramite.activo,
+        "publicado": tramite.publicado,
+        "permite_solicitudes": tramite.permite_solicitudes,
+        "fecha_creacion": tramite.fecha_creacion,
+        "fecha_actualizacion": tramite.fecha_actualizacion,
+        "tiempo_estimado": tramite.tiempo_estimado,
+        "canales_atencion": tramite.canales_atencion,
+        "instrucciones": tramite.instrucciones,
+        "condiciones": tramite.condiciones,
+        "tipo_finalizacion": tramite.tipo_finalizacion,
+        "tipo_intervencion": tramite.tipo_intervencion,
+        "cantidad_requisitos_activos": sum(
+            requisito.activo
+            for requisito in tramite.requisitos
+        ),
+        "cantidad_etapas_activas": 0,
+    })
 
 
 # ============================================================
 # TRÁMITES
 # ============================================================
-
 
 def crear_tramite_catalogo(
     db: Session,
@@ -347,15 +319,7 @@ def crear_tramite_catalogo(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> TramiteResponse:
-    """
-    Registra un trámite en el catálogo.
-    """
-    existente = obtener_tramite_por_nombre(
-        db,
-        datos.nombre,
-    )
-
-    if existente is not None:
+    if repo.obtener_tramite_por_nombre(db, datos.nombre):
         raise TramiteDuplicadoError(
             "Ya existe un trámite con ese nombre."
         )
@@ -366,8 +330,10 @@ def crear_tramite_catalogo(
         permite_solicitudes=datos.permite_solicitudes,
     )
 
+    _validar_intervencion(None, datos)
+
     try:
-        tramite = crear_tramite(
+        tramite = repo.crear_tramite(
             db,
             nombre=datos.nombre,
             descripcion=datos.descripcion,
@@ -376,7 +342,12 @@ def crear_tramite_catalogo(
             permite_solicitudes=datos.permite_solicitudes,
         )
 
-        _aplicar_extension(db, tramite, datos, CAMPOS_ATENCION)
+        _aplicar_extension(
+            db,
+            tramite,
+            datos,
+            CAMPOS_ATENCION,
+        )
 
         registrar_accion_simple(
             db,
@@ -389,9 +360,7 @@ def crear_tramite_catalogo(
                 "nombre": tramite.nombre,
                 "activo": tramite.activo,
                 "publicado": tramite.publicado,
-                "permite_solicitudes": (
-                    tramite.permite_solicitudes
-                ),
+                "permite_solicitudes": tramite.permite_solicitudes,
             },
             direccion_ip=direccion_ip,
             user_agent=user_agent,
@@ -400,16 +369,12 @@ def crear_tramite_catalogo(
         db.commit()
         db.refresh(tramite)
 
-        return TramiteResponse.model_validate(
-            tramite
-        )
+        return _respuesta_tramite(tramite)
 
     except IntegrityError as exc:
         db.rollback()
-
         raise TramiteDuplicadoError(
-            "No fue posible crear el trámite porque existe "
-            "un registro incompatible."
+            "No fue posible crear el trámite."
         ) from exc
 
     except Exception:
@@ -427,10 +392,7 @@ def listar_tramites_administracion(
     permite_solicitudes: bool | None = None,
     texto_busqueda: str | None = None,
 ) -> ListaTramitesResponse:
-    """
-    Lista el catálogo administrativo con filtros.
-    """
-    tramites, total = listar_tramites(
+    tramites, total = repo.listar_tramites(
         db,
         pagina=pagina,
         por_pagina=por_pagina,
@@ -442,7 +404,7 @@ def listar_tramites_administracion(
 
     return ListaTramitesResponse(
         items=[
-            TramiteResponse.model_validate(tramite)
+            _respuesta_tramite(tramite)
             for tramite in tramites
         ],
         total=total,
@@ -456,10 +418,7 @@ def obtener_tramite_administracion(
     *,
     id_tramite: int,
 ) -> TramiteDetalleResponse:
-    """
-    Obtiene toda la configuración administrativa de un trámite.
-    """
-    tramite = obtener_tramite_por_id_completo(
+    tramite = repo.obtener_tramite_por_id_completo(
         db,
         id_tramite,
     )
@@ -469,9 +428,34 @@ def obtener_tramite_administracion(
             "El trámite indicado no existe."
         )
 
-    return TramiteDetalleResponse.model_validate(
-        tramite
-    )
+    requisitos = [
+        TramiteRequisitoResponse.model_validate(requisito)
+        for requisito in sorted(
+            tramite.requisitos,
+            key=lambda item: (
+                item.orden,
+                item.id_requisito,
+            ),
+        )
+    ]
+
+    campos = [
+        TramiteCampoResponse.model_validate(campo)
+        for campo in sorted(
+            tramite.campos,
+            key=lambda item: (
+                item.orden,
+                item.id_campo,
+            ),
+        )
+    ]
+
+    return TramiteDetalleResponse.model_validate({
+        **_respuesta_tramite(tramite).model_dump(),
+        "requisitos": requisitos,
+        "campos": campos,
+        "etapas": [],
+    })
 
 
 def actualizar_tramite_catalogo(
@@ -483,12 +467,9 @@ def actualizar_tramite_catalogo(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> TramiteResponse:
-    """
-    Modifica la configuración general de un trámite.
-    """
     if not datos.model_fields_set:
         raise ActualizacionTramiteVaciaError(
-            "Debe indicarse al menos un dato para actualizar."
+            "Indica al menos un dato para actualizar."
         )
 
     tramite = _obtener_tramite_o_error(
@@ -497,47 +478,45 @@ def actualizar_tramite_catalogo(
     )
 
     if (
-        "nombre" in datos.model_fields_set
-        and datos.nombre is not None
+        datos.nombre is not None
         and datos.nombre.lower() != tramite.nombre.lower()
     ):
-        existente = obtener_tramite_por_nombre(
+        existente = repo.obtener_tramite_por_nombre(
             db,
             datos.nombre,
         )
 
         if (
             existente is not None
-            and existente.id_tramite != tramite.id_tramite
+            and existente.id_tramite != id_tramite
         ):
             raise TramiteDuplicadoError(
                 "Ya existe un trámite con ese nombre."
             )
 
     if datos.activo is False:
-        datos = datos.model_copy(update={"publicado": False, "permite_solicitudes": False})
+        datos = datos.model_copy(
+            update={
+                "publicado": False,
+                "permite_solicitudes": False,
+            }
+        )
 
     activo_final = (
         datos.activo
-        if "activo" in datos.model_fields_set
-        and datos.activo is not None
+        if datos.activo is not None
         else tramite.activo
     )
 
     publicado_final = (
         datos.publicado
-        if "publicado" in datos.model_fields_set
-        and datos.publicado is not None
+        if datos.publicado is not None
         else tramite.publicado
     )
 
     permite_final = (
         datos.permite_solicitudes
-        if (
-            "permite_solicitudes"
-            in datos.model_fields_set
-            and datos.permite_solicitudes is not None
-        )
+        if datos.permite_solicitudes is not None
         else tramite.permite_solicitudes
     )
 
@@ -547,16 +526,20 @@ def actualizar_tramite_catalogo(
         permite_solicitudes=permite_final,
     )
 
+    _validar_intervencion(tramite, datos)
+
     detalle_anterior = {
         "nombre": tramite.nombre,
         "descripcion": tramite.descripcion,
         "activo": tramite.activo,
         "publicado": tramite.publicado,
         "permite_solicitudes": tramite.permite_solicitudes,
+        "tipo_finalizacion": tramite.tipo_finalizacion,
+        "tipo_intervencion": tramite.tipo_intervencion,
     }
 
     try:
-        actualizar_tramite(
+        repo.actualizar_tramite(
             db,
             tramite,
             nombre=datos.nombre,
@@ -569,7 +552,12 @@ def actualizar_tramite_catalogo(
             ),
         )
 
-        _aplicar_extension(db, tramite, datos, CAMPOS_ATENCION)
+        _aplicar_extension(
+            db,
+            tramite,
+            datos,
+            CAMPOS_ATENCION,
+        )
 
         registrar_accion_simple(
             db,
@@ -585,9 +573,9 @@ def actualizar_tramite_catalogo(
                     "descripcion": tramite.descripcion,
                     "activo": tramite.activo,
                     "publicado": tramite.publicado,
-                    "permite_solicitudes": (
-                        tramite.permite_solicitudes
-                    ),
+                    "permite_solicitudes": tramite.permite_solicitudes,
+                    "tipo_finalizacion": tramite.tipo_finalizacion,
+                    "tipo_intervencion": tramite.tipo_intervencion,
                 },
             },
             direccion_ip=direccion_ip,
@@ -597,13 +585,10 @@ def actualizar_tramite_catalogo(
         db.commit()
         db.refresh(tramite)
 
-        return TramiteResponse.model_validate(
-            tramite
-        )
+        return _respuesta_tramite(tramite)
 
     except IntegrityError as exc:
         db.rollback()
-
         raise TramiteDuplicadoError(
             "No fue posible actualizar el trámite."
         ) from exc
@@ -613,21 +598,17 @@ def actualizar_tramite_catalogo(
         raise
 
 
+# ============================================================
+# CATÁLOGO PÚBLICO
+# ============================================================
+
 def obtener_catalogo_publicado(
     db: Session,
 ) -> ListaCatalogoTramitesResponse:
-    """
-    Devuelve los trámites activos y publicados visibles
-    para consulta.
-    """
-    tramites = listar_catalogo_publicado(
-        db
-    )
+    tramites = repo.listar_catalogo_publicado(db)
 
     items = [
-        TramiteResumenResponse.model_validate(
-            tramite
-        )
+        TramiteResumenResponse.model_validate(tramite)
         for tramite in tramites
     ]
 
@@ -642,18 +623,7 @@ def obtener_tramite_catalogo_publico(
     *,
     id_tramite: int,
 ) -> TramiteCatalogoDetalleResponse:
-    """
-    Devuelve el detalle visible de un trámite publicado.
-
-    Solo expone:
-    - información general;
-    - requisitos activos;
-    - información económica vigente;
-    - campos configurables activos.
-
-    Expone únicamente los pasos marcados como visibles al solicitante.
-    """
-    tramite = obtener_tramite_por_id_completo(
+    tramite = repo.obtener_tramite_por_id_completo(
         db,
         id_tramite,
     )
@@ -664,8 +634,7 @@ def obtener_tramite_catalogo_publico(
         or not tramite.publicado
     ):
         raise TramiteNoEncontradoError(
-            "El trámite indicado no está disponible "
-            "en el catálogo."
+            "El trámite no está disponible en el catálogo."
         )
 
     gestion_actual = datetime.now(
@@ -687,42 +656,33 @@ def obtener_tramite_catalogo_publico(
     )
 
     for requisito in requisitos_activos:
-        tiene_configuracion_economica = bool(
+        es_economico = bool(
             requisito.configuraciones_economicas
         )
 
         informacion_economica = None
 
-        if tiene_configuracion_economica:
-            configuracion_actual = next(
+        if es_economico:
+            vigente = next(
                 (
                     configuracion
                     for configuracion
                     in requisito.configuraciones_economicas
                     if (
                         configuracion.activo
-                        and configuracion.gestion
-                        == gestion_actual
+                        and configuracion.gestion == gestion_actual
                     )
                 ),
                 None,
             )
 
-            if configuracion_actual is not None:
+            if vigente is not None:
                 informacion_economica = (
                     TramiteCatalogoEconomicoResponse(
-                        concepto=(
-                            configuracion_actual.concepto
-                        ),
-                        monto=(
-                            configuracion_actual.monto
-                        ),
-                        moneda=(
-                            configuracion_actual.moneda
-                        ),
-                        gestion=(
-                            configuracion_actual.gestion
-                        ),
+                        concepto=vigente.concepto,
+                        monto=vigente.monto,
+                        moneda=vigente.moneda,
+                        gestion=vigente.gestion,
                     )
                 )
 
@@ -733,15 +693,13 @@ def obtener_tramite_catalogo_publico(
                 descripcion=requisito.descripcion,
                 obligatorio=requisito.obligatorio,
                 orden=requisito.orden,
-                es_inicial=requisito.id_etapa is None,
-                requiere_presentacion_fisica=requisito.requiere_presentacion_fisica,
+                requiere_presentacion_fisica=(
+                    requisito.requiere_presentacion_fisica
+                ),
                 condicion=requisito.condicion,
-                es_economico=(
-                    tiene_configuracion_economica
-                ),
-                informacion_economica=(
-                    informacion_economica
-                ),
+                es_economico=es_economico,
+                informacion_economica=informacion_economica,
+                es_inicial=True,
             )
         )
 
@@ -773,11 +731,12 @@ def obtener_tramite_catalogo_publico(
         id_tramite=tramite.id_tramite,
         nombre=tramite.nombre,
         descripcion=tramite.descripcion,
-        permite_solicitudes=(
-            tramite.permite_solicitudes
-        ),
-        **{campo: getattr(tramite, campo) for campo in CAMPOS_ATENCION},
-        pasos=[e.nombre for e in sorted(tramite.etapas, key=lambda e: e.orden) if e.activo and e.visible_solicitante],
+        permite_solicitudes=tramite.permite_solicitudes,
+        **{
+            campo: getattr(tramite, campo)
+            for campo in CAMPOS_ATENCION
+        },
+        pasos=[],
         requisitos=requisitos_visibles,
         campos=campos_visibles,
     )
@@ -786,7 +745,6 @@ def obtener_tramite_catalogo_publico(
 # ============================================================
 # REQUISITOS
 # ============================================================
-
 
 def agregar_requisito_tramite(
     db: Session,
@@ -797,15 +755,9 @@ def agregar_requisito_tramite(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> TramiteRequisitoResponse:
-    """
-    Agrega un requisito confirmado a un trámite.
-    """
-    _obtener_tramite_o_error(
-        db,
-        id_tramite,
-    )
+    _obtener_tramite_o_error(db, id_tramite)
 
-    existente = obtener_requisito_por_nombre(
+    existente = repo.obtener_requisito_por_nombre(
         db,
         id_tramite=id_tramite,
         nombre=datos.nombre,
@@ -813,14 +765,17 @@ def agregar_requisito_tramite(
 
     if existente is not None:
         raise RequisitoDuplicadoError(
-            "Ya existe un requisito con ese nombre "
-            "para el trámite."
+            "Ya existe un requisito con ese nombre."
         )
 
-    _validar_extension_requisito(db, id_tramite, datos)
+    _validar_extension_requisito(
+        db,
+        id_tramite,
+        datos,
+    )
 
     try:
-        requisito = crear_requisito(
+        requisito = repo.crear_requisito(
             db,
             id_tramite=id_tramite,
             nombre=datos.nombre,
@@ -830,7 +785,12 @@ def agregar_requisito_tramite(
             activo=datos.activo,
         )
 
-        _aplicar_extension(db, requisito, datos, ('id_etapa', 'requiere_presentacion_fisica', 'condicion'))
+        _aplicar_extension(
+            db,
+            requisito,
+            datos,
+            ("requiere_presentacion_fisica", "condicion"),
+        )
 
         registrar_accion_simple(
             db,
@@ -849,7 +809,7 @@ def agregar_requisito_tramite(
 
         db.commit()
 
-        requisito = obtener_requisito_por_id(
+        requisito = repo.obtener_requisito_por_id(
             db,
             requisito.id_requisito,
         )
@@ -860,7 +820,6 @@ def agregar_requisito_tramite(
 
     except IntegrityError as exc:
         db.rollback()
-
         raise RequisitoDuplicadoError(
             "No fue posible registrar el requisito."
         ) from exc
@@ -880,12 +839,9 @@ def actualizar_requisito_tramite(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> TramiteRequisitoResponse:
-    """
-    Modifica un requisito existente.
-    """
     if not datos.model_fields_set:
         raise TramiteServiceError(
-            "Debe indicarse al menos un dato para actualizar."
+            "Indica al menos un dato para actualizar."
         )
 
     requisito = _obtener_requisito_del_tramite(
@@ -895,11 +851,10 @@ def actualizar_requisito_tramite(
     )
 
     if (
-        "nombre" in datos.model_fields_set
-        and datos.nombre is not None
+        datos.nombre is not None
         and datos.nombre.lower() != requisito.nombre.lower()
     ):
-        existente = obtener_requisito_por_nombre(
+        existente = repo.obtener_requisito_por_nombre(
             db,
             id_tramite=id_tramite,
             nombre=datos.nombre,
@@ -913,10 +868,15 @@ def actualizar_requisito_tramite(
                 "Ya existe un requisito con ese nombre."
             )
 
-    _validar_extension_requisito(db, id_tramite, datos, requisito)
+    _validar_extension_requisito(
+        db,
+        id_tramite,
+        datos,
+        requisito,
+    )
 
     try:
-        actualizar_requisito(
+        repo.actualizar_requisito(
             db,
             requisito,
             nombre=datos.nombre,
@@ -929,7 +889,12 @@ def actualizar_requisito_tramite(
             ),
         )
 
-        _aplicar_extension(db, requisito, datos, ('id_etapa', 'requiere_presentacion_fisica', 'condicion'))
+        _aplicar_extension(
+            db,
+            requisito,
+            datos,
+            ("requiere_presentacion_fisica", "condicion"),
+        )
 
         registrar_accion_simple(
             db,
@@ -938,16 +903,14 @@ def actualizar_requisito_tramite(
             modulo="gestion_seguimiento",
             entidad="tramite_requisito",
             id_entidad=id_requisito,
-            detalle={
-                "id_tramite": id_tramite,
-            },
+            detalle={"id_tramite": id_tramite},
             direccion_ip=direccion_ip,
             user_agent=user_agent,
         )
 
         db.commit()
 
-        requisito = obtener_requisito_por_id(
+        requisito = repo.obtener_requisito_por_id(
             db,
             id_requisito,
         )
@@ -958,7 +921,6 @@ def actualizar_requisito_tramite(
 
     except IntegrityError as exc:
         db.rollback()
-
         raise RequisitoDuplicadoError(
             "No fue posible actualizar el requisito."
         ) from exc
@@ -969,9 +931,8 @@ def actualizar_requisito_tramite(
 
 
 # ============================================================
-# INFORMACIÓN ECONÓMICA
+# CONFIGURACIÓN ECONÓMICA
 # ============================================================
-
 
 def agregar_configuracion_economica(
     db: Session,
@@ -983,16 +944,13 @@ def agregar_configuracion_economica(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> RequisitoEconomicoResponse:
-    """
-    Agrega la configuración económica conocida para una gestión.
-    """
     _obtener_requisito_del_tramite(
         db,
         id_tramite=id_tramite,
         id_requisito=id_requisito,
     )
 
-    existente = obtener_configuracion_economica_por_gestion(
+    existente = repo.obtener_configuracion_economica_por_gestion(
         db,
         id_requisito=id_requisito,
         gestion=datos.gestion,
@@ -1000,12 +958,12 @@ def agregar_configuracion_economica(
 
     if existente is not None:
         raise ConfiguracionEconomicaDuplicadaError(
-            "El requisito ya tiene una configuración económica "
+            "Ya existe una configuración económica "
             "para esa gestión."
         )
 
     try:
-        configuracion = crear_configuracion_economica(
+        configuracion = repo.crear_configuracion_economica(
             db,
             id_requisito=id_requisito,
             concepto=datos.concepto,
@@ -1045,7 +1003,6 @@ def agregar_configuracion_economica(
 
     except IntegrityError as exc:
         db.rollback()
-
         raise ConfiguracionEconomicaDuplicadaError(
             "No fue posible guardar la configuración económica."
         ) from exc
@@ -1066,12 +1023,9 @@ def actualizar_configuracion_economica_tramite(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> RequisitoEconomicoResponse:
-    """
-    Actualiza una configuración económica existente.
-    """
     if not datos.model_fields_set:
         raise TramiteServiceError(
-            "Debe indicarse al menos un dato para actualizar."
+            "Indica al menos un dato para actualizar."
         )
 
     _obtener_requisito_del_tramite(
@@ -1080,7 +1034,7 @@ def actualizar_configuracion_economica_tramite(
         id_requisito=id_requisito,
     )
 
-    configuracion = obtener_configuracion_economica_por_id(
+    configuracion = repo.obtener_configuracion_economica_por_id(
         db,
         id_requisito_economico,
     )
@@ -1090,16 +1044,15 @@ def actualizar_configuracion_economica_tramite(
         or configuracion.id_requisito != id_requisito
     ):
         raise ConfiguracionEconomicaNoEncontradaError(
-            "La configuración económica indicada no existe "
-            "para este requisito."
+            "La configuración económica no pertenece "
+            "al requisito indicado."
         )
 
     if (
-        "gestion" in datos.model_fields_set
-        and datos.gestion is not None
+        datos.gestion is not None
         and datos.gestion != configuracion.gestion
     ):
-        existente = obtener_configuracion_economica_por_gestion(
+        existente = repo.obtener_configuracion_economica_por_gestion(
             db,
             id_requisito=id_requisito,
             gestion=datos.gestion,
@@ -1111,12 +1064,11 @@ def actualizar_configuracion_economica_tramite(
             != id_requisito_economico
         ):
             raise ConfiguracionEconomicaDuplicadaError(
-                "Ya existe una configuración económica "
-                "para esa gestión."
+                "La gestión ya tiene una configuración económica."
             )
 
     try:
-        actualizar_configuracion_economica(
+        repo.actualizar_configuracion_economica(
             db,
             configuracion,
             concepto=datos.concepto,
@@ -1157,7 +1109,6 @@ def actualizar_configuracion_economica_tramite(
 
     except IntegrityError as exc:
         db.rollback()
-
         raise ConfiguracionEconomicaDuplicadaError(
             "No fue posible actualizar la configuración económica."
         ) from exc
@@ -1171,7 +1122,6 @@ def actualizar_configuracion_economica_tramite(
 # CAMPOS CONFIGURABLES
 # ============================================================
 
-
 def agregar_campo_tramite(
     db: Session,
     *,
@@ -1181,15 +1131,9 @@ def agregar_campo_tramite(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> TramiteCampoResponse:
-    """
-    Agrega un campo configurable a un trámite.
-    """
-    _obtener_tramite_o_error(
-        db,
-        id_tramite,
-    )
+    _obtener_tramite_o_error(db, id_tramite)
 
-    existente = obtener_campo_por_clave(
+    existente = repo.obtener_campo_por_clave(
         db,
         id_tramite=id_tramite,
         clave=datos.clave,
@@ -1197,11 +1141,11 @@ def agregar_campo_tramite(
 
     if existente is not None:
         raise CampoDuplicadoError(
-            "Ya existe un campo con esa clave para el trámite."
+            "Ya existe un campo con esa clave."
         )
 
     try:
-        campo = crear_campo(
+        campo = repo.crear_campo(
             db,
             id_tramite=id_tramite,
             clave=datos.clave,
@@ -1232,13 +1176,10 @@ def agregar_campo_tramite(
         db.commit()
         db.refresh(campo)
 
-        return TramiteCampoResponse.model_validate(
-            campo
-        )
+        return TramiteCampoResponse.model_validate(campo)
 
     except IntegrityError as exc:
         db.rollback()
-
         raise CampoDuplicadoError(
             "No fue posible registrar el campo."
         ) from exc
@@ -1258,12 +1199,9 @@ def actualizar_campo_tramite(
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> TramiteCampoResponse:
-    """
-    Actualiza un campo configurable.
-    """
     if not datos.model_fields_set:
         raise TramiteServiceError(
-            "Debe indicarse al menos un dato para actualizar."
+            "Indica al menos un dato para actualizar."
         )
 
     campo = _obtener_campo_del_tramite(
@@ -1273,11 +1211,10 @@ def actualizar_campo_tramite(
     )
 
     if (
-        "clave" in datos.model_fields_set
-        and datos.clave is not None
+        datos.clave is not None
         and datos.clave != campo.clave
     ):
-        existente = obtener_campo_por_clave(
+        existente = repo.obtener_campo_por_clave(
             db,
             id_tramite=id_tramite,
             clave=datos.clave,
@@ -1293,10 +1230,7 @@ def actualizar_campo_tramite(
 
     tipo_final = (
         datos.tipo_dato
-        if (
-            "tipo_dato" in datos.model_fields_set
-            and datos.tipo_dato is not None
-        )
+        if datos.tipo_dato is not None
         else campo.tipo_dato
     )
 
@@ -1312,18 +1246,15 @@ def actualizar_campo_tramite(
                 "Un campo de selección requiere configuración."
             )
 
-        opciones = configuracion_final.get(
-            "opciones"
-        )
+        opciones = configuracion_final.get("opciones")
 
         if not isinstance(opciones, list) or not opciones:
             raise TramiteServiceError(
-                "Un campo de selección requiere una lista "
-                "no vacía de opciones."
+                "El campo de selección requiere opciones."
             )
 
     try:
-        actualizar_campo(
+        repo.actualizar_campo(
             db,
             campo,
             clave=datos.clave,
@@ -1360,330 +1291,14 @@ def actualizar_campo_tramite(
         db.commit()
         db.refresh(campo)
 
-        return TramiteCampoResponse.model_validate(
-            campo
-        )
+        return TramiteCampoResponse.model_validate(campo)
 
     except IntegrityError as exc:
         db.rollback()
-
         raise CampoDuplicadoError(
             "No fue posible actualizar el campo."
         ) from exc
 
-    except Exception:
-        db.rollback()
-        raise
-
-
-# ============================================================
-# ETAPAS CONFIGURABLES
-# ============================================================
-
-
-def agregar_etapa_tramite(
-    db: Session,
-    *,
-    id_tramite: int,
-    datos: TramiteEtapaCrearRequest,
-    id_usuario_actor: int,
-    direccion_ip: str | None = None,
-    user_agent: str | None = None,
-) -> TramiteEtapaResponse:
-    """
-    Registra una etapa únicamente cuando su definición
-    institucional haya sido confirmada.
-
-    El servicio no infiere unidades, nombres ni secuencias.
-    """
-    configuracion_repo.bloquear_configuracion(db, id_tramite)
-
-    _obtener_tramite_o_error(
-        db,
-        id_tramite,
-    )
-
-    _validar_unidad_etapa(
-        db,
-        datos.id_unidad,
-    )
-
-    existente_orden = obtener_etapa_por_orden(
-        db,
-        id_tramite=id_tramite,
-        orden=datos.orden,
-    )
-
-    if existente_orden is not None:
-        raise EtapaDuplicadaError(
-            "Ya existe una etapa con ese orden."
-        )
-
-    if (
-        datos.activo
-        and datos.es_inicial
-        and obtener_etapa_inicial(
-            db,
-            id_tramite,
-        ) is not None
-    ):
-        raise EtapaDuplicadaError(
-            "El trámite ya tiene una etapa inicial activa."
-        )
-
-    if (
-        datos.activo
-        and datos.es_final
-        and obtener_etapa_final(
-            db,
-            id_tramite,
-        ) is not None
-    ):
-        raise EtapaDuplicadaError(
-            "El trámite ya tiene una etapa final activa."
-        )
-
-    try:
-        etapa = crear_etapa(
-            db,
-            id_tramite=id_tramite,
-            id_unidad=datos.id_unidad,
-            nombre=datos.nombre,
-            descripcion=datos.descripcion,
-            orden=datos.orden,
-            es_inicial=datos.es_inicial,
-            es_final=datos.es_final,
-            activo=datos.activo,
-        )
-
-        _aplicar_extension(db, etapa, datos, ('visible_solicitante',))
-        _validar_extremos_etapas(list(configuracion_repo.listar_etapas_tramite(db, id_tramite)))
-
-        registrar_accion_simple(
-            db,
-            id_usuario_actor=id_usuario_actor,
-            accion="crear_etapa_tramite",
-            modulo="gestion_seguimiento",
-            entidad="tramite_etapa",
-            id_entidad=etapa.id_etapa,
-            detalle={
-                "id_tramite": id_tramite,
-                "nombre": etapa.nombre,
-                "orden": etapa.orden,
-            },
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
-        )
-
-        db.commit()
-        db.refresh(etapa)
-
-        return TramiteEtapaResponse.model_validate(
-            etapa
-        )
-
-    except IntegrityError as exc:
-        db.rollback()
-
-        raise EtapaDuplicadaError(
-            "No fue posible registrar la etapa debido "
-            "a un conflicto de configuración."
-        ) from exc
-
-    except Exception:
-        db.rollback()
-        raise
-
-
-def actualizar_etapa_tramite(
-    db: Session,
-    *,
-    id_tramite: int,
-    id_etapa: int,
-    datos: TramiteEtapaActualizarRequest,
-    id_usuario_actor: int,
-    direccion_ip: str | None = None,
-    user_agent: str | None = None,
-) -> TramiteEtapaResponse:
-    """
-    Modifica una etapa previamente configurada.
-    """
-    configuracion_repo.bloquear_configuracion(db, id_tramite)
-
-    if not datos.model_fields_set:
-        raise TramiteServiceError(
-            "Debe indicarse al menos un dato para actualizar."
-        )
-
-    etapa = _obtener_etapa_del_tramite(
-        db,
-        id_tramite=id_tramite,
-        id_etapa=id_etapa,
-    )
-
-    if "id_unidad" in datos.model_fields_set:
-        _validar_unidad_etapa(
-            db,
-            datos.id_unidad,
-        )
-
-    if (
-        "orden" in datos.model_fields_set
-        and datos.orden is not None
-        and datos.orden != etapa.orden
-    ):
-        existente = obtener_etapa_por_orden(
-            db,
-            id_tramite=id_tramite,
-            orden=datos.orden,
-        )
-
-        if (
-            existente is not None
-            and existente.id_etapa != id_etapa
-        ):
-            raise EtapaDuplicadaError(
-                "Ya existe una etapa con ese orden."
-            )
-
-    es_inicial_final = (
-        datos.es_inicial
-        if (
-            "es_inicial" in datos.model_fields_set
-            and datos.es_inicial is not None
-        )
-        else etapa.es_inicial
-    )
-
-    es_final_final = (
-        datos.es_final
-        if (
-            "es_final" in datos.model_fields_set
-            and datos.es_final is not None
-        )
-        else etapa.es_final
-    )
-
-    activo_final = (
-        datos.activo
-        if (
-            "activo" in datos.model_fields_set
-            and datos.activo is not None
-        )
-        else etapa.activo
-    )
-
-    if es_inicial_final and activo_final:
-        inicial_existente = obtener_etapa_inicial(
-            db,
-            id_tramite,
-        )
-
-        if (
-            inicial_existente is not None
-            and inicial_existente.id_etapa != id_etapa
-        ):
-            raise EtapaDuplicadaError(
-                "El trámite ya tiene otra etapa inicial activa."
-            )
-
-    if es_final_final and activo_final:
-        final_existente = obtener_etapa_final(
-            db,
-            id_tramite,
-        )
-
-        if (
-            final_existente is not None
-            and final_existente.id_etapa != id_etapa
-        ):
-            raise EtapaDuplicadaError(
-                "El trámite ya tiene otra etapa final activa."
-            )
-
-    try:
-        actualizar_etapa(
-            db,
-            etapa,
-            id_unidad=datos.id_unidad,
-            nombre=datos.nombre,
-            descripcion=datos.descripcion,
-            orden=datos.orden,
-            es_inicial=datos.es_inicial,
-            es_final=datos.es_final,
-            activo=datos.activo,
-            actualizar_unidad=(
-                "id_unidad" in datos.model_fields_set
-            ),
-            actualizar_descripcion=(
-                "descripcion" in datos.model_fields_set
-            ),
-        )
-
-        _aplicar_extension(db, etapa, datos, ('visible_solicitante',))
-        _validar_extremos_etapas(list(configuracion_repo.listar_etapas_tramite(db, id_tramite)))
-
-        registrar_accion_simple(
-            db,
-            id_usuario_actor=id_usuario_actor,
-            accion="actualizar_etapa_tramite",
-            modulo="gestion_seguimiento",
-            entidad="tramite_etapa",
-            id_entidad=id_etapa,
-            detalle={
-                "id_tramite": id_tramite,
-                "nombre": etapa.nombre,
-                "orden": etapa.orden,
-            },
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
-        )
-
-        db.commit()
-        db.refresh(etapa)
-
-        return TramiteEtapaResponse.model_validate(
-            etapa
-        )
-
-    except IntegrityError as exc:
-        db.rollback()
-
-        raise EtapaDuplicadaError(
-            "No fue posible actualizar la etapa debido "
-            "a un conflicto de configuración."
-        ) from exc
-
-    except Exception:
-        db.rollback()
-        raise
-
-
-def _validar_extremos_etapas(etapas) -> None:
-    # Permite configuración parcial, pero no extremos activos fuera de posición.
-    activas = [e for e in sorted(etapas, key=lambda e: e.orden) if e.activo]
-    if any(e.es_inicial for e in activas[1:]) or any(e.es_final for e in activas[:-1]):
-        raise TramiteServiceError("La etapa inicial debe ser la primera activa y la final la última.")
-
-
-def reordenar_etapas(db: Session, *, id_tramite: int, ids: list[int], id_usuario_actor: int) -> TramiteDetalleResponse:
-    try:
-        if configuracion_repo.bloquear_configuracion(db, id_tramite) is None:
-            raise TramiteNoEncontradoError("El trámite no existe.")
-        etapas = list(configuracion_repo.listar_etapas_tramite(db, id_tramite))
-        por_id = {e.id_etapa: e for e in etapas}
-        if not ids or len(ids) != len(set(ids)) or set(ids) != set(por_id):
-            raise TramiteServiceError("Envía exactamente las etapas actuales del trámite, sin duplicados.")
-        ordenadas = [por_id[i] for i in ids]
-        activas = [e for e in ordenadas if e.activo]
-        if any(e.es_inicial for e in activas[1:]) or any(e.es_final for e in activas[:-1]):
-            raise TramiteServiceError("La etapa inicial debe ser la primera activa y la final la última.")
-        configuracion_repo.guardar_orden_etapas(db, ordenadas)
-        registrar_accion_simple(db, id_usuario_actor=id_usuario_actor, accion="reordenar_etapas",
-            modulo="gestion_seguimiento", entidad="tramite", id_entidad=id_tramite,
-            detalle={"etapas": ids})
-        db.commit()
-        return obtener_tramite_administracion(db, id_tramite=id_tramite)
     except Exception:
         db.rollback()
         raise

@@ -6,6 +6,14 @@ import {
 export const SIDEBAR_MENU:
   MenuItem[] = [
   {
+    label: 'Analítica e indicadores',
+    route: '/admin/analitica',
+    section: 'ADMINISTRACIÓN',
+    icon: 'folder',
+    requiresAuth: true,
+    roles: ['personal_administrativo', 'administrador'],
+  },
+  {
     label: 'Documentos institucionales',
     route: '/admin/documentos',
     section: 'ADMINISTRACIÓN',

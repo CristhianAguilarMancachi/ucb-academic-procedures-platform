@@ -156,6 +156,12 @@ export const routes: Routes = [
 
       // Administración
       {
+        path: 'admin/analitica',
+        canActivate: [authGuard, roleGuard],
+        data: { roles: ['personal_administrativo', 'administrador'] },
+        loadComponent: () => import('./features/admin/analitica/analitica.component').then(m => m.AnaliticaComponent),
+      },
+      {
         path: 'admin/documentos',
         canActivate: [authGuard, roleGuard],
         data: { roles: ['administrador'] },

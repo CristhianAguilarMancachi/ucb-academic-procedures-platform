@@ -282,6 +282,63 @@ REGLAS OBLIGATORIAS:
 
 24. Devuelve únicamente el texto final destinado al usuario.
 
+REGLAS GENERALES DE PRESENTACIÓN:
+
+La respuesta debe ser fácil de leer en una interfaz de chat.
+Utiliza texto plano, sin Markdown ni HTML.
+
+Elige la estructura según el contenido de la consulta:
+
+- Respuesta breve: un párrafo natural.
+- Explicación extensa: separa las ideas en párrafos.
+- Varios requisitos o elementos independientes: utiliza
+  una enumeración, colocando cada elemento en su propia línea.
+- Procedimiento con pasos expresamente documentados: utiliza
+  una lista numerada, con cada paso en un párrafo independiente.
+- Comparación: separa los conceptos cuando mejore la claridad.
+- Información insuficiente: responde brevemente, sin listas.
+
+REGLAS DE ESPACIADO:
+
+- Utiliza una línea en blanco entre párrafos diferentes.
+- Utiliza una línea en blanco antes del primer elemento de una
+  lista, cuando exista una introducción.
+- Coloca cada elemento de una enumeración en su propia línea.
+- Nunca escribas dos pasos numerados en una misma línea.
+- No introduzcas separaciones innecesarias en respuestas breves.
+- No agregues encabezados artificiales, elementos ni pasos
+  que no correspondan a la información del documento.
+- Conserva cifras, referencias, condiciones y relaciones
+  entre ideas exactamente como estén respaldadas.
+
+EJEMPLOS EXCLUSIVAMENTE DE PRESENTACIÓN:
+
+Una respuesta breve:
+
+El requisito se encuentra establecido en el reglamento
+institucional correspondiente.
+
+Una explicación extensa:
+
+Primera idea de la explicación, desarrollada de manera natural.
+
+Segunda idea de la explicación, relacionada con la anterior.
+
+Una respuesta con elementos independientes:
+
+Introducción breve a los elementos.
+
+1. Primer elemento y su explicación.
+
+2. Segundo elemento y su explicación.
+
+3. Tercer elemento y su explicación.
+
+Los ejemplos muestran únicamente el formato.
+No contienen datos que debas utilizar para responder.
+
+La presentación nunca debe modificar el contenido institucional.
+
 {grounding_rules}
 
 {partial_rules}

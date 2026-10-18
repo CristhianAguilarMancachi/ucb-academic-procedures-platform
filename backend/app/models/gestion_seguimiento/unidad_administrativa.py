@@ -19,7 +19,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    from app.models.gestion_seguimiento.tramite_etapa import TramiteEtapa
     from app.models.gestion_seguimiento.usuario_unidad import UsuarioUnidad
 
 
@@ -76,12 +75,6 @@ class UnidadAdministrativa(Base):
 
     asignaciones_usuario: Mapped[list[UsuarioUnidad]] = relationship(
         "UsuarioUnidad",
-        back_populates="unidad",
-        passive_deletes=True,
-    )
-
-    etapas: Mapped[list[TramiteEtapa]] = relationship(
-        "TramiteEtapa",
         back_populates="unidad",
         passive_deletes=True,
     )

@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -20,7 +21,6 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.gestion_seguimiento.tramite_campo import TramiteCampo
-    from app.models.gestion_seguimiento.tramite_etapa import TramiteEtapa
     from app.models.gestion_seguimiento.tramite_requisito import (
         TramiteRequisito,
     )
@@ -28,29 +28,15 @@ if TYPE_CHECKING:
 
 class Tramite(Base):
     """
-    Representa un trámite académico disponible en el catálogo.
+    Catálogo configurable de trámites académicos.
 
-    El catálogo describe qué trámite existe y su información
-    configurable, pero no presupone ni codifica el proceso
-    administrativo interno que seguirá posteriormente.
+    tipo_intervencion define únicamente la intervención
+    presencial que debe acreditarse antes de finalizar.
+
+    No representa las actividades administrativas internas.
     """
 
-    @property
-    def cantidad_requisitos_activos(self) -> int:
-        return sum(r.activo for r in self.requisitos)
-
-    @property
-    def cantidad_etapas_activas(self) -> int:
-        return sum(e.activo for e in self.etapas)
-
     __tablename__ = "tramite"
-
-    tiempo_estimado: Mapped[str | None] = mapped_column(Text)
-    canales_atencion: Mapped[str | None] = mapped_column(Text)
-    instrucciones: Mapped[str | None] = mapped_column(Text)
-    condiciones: Mapped[str | None] = mapped_column(Text)
-    tipo_finalizacion: Mapped[str | None] = mapped_column(String(30))
-
 
     id_tramite: Mapped[int] = mapped_column(
         BigInteger,
@@ -67,6 +53,38 @@ class Tramite(Base):
     descripcion: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
+    )
+
+    tiempo_estimado: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    canales_atencion: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    instrucciones: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    condiciones: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    tipo_finalizacion: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
+
+    tipo_intervencion: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="ninguna",
+        server_default=text("'ninguna'"),
     )
 
     activo: Mapped[bool] = mapped_column(
@@ -102,10 +120,6 @@ class Tramite(Base):
         server_default=func.now(),
     )
 
-    # =====================================================
-    # RELACIONES
-    # =====================================================
-
     requisitos: Mapped[list[TramiteRequisito]] = relationship(
         "TramiteRequisito",
         back_populates="tramite",
@@ -120,50 +134,37 @@ class Tramite(Base):
         passive_deletes=True,
     )
 
-    etapas: Mapped[list[TramiteEtapa]] = relationship(
-        "TramiteEtapa",
-        back_populates="tramite",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-
-    # =====================================================
-    # RESTRICCIONES E ÍNDICES
-    # =====================================================
-
     __table_args__ = (
-        CheckConstraint("tipo_finalizacion IN ('entrega', 'resultado_registrado', 'externo')", name="ck_tramite_tipo_finalizacion"),
-
+        CheckConstraint(
+            "tipo_finalizacion IN "
+            "('entrega', 'resultado_registrado', 'externo')",
+            name="ck_tramite_tipo_finalizacion",
+        ),
+        CheckConstraint(
+            "tipo_intervencion IN "
+            "('ninguna', 'firma', 'conformidad')",
+            name="ck_tramite_tipo_intervencion",
+        ),
         CheckConstraint(
             "LENGTH(TRIM(nombre)) >= 3",
             name="ck_tramite_nombre_no_vacio",
         ),
         CheckConstraint(
-            """
-            publicado = FALSE
-            OR activo = TRUE
-            """,
+            "publicado = FALSE OR activo = TRUE",
             name="ck_tramite_publicacion",
         ),
         CheckConstraint(
             """
             permite_solicitudes = FALSE
-            OR
-            (
+            OR (
                 activo = TRUE
                 AND publicado = TRUE
             )
             """,
             name="ck_tramite_permite_solicitudes",
         ),
-        Index(
-            "idx_tramite_activo",
-            "activo",
-        ),
-        Index(
-            "idx_tramite_publicado",
-            "publicado",
-        ),
+        Index("idx_tramite_activo", "activo"),
+        Index("idx_tramite_publicado", "publicado"),
         Index(
             "idx_tramite_catalogo",
             "activo",
@@ -172,13 +173,27 @@ class Tramite(Base):
     )
 
     @property
+    def cantidad_requisitos_activos(self) -> int:
+        return sum(
+            requisito.activo
+            for requisito in self.requisitos
+        )
+
+    @property
+    def cantidad_etapas_activas(self) -> int:
+        # Compatibilidad temporal con los clientes existentes.
+        return 0
+
+    @property
+    def requiere_intervencion(self) -> bool:
+        return self.tipo_intervencion != "ninguna"
+
+    @property
     def visible_en_catalogo(self) -> bool:
-        """Indica si el trámite puede mostrarse en el catálogo."""
         return self.activo and self.publicado
 
     @property
     def disponible_para_solicitud(self) -> bool:
-        """Indica si actualmente admite nuevas solicitudes."""
         return (
             self.activo
             and self.publicado
@@ -190,6 +205,7 @@ class Tramite(Base):
             "Tramite("
             f"id_tramite={self.id_tramite!r}, "
             f"nombre={self.nombre!r}, "
+            f"tipo_intervencion={self.tipo_intervencion!r}, "
             f"activo={self.activo!r}, "
             f"publicado={self.publicado!r}, "
             f"permite_solicitudes={self.permite_solicitudes!r}"

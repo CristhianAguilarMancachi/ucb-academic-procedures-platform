@@ -38,7 +38,6 @@ if TYPE_CHECKING:
 class SolicitudRequisito(Base):
     __tablename__ = "solicitud_requisito"
 
-    id_solicitud_etapa: Mapped[int | None] = mapped_column(BigInteger)
     requiere_presentacion_fisica: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     presentado: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     fecha_presentacion: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -189,9 +188,7 @@ class SolicitudRequisito(Base):
     )
 
     __table_args__ = (
-        ForeignKeyConstraint(["id_solicitud", "id_solicitud_etapa"], ["solicitud_etapa.id_solicitud", "solicitud_etapa.id_solicitud_etapa"], name="fk_solicitud_requisito_etapa"),
         UniqueConstraint("id_solicitud", "id_solicitud_requisito", name="uq_solicitud_requisito_pertenencia"),
-        Index("idx_solicitud_requisito_etapa", "id_solicitud_etapa"),
         CheckConstraint("""(NOT presentado AND fecha_presentacion IS NULL AND id_usuario_presentacion IS NULL)
             OR (presentado AND requiere_presentacion_fisica AND fecha_presentacion IS NOT NULL
             AND id_usuario_presentacion IS NOT NULL AND fecha_presentacion >= fecha_creacion)""", name="ck_solicitud_requisito_presentacion"),

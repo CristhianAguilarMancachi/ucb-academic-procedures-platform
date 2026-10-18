@@ -1,6 +1,9 @@
 <div class="chat-mode-layout">
 
   <div class="chat-topbar">
+    <span class="chat-session-note" role="status">
+      {{ persistent ? 'Conversación guardada en tu cuenta' : 'Conversación temporal' }}
+    </span>
 
     <button
       type="button"
@@ -14,7 +17,7 @@
       </ng-icon>
 
       <span>
-        Nueva conversación
+        Limpiar chat
       </span>
 
     </button>

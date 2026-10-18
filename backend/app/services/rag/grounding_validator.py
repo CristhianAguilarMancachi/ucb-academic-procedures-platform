@@ -300,28 +300,25 @@ def apply_conservative_guards(
     )
 
     result = re.sub(
-        r"\s+\.",
+        r"[ \t]+\.",
         ".",
         result,
     )
 
     result = re.sub(
-        r"\.\s*\.",
+        r"\.[ \t]*\.",
         ".",
         result,
     )
 
     result = re.sub(
-        r";\s*\.",
+        r";[ \t]*\.",
         ".",
         result,
     )
 
-    result = re.sub(
-        r"\s{2,}",
-        " ",
-        result,
-    )
+    # Limitar únicamente los saltos de línea excesivos.
+    result = re.sub(r"\n{3,}", "\n\n", result)
 
     return result.strip()
 

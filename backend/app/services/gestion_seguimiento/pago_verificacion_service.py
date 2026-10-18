@@ -454,20 +454,6 @@ def _validar_disponibilidad_solicitante(
             "en el estado actual de la solicitud."
         )
 
-    if (
-        requisito.id_solicitud_etapa
-        is not None
-        and (
-            solicitud.estado
-            != "en_proceso"
-            or requisito.id_solicitud_etapa
-            != solicitud.id_etapa_actual
-        )
-    ):
-        raise SolicitudPagoNoEstaEnRevisionError(
-            "El pago se habilitará cuando "
-            "la solicitud llegue a la etapa correspondiente."
-        )
 
 
 # ============================================================
@@ -930,10 +916,6 @@ def _verificar_pago(
                 (
                     f"Pago verificado: "
                     f"{requisito.nombre}."
-                ),
-                id_solicitud_etapa=(
-                    requisito
-                    .id_solicitud_etapa
                 ),
                 id_solicitud_requisito=(
                     requisito

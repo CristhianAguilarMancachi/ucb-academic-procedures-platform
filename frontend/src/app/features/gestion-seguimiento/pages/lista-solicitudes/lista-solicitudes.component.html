@@ -106,7 +106,7 @@
           </span>
 
           <strong>
-            {{ contar('finalizada') }}
+            {{ contarFinalizadas() }}
           </strong>
 
           <small>
@@ -305,9 +305,9 @@
                 <td>
                   <span
                     class="admin-status"
-                    [attr.data-state]="s.estado"
+                    [attr.data-state]="estadoAdministrativo(s)"
                   >
-                    {{ etiqueta(s.estado) }}
+                    {{ etiquetaAdministrativa(s) }}
                   </span>
                 </td>
 

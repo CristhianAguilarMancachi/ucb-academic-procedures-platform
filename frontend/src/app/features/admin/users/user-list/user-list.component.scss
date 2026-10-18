@@ -1063,7 +1063,12 @@
     min-height: 420px;
   }
 
+  .users-table {
+    min-width: 960px;
+  }
+
   .users-table-scroll {
+    overflow-x: auto;
     max-height: 550px;
   }
 }
@@ -1097,78 +1102,6 @@
 
   .filter-button {
     flex: 1;
-  }
-
-  /*
-   * En teléfonos, se priorizan:
-   * usuario, rol, estado y acción.
-   * El correo y la fecha quedan disponibles
-   * en el detalle de usuario.
-   */
-
-  .users-table th:nth-child(2),
-  .users-table td:nth-child(2),
-  .users-table th:nth-child(5),
-  .users-table td:nth-child(5) {
-    display: none;
-  }
-
-  .col-user {
-    width: 34%;
-  }
-
-  .col-roles {
-    width: 27%;
-  }
-
-  .col-status {
-    width: 17%;
-  }
-
-  .col-action {
-    width: 22%;
-  }
-
-  .users-table th,
-  .users-table td {
-    padding-left: 0.35rem;
-    padding-right: 0.35rem;
-  }
-
-  .user-avatar {
-    display: none;
-  }
-
-  .user-detail-button {
-    width: 100%;
-    min-height: 32px;
-    padding: 0 0.2rem !important;
-    font-size: 0.64rem;
-
-    .user-detail-button__arrow {
-      display: none;
-    }
-
-    svg {
-      width: 12px;
-      height: 12px;
-      flex-basis: 12px;
-    }
-  }
-
-  .user-roles {
-    gap: 0.25rem;
-  }
-
-  .role-badge {
-    min-height: 23px;
-    font-size: 0.62rem;
-    padding: 0.2rem 0.3rem;
-  }
-
-  .user-status {
-    padding: 0.25rem 0.3rem;
-    font-size: 0.63rem;
   }
 
   .users-pagination {

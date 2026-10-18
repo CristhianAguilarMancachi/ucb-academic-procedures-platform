@@ -14,28 +14,16 @@ import {
   Campo,
   Condicion,
   Economico,
-  EtapaConfigurada,
   Lista,
   RequisitoCatalogo,
   Tramite,
-  Unidad,
   TipoFinalizacion,
+  TipoIntervencion,
 } from '../../models/gestion-seguimiento.models';
 
 type VistaConfig = 'listado' | 'editor';
-
-type PestanaConfig =
-  | 'general'
-  | 'atencion'
-  | 'requisitos'
-  | 'etapas';
-
-type ModalEditor =
-  | 'campo'
-  | 'requisito'
-  | 'economico'
-  | 'etapa'
-  | null;
+type PestanaConfig = 'general' | 'atencion' | 'requisitos';
+type ModalEditor = 'campo' | 'requisito' | 'economico' | null;
 
 @Component({
   selector: 'app-configuracion-tramites',
@@ -48,7 +36,6 @@ type ModalEditor =
 export class ConfiguracionTramitesComponent implements OnInit {
   private readonly api = inject(GestionSeguimientoService);
 
-  readonly unidades = signal<Unidad[]>([]);
   readonly lista = signal<Tramite[]>([]);
   readonly actual = signal<Tramite | null>(null);
   readonly error = signal('');
@@ -59,7 +46,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
   vista: VistaConfig = 'listado';
   pestana: PestanaConfig = 'general';
   modalEditor: ModalEditor = null;
-
   tramiteCambioEstado: Tramite | null = null;
 
   pagina = 1;
@@ -70,12 +56,10 @@ export class ConfiguracionTramitesComponent implements OnInit {
   campo = this.nuevoCampo();
   requisito = this.nuevoRequisito();
   economico = this.nuevoEconomico();
-  etapa = this.nuevaEtapa();
 
   idCampo = 0;
   idRequisito = 0;
   idEconomico = 0;
-  idEtapa = 0;
   requisitoPago = 0;
 
   condicionOrigen = '';
@@ -106,12 +90,7 @@ export class ConfiguracionTramitesComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargarLista();
-    this.cargarUnidades();
   }
-
-  // ---------------------------------------------------------
-  // VALORES INICIALES
-  // ---------------------------------------------------------
 
   nuevoGeneral() {
     return {
@@ -125,6 +104,7 @@ export class ConfiguracionTramitesComponent implements OnInit {
       instrucciones: '',
       condiciones: '',
       tipo_finalizacion: '' as TipoFinalizacion | '',
+      tipo_intervencion: 'ninguna' as TipoIntervencion,
     };
   }
 
@@ -147,7 +127,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
       orden: 1,
       obligatorio: true,
       activo: true,
-      id_etapa: null as number | null,
       requiere_presentacion_fisica: false,
     };
   }
@@ -162,23 +141,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
       activo: true,
     };
   }
-
-  nuevaEtapa() {
-    return {
-      nombre: '',
-      descripcion: '',
-      orden: 1,
-      id_unidad: null as number | null,
-      es_inicial: false,
-      es_final: false,
-      visible_solicitante: false,
-      activo: true,
-    };
-  }
-
-  // ---------------------------------------------------------
-  // LISTADO
-  // ---------------------------------------------------------
 
   buscarTramites(): void {
     this.pagina = 1;
@@ -208,29 +170,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
     });
   }
 
-  cargarUnidades(pagina = 1): void {
-    this.api.get<Lista<Unidad>>('admin/unidades', {
-      pagina,
-      por_pagina: 100,
-      activo: 'true',
-    }).subscribe({
-      next: respuesta => {
-        this.unidades.update(anteriores =>
-          pagina === 1
-            ? respuesta.items
-            : [...anteriores, ...respuesta.items]
-        );
-
-        if (pagina * 100 < respuesta.total) {
-          this.cargarUnidades(pagina + 1);
-        }
-      },
-      error: e => {
-        this.error.set(mensajeError(e));
-      },
-    });
-  }
-
   mover(n: number): void {
     const siguiente = this.pagina + n;
 
@@ -249,10 +188,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
   seleccionar(id: number): void {
     this.abrirTramite(id);
   }
-
-  // ---------------------------------------------------------
-  // NAVEGACIÓN
-  // ---------------------------------------------------------
 
   abrirNuevo(): void {
     this.id = 0;
@@ -302,19 +237,12 @@ export class ConfiguracionTramitesComponent implements OnInit {
 
   cambiarPestana(pestana: PestanaConfig): void {
     if (this.ocupado()) return;
-    if (!this.id && (
-      pestana === 'requisitos' ||
-      pestana === 'etapas'
-    )) return;
+    if (!this.id && pestana === 'requisitos') return;
 
     this.pestana = pestana;
     this.error.set('');
     this.mensaje.set('');
   }
-
-  // ---------------------------------------------------------
-  // INFORMACIÓN REAL DEL TRÁMITE
-  // ---------------------------------------------------------
 
   private aplicarSeleccion(t: Tramite): void {
     this.id = t.id_tramite;
@@ -331,6 +259,7 @@ export class ConfiguracionTramitesComponent implements OnInit {
       instrucciones: t.instrucciones || '',
       condiciones: t.condiciones || '',
       tipo_finalizacion: t.tipo_finalizacion || '',
+      tipo_intervencion: t.tipo_intervencion || 'ninguna',
     };
   }
 
@@ -344,14 +273,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
     );
   }
 
-  nombreUnidad(idUnidad: number | null): string {
-    if (idUnidad === null) return 'Sin unidad asignada';
-
-    return this.unidades().find(
-      u => u.id_unidad === idUnidad
-    )?.nombre || 'Unidad no disponible';
-  }
-
   nombreTipoCampo(tipo: string): string {
     return this.tiposCampo.find(
       item => item.valor === tipo
@@ -362,15 +283,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
     return (this.actual()?.requisitos || [])
       .filter(r => r.activo).length;
   }
-
-  etapasOrdenadas(): EtapaConfigurada[] {
-    return [...(this.actual()?.etapas || [])]
-      .sort((a, b) => a.orden - b.orden);
-  }
-
-  // ---------------------------------------------------------
-  // PERSISTENCIA
-  // ---------------------------------------------------------
 
   private enviar(
     path: string,
@@ -476,13 +388,9 @@ export class ConfiguracionTramitesComponent implements OnInit {
       !!this.id,
       this.id
         ? 'Los cambios del trámite se guardaron correctamente.'
-        : 'Trámite creado. Ahora puedes configurar sus requisitos y etapas.',
+        : 'Trámite creado. Ahora puedes configurar sus campos y requisitos.',
     );
   }
-
-  // ---------------------------------------------------------
-  // ACTIVAR / DESACTIVAR
-  // ---------------------------------------------------------
 
   prepararCambioActivo(tramite: Tramite): void {
     if (this.ocupado()) return;
@@ -510,10 +418,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
       t.id_tramite,
     );
   }
-
-  // ---------------------------------------------------------
-  // VENTANAS
-  // ---------------------------------------------------------
 
   cerrarEditores(): void {
     this.modalEditor = null;
@@ -627,7 +531,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
       orden: r.orden,
       obligatorio: r.obligatorio,
       activo: !!r.activo,
-      id_etapa: r.id_etapa ?? null,
       requiere_presentacion_fisica:
         r.requiere_presentacion_fisica,
     };
@@ -733,10 +636,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
     );
   }
 
-  // ---------------------------------------------------------
-  // CONFIGURACIÓN ECONÓMICA
-  // ---------------------------------------------------------
-
   abrirNuevoEconomico(): void {
     if (!this.idRequisito) return;
 
@@ -809,95 +708,6 @@ export class ConfiguracionTramitesComponent implements OnInit {
       true,
     );
   }
-
-  // ---------------------------------------------------------
-  // FLUJO Y ETAPAS
-  // ---------------------------------------------------------
-
-  abrirNuevaEtapa(): void {
-    const etapas = this.etapasOrdenadas();
-
-    this.idEtapa = 0;
-    this.etapa = this.nuevaEtapa();
-    this.etapa.orden = etapas.length + 1;
-
-    if (etapas.length === 0) {
-      this.etapa.es_inicial = true;
-      this.etapa.es_final = true;
-    }
-
-    this.error.set('');
-    this.modalEditor = 'etapa';
-  }
-
-  editarEtapa(e: EtapaConfigurada): void {
-    this.idEtapa = e.id_etapa;
-
-    this.etapa = {
-      nombre: e.nombre,
-      descripcion: e.descripcion || '',
-      orden: e.orden,
-      id_unidad: e.id_unidad,
-      es_inicial: e.es_inicial,
-      es_final: e.es_final,
-      visible_solicitante: e.visible_solicitante,
-      activo: e.activo,
-    };
-
-    this.error.set('');
-    this.modalEditor = 'etapa';
-  }
-
-  guardarEtapa(): void {
-    if (!this.etapa.nombre.trim()) {
-      this.error.set(
-        'Introduce el nombre de la etapa.'
-      );
-      return;
-    }
-
-    this.enviar(
-      `admin/tramites/${this.id}/etapas${
-        this.idEtapa ? '/' + this.idEtapa : ''
-      }`,
-      {
-        ...this.etapa,
-        nombre: this.etapa.nombre.trim(),
-      },
-      !!this.idEtapa,
-      'La etapa se guardó correctamente.',
-      true,
-    );
-  }
-
-  moverEtapa(
-    indice: number,
-    desplazamiento: number,
-  ): void {
-    const etapas = this.etapasOrdenadas();
-    const destino = indice + desplazamiento;
-
-    if (
-      destino < 0 ||
-      destino >= etapas.length ||
-      this.ocupado()
-    ) return;
-
-    [etapas[indice], etapas[destino]] = [
-      etapas[destino], etapas[indice],
-    ];
-
-    this.enviar(
-      `admin/tramites/${this.id}/etapas/orden`,
-      { ids: etapas.map(e => e.id_etapa) },
-      false,
-      'Se actualizó el orden de las etapas.',
-    );
-  }
-
-  // ---------------------------------------------------------
-  // ERRORES
-  // ---------------------------------------------------------
 
   private fallar(
     e: Parameters<typeof mensajeError>[0],
