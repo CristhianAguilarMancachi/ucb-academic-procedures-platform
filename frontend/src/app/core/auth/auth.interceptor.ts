@@ -1,4 +1,6 @@
+
 import { inject } from '@angular/core';
+
 import {
   HttpErrorResponse,
   HttpEvent,
@@ -16,7 +18,6 @@ import {
 
 import { AuthService } from './auth.service';
 
-
 const RUTAS_SIN_BEARER = [
   '/api/auth/register',
   '/api/auth/login',
@@ -29,7 +30,6 @@ const RUTAS_SIN_BEARER = [
   '/api/auth/reset-password',
 ];
 
-
 function requiereBearer(
   url: string,
 ): boolean {
@@ -37,7 +37,6 @@ function requiereBearer(
     (ruta) => url.includes(ruta),
   );
 }
-
 
 function agregarBearer(
   request: HttpRequest<unknown>,
@@ -50,7 +49,6 @@ function agregarBearer(
   });
 }
 
-
 export const authInterceptor: HttpInterceptorFn = (
   request,
   next,
@@ -58,62 +56,53 @@ export const authInterceptor: HttpInterceptorFn = (
 
   const authService = inject(AuthService);
 
-  const token = authService.obtenerAccessToken();
+  const requiereAutenticacion = requiereBearer(request.url);
+  const tokenOriginal = authService.obtenerAccessToken();
 
-  let requestAutenticada = request;
+  const requestInicial = (
+    requiereAutenticacion && tokenOriginal !== null
+  )
+    ? agregarBearer(request, tokenOriginal)
+    : request;
 
-
-  if (
-    token !== null
-    && requiereBearer(request.url)
-  ) {
-    requestAutenticada = agregarBearer(
-      request,
-      token,
-    );
-  }
-
-
-  return next(requestAutenticada).pipe(
-
+  return next(requestInicial).pipe(
     catchError((error: HttpErrorResponse) => {
-
-      /*
-       * Solo intentamos renovar la sesión cuando:
-       *
-       * 1. El backend respondió 401.
-       * 2. La petición necesitaba autenticación.
-       * 3. No estamos ya intentando un refresh.
-       */
-
       if (
-        error.status !== 401
-        || !requiereBearer(request.url)
+        !(error instanceof HttpErrorResponse)
+        || error.status !== 401
+        || !requiereAutenticacion
       ) {
-        return throwError(
-          () => error,
+        return throwError(() => error);
+      }
+
+      const tokenActual = authService.obtenerAccessToken();
+
+      // Si otra petición ya renovó el token, no rotamos
+      // nuevamente la cookie: reutilizamos el token nuevo.
+      if (
+        tokenOriginal !== null
+        && tokenActual !== null
+        && tokenActual !== tokenOriginal
+      ) {
+        return next(
+          agregarBearer(request, tokenActual),
         );
       }
 
-
+      // refresh() comparte una única operación en curso.
+      // Si falla la renovación, la sesión deja de ser válida.
       return authService.refresh().pipe(
-
-        switchMap((respuesta) => {
-
-          const nuevaRequest = agregarBearer(
-            request,
-            respuesta.access_token,
-          );
-
-          return next(nuevaRequest);
+        catchError((refreshError) => {
+          authService.limpiarSesion();
+          return throwError(() => refreshError);
         }),
 
-        catchError((refreshError) => {
-
-          authService.limpiarSesion();
-
-          return throwError(
-            () => refreshError,
+        switchMap((respuesta) => {
+          return next(
+            agregarBearer(
+              request,
+              respuesta.access_token,
+            ),
           );
         }),
       );

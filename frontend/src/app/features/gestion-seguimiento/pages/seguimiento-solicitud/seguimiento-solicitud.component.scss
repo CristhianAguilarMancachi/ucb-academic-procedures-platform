@@ -31,9 +31,7 @@
   min-height: 0;
 
   padding:
-    0.7rem
-    1.7rem
-    0.65rem;
+    1rem 1.75rem 0.8rem;
 
   display: grid;
 
@@ -193,237 +191,6 @@
 
     color:
       #c6f4dc;
-  }
-}
-
-
-/* =========================================================
-   RESUMEN SUPERIOR
-   ========================================================= */
-
-.tracking-summary-card {
-  min-height: 110px;
-
-  margin:
-    0 !important;
-
-  padding:
-    13px
-    17px !important;
-
-  display: grid;
-
-  grid-template-columns:
-    minmax(
-      205px,
-      0.76fr
-    )
-    minmax(
-      0,
-      1.82fr
-    )
-    minmax(
-      205px,
-      0.78fr
-    );
-
-  align-items: center;
-
-  gap: 17px;
-
-  border:
-    1px solid
-    var(--ucb-border) !important;
-
-  border-radius:
-    10px !important;
-
-  background:
-    linear-gradient(
-      135deg,
-      var(--ucb-surface-soft),
-      var(--ucb-surface)
-    ) !important;
-
-  box-shadow:
-    var(--ucb-shadow-sm);
-}
-
-
-.tracking-summary-label {
-  display: block;
-
-  margin-bottom: 5px;
-
-  color:
-    var(--ucb-text-muted);
-
-  font-size:
-    13px;
-
-  line-height:
-    1.25;
-}
-
-
-/* =========================================================
-   TICKET
-   ========================================================= */
-
-.tracking-ticket {
-  min-width: 0;
-
-  display: flex;
-  align-items: center;
-
-  gap: 14px;
-
-  padding-right: 17px;
-
-  border-right:
-    1px solid
-    var(--ucb-border-soft);
-
-  &__icon {
-    width: 58px;
-    height: 58px;
-
-    flex:
-      0
-      0
-      58px;
-
-    display: grid;
-    place-items: center;
-
-    border-radius:
-      9px;
-
-    background:
-      linear-gradient(
-        135deg,
-        #0b6af0,
-        #0750bd
-      );
-
-    color:
-      #ffffff;
-
-    box-shadow:
-      0
-      10px
-      22px
-      rgba(
-        0,
-        82,
-        196,
-        0.18
-      );
-
-    ng-icon {
-      font-size:
-        25px;
-    }
-  }
-
-  &__info {
-    min-width: 0;
-
-    strong {
-      display: block;
-
-      color:
-        var(--ucb-yellow);
-
-      font-size:
-        27px;
-
-      line-height:
-        1;
-
-      font-weight:
-        800;
-
-      letter-spacing:
-        0.025em;
-    }
-  }
-}
-
-
-/* =========================================================
-   DATOS DEL TRÁMITE
-   ========================================================= */
-
-.tracking-procedure {
-  min-width: 0;
-
-  h1 {
-    margin: 0;
-
-    color:
-      var(--ucb-text-strong);
-
-    font-size:
-      18px;
-
-    line-height:
-      1.3;
-
-    font-weight:
-      700;
-  }
-
-  p {
-    margin:
-      6px
-      0
-      0;
-
-    color:
-      var(--ucb-text-muted);
-
-    font-size:
-      13px;
-  }
-}
-
-
-/* =========================================================
-   ESTADO
-   ========================================================= */
-
-.tracking-current-state {
-  min-width: 0;
-
-  padding-left: 17px;
-
-  border-left:
-    1px solid
-    var(--ucb-border-soft);
-
-  p {
-    margin:
-      8px
-      0
-      3px;
-
-    color:
-      var(--ucb-text-muted);
-
-    font-size:
-      12px;
-  }
-
-  > strong {
-    color:
-      var(--ucb-text-soft);
-
-    font-size:
-      13px;
-
-    font-weight:
-      600;
   }
 }
 
@@ -622,15 +389,7 @@
 
   display: grid;
 
-  grid-template-columns:
-    minmax(
-      0,
-      0.93fr
-    )
-    minmax(
-      540px,
-      1.07fr
-    );
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
 
   align-items:
     start;
@@ -3857,27 +3616,6 @@
       7px;
   }
 
-  .tracking-summary-card {
-    min-height:
-      94px;
-  }
-
-  .tracking-ticket__icon {
-    width:
-      50px;
-
-    height:
-      50px;
-
-    flex-basis:
-      50px;
-  }
-
-  .tracking-ticket__info strong {
-    font-size:
-      23px;
-  }
-
   .tracking-process-card {
     max-height:
       400px;
@@ -3947,35 +3685,6 @@
 
     overflow:
       visible;
-  }
-
-  .tracking-summary-card {
-    grid-template-columns:
-      minmax(
-        200px,
-        0.8fr
-      )
-      minmax(
-        0,
-        1.4fr
-      );
-
-    .tracking-current-state {
-      grid-column:
-        1 / -1;
-
-      padding:
-        12px
-        0
-        0;
-
-      border-left:
-        0;
-
-      border-top:
-        1px solid
-        var(--ucb-border-soft);
-    }
   }
 
   .tracking-content {
@@ -4109,35 +3818,6 @@
   .tracking-page {
     padding:
       0.8rem;
-  }
-
-  .tracking-summary-card {
-    grid-template-columns:
-      1fr;
-  }
-
-  .tracking-ticket {
-    padding:
-      0
-      0
-      12px;
-
-    border-right:
-      0;
-
-    border-bottom:
-      1px solid
-      var(--ucb-border-soft);
-  }
-
-  .tracking-current-state {
-    grid-column:
-      auto !important;
-
-    padding:
-      12px
-      0
-      0 !important;
   }
 
   .tracking-actions {
@@ -4410,5 +4090,109 @@
         padding-inline: 8px;
       }
     }
+  }
+}
+
+
+/* Cabecera compartida de detalle de solicitud */
+.request-detail-heading {
+  display: grid;
+  grid-template-columns: 43px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 76px;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--ucb-border);
+  border-radius: 9px;
+  background: var(--ucb-surface-soft);
+  box-sizing: border-box;
+}
+
+.request-detail-heading__icon {
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  border-radius: 8px;
+  background: rgba(8, 108, 214, 0.16);
+  color: #50a9ff;
+
+  ng-icon { font-size: 1.35rem; }
+}
+
+.request-detail-heading__main {
+  min-width: 0;
+
+  h1 {
+    margin: 0;
+    color: var(--ucb-text-strong);
+    font-size: clamp(1.12rem, 1.45vw, 1.45rem);
+    font-weight: 750;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  p {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.85rem;
+    margin: 0.28rem 0 0;
+    color: var(--ucb-text-muted);
+    font-size: 0.74rem;
+    line-height: 1.4;
+  }
+}
+
+.request-detail-heading__state {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.request-detail-heading .tracking-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.request-detail-heading .tracking-status[data-state='lista_para_entrega'],
+.request-detail-heading .tracking-status[data-state='pendiente_recepcion'] {
+  background: #a97800;
+  color: #fff;
+}
+
+.request-detail-heading .tracking-status[data-state='finalizada'],
+.request-detail-heading .tracking-status[data-state='en_proceso'] {
+  background: #08734e;
+  color: #fff;
+}
+
+.request-detail-heading .tracking-status[data-state='en_revision'] {
+  background: #6840a4;
+  color: #fff;
+}
+
+.request-detail-heading .tracking-status[data-state='cancelada'],
+.request-detail-heading .tracking-status[data-state='rechazada'] {
+  background: #bd2939;
+  color: #fff;
+}
+
+@media (max-width: 700px) {
+  .request-detail-heading {
+    grid-template-columns: 43px minmax(0, 1fr);
+  }
+
+  .request-detail-heading__state {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 }

@@ -21,3 +21,12 @@ htmlcov/
 *.db
 
 backups/
+respaldos_bd/
+
+respaldos_codigo/
+
+*.bak
+
+*.bak-*
+
+*.dump

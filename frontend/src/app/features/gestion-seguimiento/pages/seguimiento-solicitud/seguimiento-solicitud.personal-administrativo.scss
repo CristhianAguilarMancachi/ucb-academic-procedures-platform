@@ -28,7 +28,7 @@
   min-width: 0;
   min-height: 0;
   margin: 0;
-  padding: 10px 20px 12px;
+  padding: 1rem 1.75rem 0.8rem;
   overflow: hidden;
   color: var(--admin-text);
 
@@ -88,146 +88,6 @@
     color: var(--ucb-text-strong);
     font-weight: 650;
   }
-}
-
-/* ============================================================
-   CABECERA GENERAL
-   ============================================================ */
-
-.admin-summary-card {
-  display: grid;
-  flex: none;
-  grid-template-columns:
-    minmax(110px, 0.7fr)
-    minmax(105px, 0.75fr)
-    minmax(230px, 2.1fr)
-    minmax(125px, 1fr)
-    minmax(125px, 1fr);
-  align-items: center;
-  min-width: 0;
-  min-height: 79px;
-  padding: 11px 14px;
-  border: 1px solid var(--admin-border);
-  border-radius: 9px;
-  background: var(--admin-panel);
-}
-
-.admin-summary-item {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  min-width: 0;
-  height: 100%;
-  padding: 0 13px;
-  border-left: 1px solid var(--admin-border-soft);
-
-  &:first-child {
-    padding-left: 0;
-    border-left: 0;
-  }
-
-  &:last-child {
-    padding-right: 0;
-  }
-
-  > span,
-  > div > span {
-    display: block;
-    color: var(--admin-muted);
-    font-size: 0.72rem;
-    line-height: 1.3;
-  }
-
-  > strong,
-  > div > strong {
-    display: block;
-    min-width: 0;
-    margin: 0;
-    color: var(--ucb-text-strong);
-    font-size: 0.8rem;
-    font-weight: 650;
-    line-height: 1.4;
-    overflow-wrap: anywhere;
-  }
-}
-
-.admin-summary-item--request {
-  flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 11px;
-
-  > div:last-child {
-    min-width: 0;
-  }
-}
-
-.admin-summary-icon {
-  display: grid;
-  flex: 0 0 40px;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  color: #fff;
-  background: linear-gradient(135deg, #0873dd, #0756b9);
-
-  ng-icon {
-    font-size: 1.2rem;
-  }
-}
-
-.admin-request-number {
-  margin-top: 3px !important;
-  color: var(--ucb-yellow) !important;
-  font-size: 1.42rem !important;
-  font-weight: 750 !important;
-  line-height: 1 !important;
-}
-
-.admin-summary-card .tracking-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: fit-content;
-  min-height: 28px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  font-size: 0.72rem;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.admin-summary-card .tracking-status[data-state='en_revision'] {
-  background: #6840a4;
-  color: #fff;
-}
-
-.admin-summary-card .tracking-status[data-state='en_proceso'] {
-  background: #08734e;
-  color: #fff;
-}
-
-.admin-summary-card .tracking-status[data-state='pendiente_recepcion'] {
-  background: #956000;
-  color: #fff;
-}
-
-.admin-summary-card .tracking-status[data-state='lista_para_entrega'] {
-  background: #a97800;
-  color: #fff;
-}
-
-.admin-summary-card .tracking-status[data-state='finalizada'] {
-  background: #1855b8;
-  color: #fff;
-}
-
-.admin-summary-card .tracking-status[data-state='cancelada'],
-.admin-summary-card .tracking-status[data-state='rechazada'] {
-  background: #bd2939;
-  color: #fff;
 }
 
 /* ============================================================
@@ -1335,11 +1195,6 @@
     padding: 8px 17px 9px;
   }
 
-  .admin-summary-card {
-    min-height: 72px;
-    padding: 9px 12px;
-  }
-
   .admin-tabs {
     flex-basis: 42px;
     min-height: 42px;
@@ -1409,17 +1264,6 @@
    ============================================================ */
 
 @media (max-width: 1100px) {
-  .admin-summary-card {
-    grid-template-columns:
-      minmax(110px, 0.7fr)
-      minmax(105px, 0.75fr)
-      minmax(180px, 1.6fr)
-      minmax(110px, 1fr);
-  }
-
-  .admin-summary-item:last-child {
-    display: none;
-  }
 
   .admin-history-workspace {
     grid-template-columns:
@@ -1438,25 +1282,6 @@
     min-height: 100%;
     overflow-x: hidden;
     overflow-y: auto;
-  }
-
-  .admin-summary-card {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .admin-summary-item {
-    min-height: 46px;
-    padding: 7px 9px;
-    border-left: 0;
-
-    &:last-child {
-      display: flex;
-    }
-
-    &:nth-child(3) {
-      grid-column: 1 / -1;
-    }
   }
 
   .admin-tab-content,
@@ -1519,14 +1344,6 @@
   .admin-review-page {
     gap: 9px;
     padding: 9px;
-  }
-
-  .admin-summary-card {
-    padding: 9px;
-  }
-
-  .admin-summary-item {
-    padding: 6px;
   }
 
   .admin-tabs {

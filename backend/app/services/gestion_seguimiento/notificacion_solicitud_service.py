@@ -2,27 +2,25 @@
 from __future__ import annotations
 
 import logging
-from html import escape
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import FRONTEND_BASE_URL
 from app.models.gestion_seguimiento import (
     SolicitudIntervencion,
     SolicitudNotificacion,
 )
-
 from app.repositories.gestion_seguimiento import (
     seguimiento_repository as repo,
     notificacion_repository as notificaciones,
 )
-
 from app.services.email.email_service import (
     EmailServiceError,
+    construir_html_institucional,
     enviar_correo,
 )
-
 from app.services.gestion_seguimiento.seguimiento_service import (
     SeguimientoError,
 )
@@ -104,8 +102,17 @@ def _obtener_nombre_tramite(
     return "Trámite académico"
 
 
+def _enlace_solicitud(
+    id_solicitud: int,
+) -> str:
+    return (
+        f"{FRONTEND_BASE_URL}"
+        f"/solicitudes/{id_solicitud}"
+    )
+
+
 # ============================================================
-# MENSAJES DE RESULTADO
+# CONTENIDO DE RESULTADOS
 # ============================================================
 
 def _construir_notificacion(
@@ -113,78 +120,136 @@ def _construir_notificacion(
 ) -> tuple[str, str, str]:
     numero = solicitud.id_solicitud
     nombre = _obtener_nombre_tramite(solicitud)
+    referencia = f"Solicitud #{numero} — {nombre}"
+    enlace = _enlace_solicitud(numero)
 
     if solicitud.tipo_finalizacion == "entrega":
         asunto = (
-            f"Solicitud #{numero} lista para recojo"
+            f"Documento listo para recoger "
+            f"— Solicitud #{numero}"
         )
 
-        texto = (
-            f"Solicitud #{numero}\n"
-            f"{nombre}\n\n"
-            "Tu trámite se encuentra listo.\n\n"
-            "Puedes pasar por Kardex / Dirección Académica "
-            "para realizar el recojo correspondiente.\n\n"
-            "Consulta el seguimiento de tu solicitud "
-            "desde el Sistema de Trámites Académicos."
+        titulo = "Tu documento está listo para recoger"
+
+        parrafos = [
+            (
+                "El documento correspondiente a tu trámite "
+                "académico se encuentra disponible para "
+                "su recojo."
+            ),
+            (
+                "Consulta el seguimiento de tu solicitud "
+                "para revisar las indicaciones registradas "
+                "por el personal administrativo."
+            ),
+        ]
+
+        aviso = (
+            "Este aviso corresponde a la disponibilidad "
+            "del documento. Si necesitas confirmar el lugar "
+            "o las condiciones del recojo, consulta con "
+            "la unidad responsable del trámite."
         )
 
-        html = f"""
-        <html>
-          <body>
-            <h2>Tu trámite está listo</h2>
-            <p>
-              <strong>Solicitud #{numero}</strong>
-            </p>
-            <p>{escape(nombre)}</p>
-            <p>Tu trámite se encuentra listo para recojo.</p>
-            <p>
-              Puedes pasar por
-              <strong>Kardex / Dirección Académica</strong>
-              para realizar el recojo correspondiente.
-            </p>
-            <p>
-              Puedes consultar el seguimiento de tu solicitud
-              desde el Sistema de Trámites Académicos.
-            </p>
-          </body>
-        </html>
-        """
+    else:
+        asunto = (
+            f"Trámite finalizado "
+            f"— Solicitud #{numero}"
+        )
 
-        return asunto, texto, html
+        titulo = "Tu trámite ha finalizado"
 
-    asunto = f"Solicitud #{numero} finalizada"
+        parrafos = [
+            (
+                "La atención de tu trámite académico "
+                "ha finalizado."
+            ),
+            (
+                "Ingresa al seguimiento de tu solicitud "
+                "para consultar el resultado y las "
+                "indicaciones que haya registrado "
+                "el personal administrativo."
+            ),
+        ]
+
+        aviso = (
+            "Este mensaje informa la conclusión "
+            "de la atención registrada en el sistema."
+        )
 
     texto = (
-        f"Solicitud #{numero}\n"
-        f"{nombre}\n\n"
-        "Tu trámite ha finalizado.\n\n"
-        "Ingresa al Sistema de Trámites Académicos "
-        "para revisar el resultado y las indicaciones "
-        "registradas para tu solicitud."
+        f"{titulo}\n\n"
+        f"{referencia}\n\n"
+        + "\n\n".join(parrafos)
+        + f"\n\nConsultar solicitud:\n{enlace}\n\n"
+        + aviso
     )
 
-    html = f"""
-    <html>
-      <body>
-        <h2>Tu trámite ha finalizado</h2>
-        <p>
-          <strong>Solicitud #{numero}</strong>
-        </p>
-        <p>{escape(nombre)}</p>
-        <p>
-          El procesamiento de tu trámite ha finalizado.
-        </p>
-        <p>
-          Ingresa al Sistema de Trámites Académicos
-          para revisar el resultado y las indicaciones
-          registradas para tu solicitud.
-        </p>
-      </body>
-    </html>
-    """
+    html = construir_html_institucional(
+        titulo=titulo,
+        referencia=referencia,
+        parrafos=parrafos,
+        texto_accion="Consultar mi solicitud",
+        url_accion=enlace,
+        aviso=aviso,
+    )
 
     return asunto, texto, html
+
+
+# ============================================================
+# CONTENIDO DE CONVOCATORIAS
+# ============================================================
+
+def _html_convocatoria(
+    notificacion: SolicitudNotificacion,
+) -> str:
+    """
+    Presenta el texto ya registrado para una convocatoria.
+
+    No cambia el texto persistido ni reconstruye los datos
+    históricos de la intervención.
+    """
+
+    lineas = (
+        notificacion.contenido_texto
+        or ""
+    ).splitlines()
+
+    referencia = (
+        " — ".join(
+            linea.strip()
+            for linea in lineas[:2]
+            if linea.strip()
+        )
+        or f"Solicitud #{notificacion.id_solicitud}"
+    )
+
+    descripcion = "\n".join(
+        linea.strip()
+        for linea in lineas[2:]
+        if linea.strip()
+    )
+
+    parrafos = [
+        descripcion
+        or "Tienes una convocatoria presencial relacionada con tu trámite.",
+    ]
+
+    return construir_html_institucional(
+        titulo="Convocatoria presencial",
+        referencia=referencia,
+        parrafos=parrafos,
+        texto_accion="Consultar mi solicitud",
+        url_accion=_enlace_solicitud(
+            notificacion.id_solicitud
+        ),
+        aviso=(
+            "Revisa el seguimiento de tu solicitud. "
+            "Este aviso no constituye una confirmación "
+            "de una cita con fecha u hora determinada."
+        ),
+    )
 
 
 # ============================================================
@@ -198,11 +263,11 @@ def _enviar_notificacion_registrada(
     """
     Bloquea el registro durante el intento de envío.
 
-    Un envío aceptado por Brevo no vuelve a realizarse
-    desde este servicio.
+    Una notificación aceptada por Brevo no vuelve a
+    enviarse desde este servicio.
 
-    Como ocurre con los servicios externos, un timeout
-    puede dejar incierto si Brevo recibió el mensaje.
+    Un timeout puede dejar incierto si Brevo recibió
+    el mensaje.
     """
 
     try:
@@ -237,6 +302,11 @@ def _enviar_notificacion_registrada(
 
             _, _, html = _construir_notificacion(
                 solicitud
+            )
+
+        elif notificacion.tipo == "convocatoria":
+            html = _html_convocatoria(
+                notificacion
             )
 
         try:
@@ -399,7 +469,9 @@ def notificar_resultado_solicitud(
         if existente is None:
             raise
 
-        id_notificacion = existente.id_notificacion
+        id_notificacion = (
+            existente.id_notificacion
+        )
 
     return _enviar_notificacion_registrada(
         db,

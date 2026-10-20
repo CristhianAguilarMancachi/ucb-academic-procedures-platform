@@ -202,8 +202,7 @@
   } @else {
 
     <!-- CABECERA DEL EDITOR -->
-    <header class="editor-header">
-      <div class="editor-breadcrumb">
+    <nav class="editor-breadcrumb" aria-label="Ubicación actual">
         <button type="button"
           (click)="volverListado()"
           [disabled]="ocupado()">
@@ -214,8 +213,9 @@
         <strong>
           {{ id ? 'Configurar trámite' : 'Crear trámite' }}
         </strong>
-      </div>
+    </nav>
 
+    <header class="editor-header">
       <div class="editor-heading">
         <div class="editor-heading__identity">
           <h1>
@@ -405,8 +405,27 @@
                   </select>
                 </div>
                 <small class="field-help">
-                  Indica cómo se considera terminado el trámite.
+                  Selecciona cómo concluye la atención del trámite.
                 </small>
+                @switch (general.tipo_finalizacion) {
+                  @case ('entrega') {
+                    <small class="field-help">
+                      El documento queda disponible para recojo.
+                    </small>
+                  }
+                  @case ('resultado_registrado') {
+                    <small class="field-help">
+                      La atención finaliza al registrar el resultado,
+                      sin entrega física.
+                    </small>
+                  }
+                  @case ('externo') {
+                    <small class="field-help">
+                      La gestión se realiza fuera de la plataforma
+                      y aquí se registra su conclusión.
+                    </small>
+                  }
+                }
               </div>
 
               <div class="form-field">
@@ -429,10 +448,28 @@
                 </div>
 
                 <small class="field-help">
-                  Define si se debe registrar una firma o
-                  conformidad presencial antes de finalizar
-                  una solicitud. No representa una etapa.
+                  Se registra antes de finalizar la solicitud.
+                  No representa una etapa ni programa una cita.
                 </small>
+                @switch (general.tipo_intervencion) {
+                  @case ('ninguna') {
+                    <small class="field-help">
+                      No se requiere intervención presencial.
+                    </small>
+                  }
+                  @case ('firma') {
+                    <small class="field-help">
+                      El solicitante debe firmar una resolución
+                      institucional previamente emitida.
+                    </small>
+                  }
+                  @case ('conformidad') {
+                    <small class="field-help">
+                      El solicitante debe revisar la propuesta
+                      y manifestar conformidad o desacuerdo.
+                    </small>
+                  }
+                }
               </div>
             </section>
 
@@ -841,8 +878,12 @@
               <input id="campo-clave"
                 [(ngModel)]="campo.clave"
                 placeholder="Ej. motivo_solicitud"/>
-              <small class="field-help">
-                Clave técnica sin espacios.
+
+<small class="field-help">
+                Identificador único del dato. Usa letras minúsculas,
+                números y guiones bajos, sin espacios.
+                Ejemplo: motivo_solicitud.
+                No lo verá el solicitante.
               </small>
             </div>
 
@@ -870,6 +911,11 @@
                 type="number"
                 min="1"
                 [(ngModel)]="campo.orden"/>
+              <small class="field-help">
+                Posición de esta pregunta en el formulario.
+                Por ejemplo, 1 es la primera.
+                No representa una etapa del trámite.
+              </small>
             </div>
           </div>
 
@@ -916,7 +962,7 @@
               <span>
                 <strong>Campo activo</strong>
                 <small>
-                  Se incluye entre los datos configurados.
+                  Se muestra entre las preguntas activas del formulario.
                 </small>
               </span>
             </label>
@@ -999,9 +1045,11 @@
                 type="number"
                 min="1"
                 [(ngModel)]="requisito.orden"/>
-              <small class="field-help">
-                Determina la posición del requisito
-                en el formulario.
+
+<small class="field-help">
+                Posición en la lista de requisitos.
+                Por ejemplo, 3 es el tercer requisito.
+                No indica cuándo debe entregarse.
               </small>
             </div>
           </div>
@@ -1013,7 +1061,7 @@
               <span>
                 <strong>Obligatorio</strong>
                 <small>
-                  Debe cumplirse para finalizar la solicitud.
+                  Si aplica al solicitante, debe cumplirse para finalizar la solicitud.
                 </small>
               </span>
             </label>
@@ -1024,7 +1072,7 @@
               <span>
                 <strong>Presentación física</strong>
                 <small>
-                  Debe presentarse físicamente ante la institución.
+                  Requiere presentar documentación físicamente. Es independiente de que sea obligatorio.
                 </small>
               </span>
             </label>
@@ -1035,7 +1083,7 @@
               <span>
                 <strong>Requisito activo</strong>
                 <small>
-                  Se considera dentro de la configuración.
+                  Se incluye entre los requisitos activos del trámite.
                 </small>
               </span>
             </label>
@@ -1065,6 +1113,21 @@
                   </option>
                 </select>
               </div>
+              @if (!condicionOrigen) {
+                <small class="field-help">
+                  Se aplica a todos los solicitantes.
+                </small>
+              } @else if (condicionOrigen === 'solicitud_dato') {
+                <small class="field-help">
+                  Se aplica cuando la respuesta a una pregunta
+                  activa coincide con el valor configurado.
+                </small>
+              } @else {
+                <small class="field-help">
+                  Se aplica cuando un dato del perfil académico
+                  coincide con el valor configurado.
+                </small>
+              }
             </div>
 
             @if (condicionOrigen) {
@@ -1300,7 +1363,12 @@
               </label>
               <input id="pago-codigo"
                 [(ngModel)]="economico.codigo_concepto_externo"
-                placeholder="Código de Caja, si corresponde"/>
+                placeholder="Ej. MOCK-CERT-NOTAS-001"/>
+              <small class="field-help">
+                Código del concepto que consulta la API de
+                facturación. Debe coincidir con el concepto
+                asociado a la factura que se verificará.
+              </small>
             </div>
           </div>
 
@@ -1310,8 +1378,7 @@
             <span>
               <strong>Configuración activa</strong>
               <small>
-                Este importe se considera en la información
-                económica del requisito.
+                Este importe se incluye en la configuración económica del requisito.
               </small>
             </span>
           </label>

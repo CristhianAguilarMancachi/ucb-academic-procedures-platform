@@ -1,3 +1,4 @@
+
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
@@ -7,6 +8,7 @@ import {
   finalize,
   map,
   of,
+  shareReplay,
   switchMap,
   tap,
   throwError,
@@ -31,7 +33,6 @@ import {
   TokenResponse,
 } from './auth.models';
 
-
 @Injectable({
   providedIn: 'root',
 })
@@ -44,16 +45,17 @@ export class AuthService {
 
   private accessToken: string | null = null;
 
-  private restaurandoSesion = false;
+  // Compartimos las operaciones simultáneas para evitar
+  // múltiples rotaciones del mismo refresh token.
+  private refreshEnCurso$: Observable<TokenResponse> | null = null;
+  private restauracionEnCurso$: Observable<boolean> | null = null;
 
   readonly usuarioActual = signal<
     UsuarioAutenticadoResponse | null
   >(null);
 
   readonly autenticado = signal(false);
-
   readonly sesionInicializada = signal(false);
-
 
   // =========================================================
   // ACCESS TOKEN
@@ -63,13 +65,11 @@ export class AuthService {
     return this.accessToken;
   }
 
-
   establecerAccessToken(
     token: string | null,
   ): void {
     this.accessToken = token;
   }
-
 
   // =========================================================
   // REGISTRO
@@ -84,7 +84,6 @@ export class AuthService {
     );
   }
 
-
   // =========================================================
   // ESTABLECER SESIÓN AUTENTICADA
   // =========================================================
@@ -93,15 +92,10 @@ export class AuthService {
     respuesta: LoginResponse,
   ): void {
     this.accessToken = respuesta.access_token;
-
-    this.usuarioActual.set(
-      respuesta.usuario,
-    );
-
+    this.usuarioActual.set(respuesta.usuario);
     this.autenticado.set(true);
     this.sesionInicializada.set(true);
   }
-
 
   // =========================================================
   // LOGIN TRADICIONAL
@@ -118,13 +112,10 @@ export class AuthService {
       },
     ).pipe(
       tap((respuesta) => {
-        this.establecerSesion(
-          respuesta
-        );
+        this.establecerSesion(respuesta);
       }),
     );
   }
-
 
   // =========================================================
   // LOGIN CON GOOGLE
@@ -145,20 +136,21 @@ export class AuthService {
       },
     ).pipe(
       tap((respuesta) => {
-        this.establecerSesion(
-          respuesta
-        );
+        this.establecerSesion(respuesta);
       }),
     );
   }
 
-
   // =========================================================
-  // REFRESH
+  // REFRESH TOKEN
   // =========================================================
 
   refresh(): Observable<TokenResponse> {
-    return this.http.post<TokenResponse>(
+    if (this.refreshEnCurso$ !== null) {
+      return this.refreshEnCurso$;
+    }
+
+    const operacion$ = this.http.post<TokenResponse>(
       `${this.apiAuthUrl}/refresh`,
       {},
       {
@@ -168,9 +160,18 @@ export class AuthService {
       tap((respuesta) => {
         this.accessToken = respuesta.access_token;
       }),
+      finalize(() => {
+        this.refreshEnCurso$ = null;
+      }),
+      shareReplay({
+        bufferSize: 1,
+        refCount: false,
+      }),
     );
-  }
 
+    this.refreshEnCurso$ = operacion$;
+    return operacion$;
+  }
 
   // =========================================================
   // RECUPERACIÓN DE SESIÓN
@@ -179,26 +180,20 @@ export class AuthService {
   restaurarSesion(): Observable<boolean> {
     if (this.autenticado()) {
       this.sesionInicializada.set(true);
-
       return of(true);
     }
 
-    if (this.restaurandoSesion) {
-      return of(false);
+    // Si un guard o el layout ya está restaurando,
+    // todos esperan el mismo resultado.
+    if (this.restauracionEnCurso$ !== null) {
+      return this.restauracionEnCurso$;
     }
 
-    this.restaurandoSesion = true;
-
-    return this.refresh().pipe(
-      switchMap(() => {
-        return this.obtenerUsuarioActual();
-      }),
+    const operacion$ = this.refresh().pipe(
+      switchMap(() => this.obtenerUsuarioActual()),
 
       tap((usuario) => {
-        this.usuarioActual.set(
-          usuario
-        );
-
+        this.usuarioActual.set(usuario);
         this.autenticado.set(true);
       }),
 
@@ -206,26 +201,30 @@ export class AuthService {
 
       catchError(() => {
         this.limpiarSesion();
-
         return of(false);
       }),
 
       finalize(() => {
-        this.restaurandoSesion = false;
         this.sesionInicializada.set(true);
+        this.restauracionEnCurso$ = null;
+      }),
+
+      shareReplay({
+        bufferSize: 1,
+        refCount: false,
       }),
     );
-  }
 
+    this.restauracionEnCurso$ = operacion$;
+    return operacion$;
+  }
 
   private obtenerUsuarioActual():
     Observable<UsuarioAutenticadoResponse> {
-
     return this.http.get<UsuarioAutenticadoResponse>(
       `${this.apiUsersUrl}/me`,
     );
   }
-
 
   // =========================================================
   // LOGOUT
@@ -245,22 +244,16 @@ export class AuthService {
 
       catchError((error) => {
         this.limpiarSesion();
-
-        return throwError(
-          () => error,
-        );
+        return throwError(() => error);
       }),
     );
   }
 
-
   limpiarSesion(): void {
     this.accessToken = null;
-
     this.usuarioActual.set(null);
     this.autenticado.set(false);
   }
-
 
   // =========================================================
   // VERIFICACIÓN DE CORREO
@@ -279,7 +272,6 @@ export class AuthService {
     );
   }
 
-
   reenviarVerificacion(
     correo: string,
   ): Observable<MensajeResponse> {
@@ -292,7 +284,6 @@ export class AuthService {
       datos,
     );
   }
-
 
   // =========================================================
   // RECUPERACIÓN DE CONTRASEÑA
@@ -311,7 +302,6 @@ export class AuthService {
     );
   }
 
-
   restablecerContrasena(
     datos: RestablecerContrasenaRequest,
   ): Observable<MensajeResponse> {
@@ -320,7 +310,6 @@ export class AuthService {
       datos,
     );
   }
-
 
   // =========================================================
   // CAMBIO DE CONTRASEÑA
@@ -338,7 +327,6 @@ export class AuthService {
       }),
     );
   }
-
 
   // =========================================================
   // ROLES
@@ -358,7 +346,6 @@ export class AuthService {
     );
   }
 
-
   tieneAlgunoDeLosRoles(
     rolesPermitidos: string[],
   ): boolean {
@@ -366,7 +353,6 @@ export class AuthService {
       (rol) => this.tieneRol(rol),
     );
   }
-
 
   // =========================================================
   // IDENTIFICADOR DE SESIÓN

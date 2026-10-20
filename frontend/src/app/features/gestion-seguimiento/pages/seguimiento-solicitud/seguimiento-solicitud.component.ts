@@ -133,7 +133,6 @@ interface UnidadSubsanacion {
       heroTicket,
     }),
   ],
-  host: { class: 'm03-view' },
   templateUrl: './seguimiento-solicitud.component.html',
   styleUrl: './seguimiento-solicitud.component.scss',
 })

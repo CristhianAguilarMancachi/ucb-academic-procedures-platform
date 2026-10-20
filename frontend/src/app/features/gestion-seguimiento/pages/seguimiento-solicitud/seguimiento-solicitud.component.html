@@ -21,35 +21,27 @@
         </div>
       }
 
-      <section class="tracking-summary-card">
-        <div class="tracking-ticket">
-          <div class="tracking-ticket__icon">
-            <ng-icon name="heroTicket" />
-          </div>
-          <div class="tracking-ticket__info">
-            <span class="tracking-summary-label">Solicitud</span>
-            <strong>{{ formatearNumeroSolicitud(s.id_solicitud) }}</strong>
-          </div>
+      <section class="request-detail-heading" aria-label="Datos de la solicitud">
+        <div class="request-detail-heading__icon">
+          <ng-icon name="heroTicket" />
         </div>
-
-        <div class="tracking-procedure">
-          <span class="tracking-summary-label">Trámite</span>
+        <div class="request-detail-heading__main">
           <h1>{{ nombreTramite(s) }}</h1>
           <p>
-            Fecha de solicitud:
-            {{ (s.fecha_envio || s.fecha_creacion) | date:'dd/MM/yyyy' }}
+            <span>Solicitud {{ formatearNumeroSolicitud(s.id_solicitud) }}</span>
+            <span>
+              Fecha: {{ (s.fecha_envio || s.fecha_creacion) | date:'dd/MM/yyyy' }}
+            </span>
+            <span>
+              Actualización:
+              {{ fechaUltimaActualizacion(s) | date:'dd/MM/yyyy HH:mm' }}
+            </span>
           </p>
         </div>
-
-        <div class="tracking-current-state">
-          <span class="tracking-summary-label">Estado actual</span>
+        <div class="request-detail-heading__state">
           <span class="tracking-status" [attr.data-state]="s.estado">
             {{ etiqueta(s.estado) }}
           </span>
-          <p>Última actualización</p>
-          <strong>
-            {{ fechaUltimaActualizacion(s) | date:'dd/MM/yyyy HH:mm' }}
-          </strong>
         </div>
       </section>
 
@@ -484,7 +476,6 @@
     <div class="admin-review-page">
       <nav class="admin-review-breadcrumb" aria-label="Navegación">
         <a routerLink="/admin/solicitudes">
-          <ng-icon name="heroArrowLeft" />
           Solicitudes de trámites
         </a>
         <span aria-hidden="true">›</span>
@@ -523,56 +514,28 @@
         </div>
       }
 
-      <section
-        class="admin-summary-card"
-        aria-label="Datos generales de la solicitud"
-      >
-        <div class="admin-summary-item admin-summary-item--request">
-          <div class="admin-summary-icon">
-            <ng-icon name="heroTicket" />
-          </div>
-
-          <div>
-            <span>Solicitud</span>
-            <strong class="admin-request-number">
-              {{ formatearNumeroSolicitud(s.id_solicitud) }}
-            </strong>
-          </div>
+      <section class="request-detail-heading" aria-label="Datos generales de la solicitud">
+        <div class="request-detail-heading__icon">
+          <ng-icon name="heroTicket" />
         </div>
-
-        <div class="admin-summary-item">
-          <span>Estado actual</span>
-          <strong
-            class="tracking-status"
-            [attr.data-state]="s.estado"
-          >
+        <div class="request-detail-heading__main">
+          <h1>{{ nombreTramite(s) }}</h1>
+          <p>
+            <span>Solicitud {{ formatearNumeroSolicitud(s.id_solicitud) }}</span>
+            <span>
+              Solicitante:
+              {{ s.nombre_solicitante || ('Usuario #' + (s.id_solicitante || '—')) }}
+            </span>
+            <span>
+              Fecha:
+              {{ (s.fecha_envio || s.fecha_creacion) | date:'dd/MM/yyyy HH:mm' }}
+            </span>
+          </p>
+        </div>
+        <div class="request-detail-heading__state">
+          <span class="tracking-status" [attr.data-state]="s.estado">
             {{ etiqueta(s.estado) }}
-          </strong>
-        </div>
-
-        <div class="admin-summary-item">
-          <span>Trámite</span>
-          <strong>{{ nombreTramite(s) }}</strong>
-        </div>
-
-        <div class="admin-summary-item">
-          <span>Solicitante</span>
-          <strong>
-            {{
-              s.nombre_solicitante ||
-              ('Usuario #' + (s.id_solicitante || '—'))
-            }}
-          </strong>
-        </div>
-
-        <div class="admin-summary-item">
-          <span>Fecha de solicitud</span>
-          <strong>
-            {{
-              (s.fecha_envio || s.fecha_creacion)
-                | date:'dd/MM/yyyy HH:mm'
-            }}
-          </strong>
+          </span>
         </div>
       </section>
 

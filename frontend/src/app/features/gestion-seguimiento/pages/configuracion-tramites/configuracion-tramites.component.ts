@@ -29,7 +29,6 @@ type ModalEditor = 'campo' | 'requisito' | 'economico' | null;
   selector: 'app-configuracion-tramites',
   standalone: true,
   imports: [CommonModule, FormsModule, ModalComponent],
-  host: { class: 'm03-view' },
   templateUrl: './configuracion-tramites.component.html',
   styleUrl: './configuracion-tramites.component.scss',
 })

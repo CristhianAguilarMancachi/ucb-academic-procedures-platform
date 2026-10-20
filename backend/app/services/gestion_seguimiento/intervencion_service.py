@@ -10,15 +10,12 @@ from app.repositories.gestion_seguimiento import (
     notificacion_repository as notificaciones,
     seguimiento_repository as seguimiento_repo,
 )
-
 from app.schemas.gestion_seguimiento.intervencion import (
     RevisionPresencialRequest,
 )
-
 from app.services.gestion_seguimiento.notificacion_solicitud_service import (
     _obtener_correo_destino,
 )
-
 from app.services.gestion_seguimiento.seguimiento_service import (
     SeguimientoError,
     evento,
@@ -123,7 +120,6 @@ def registrar_resolucion_emitida(
     No genera el documento ni simula su emisión.
     Registra el hecho con actor y fecha de servidor.
     """
-
     solicitud = obtener_para_accion(
         db,
         id_solicitud,
@@ -204,40 +200,61 @@ def _texto_convocatoria(
 
     nombre = (
         solicitud.nombre_tramite_snapshot
-        or solicitud.tramite.nombre
+        or (
+            solicitud.tramite.nombre
+            if solicitud.tramite is not None
+            else None
+        )
+        or "Trámite académico"
     )
 
     if tipo == "conformidad":
         asunto = (
-            f"Solicitud #{numero}: "
-            "revisión presencial de convalidación"
+            f"Revisión presencial de convalidación "
+            f"— Solicitud #{numero}"
+        )
+
+        titulo = (
+            "Convocatoria para revisión de convalidación"
         )
 
         instruccion = (
-            "revisar la propuesta de convalidación "
-            "y expresar tu conformidad"
+            "Debes acudir a Dirección Académica "
+            "de la UCB — Sede La Paz para revisar "
+            "la propuesta de convalidación y "
+            "expresar tu conformidad o comunicar "
+            "las observaciones que correspondan."
         )
 
     else:
         asunto = (
-            f"Solicitud #{numero}: "
-            "firma presencial pendiente"
+            f"Firma presencial de resolución "
+            f"— Solicitud #{numero}"
+        )
+
+        titulo = (
+            "Convocatoria para firma de resolución"
         )
 
         instruccion = (
-            "firmar la resolución institucional "
-            "emitida para tu trámite"
+            "Debes acudir a Dirección Académica "
+            "de la UCB — Sede La Paz para realizar "
+            "la firma presencial de la resolución "
+            "institucional emitida para tu trámite."
         )
 
     texto = (
+        f"{titulo}\n\n"
         f"Solicitud #{numero}\n"
         f"{nombre}\n\n"
-        "Tu trámite necesita una intervención presencial.\n\n"
-        "Acércate a Dirección Académica de la "
-        "UCB - Sede La Paz para "
-        f"{instruccion}.\n\n"
-        "Puedes consultar el seguimiento de tu "
-        "solicitud desde la plataforma."
+        "Tu trámite requiere una intervención presencial "
+        "para continuar su atención.\n\n"
+        f"{instruccion}\n\n"
+        "Consulta el seguimiento de tu solicitud "
+        "en el Sistema de Trámites Académicos "
+        "para revisar la información registrada.\n\n"
+        "Este mensaje no establece una fecha ni una "
+        "hora específica de atención."
     )
 
     return asunto, texto
@@ -266,8 +283,8 @@ def convocar(
 
     tipo = _tipo_solicitud(solicitud)
 
-    # Trámite 10: no se permite convocar
-    # a firmar una resolución todavía no emitida.
+    # No permite convocar a firmar una resolución
+    # cuya emisión todavía no fue registrada.
     if (
         tipo == "firma"
         and _buscar_resolucion(

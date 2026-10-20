@@ -1,8 +1,12 @@
+
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.core.config import FRONTEND_BASE_URL
+from app.core.config import (
+    FRONTEND_BASE_URL,
+    PASSWORD_RESET_EXPIRE_MINUTES,
+)
 from app.core.security import (
     crear_token_recuperacion_contrasena,
     generar_hash_contrasena,
@@ -28,6 +32,7 @@ from app.services.auth.audit_service import (
 )
 from app.services.email.email_service import (
     EmailServiceError,
+    construir_html_institucional,
     enviar_correo,
 )
 
@@ -62,37 +67,54 @@ def _enviar_correo_recuperacion(
 ) -> None:
     enlace = _construir_enlace_recuperacion(token)
 
-    contenido_texto = (
-        "Se solicitó restablecer la contraseña de tu cuenta "
-        "del Sistema de Trámites Académicos UCB.\n\n"
-        f"Enlace de recuperación:\n{enlace}\n\n"
-        "Si no realizaste esta solicitud, puedes ignorar "
-        "este mensaje."
+    vigencia = PASSWORD_RESET_EXPIRE_MINUTES
+
+    parrafos = [
+        (
+            "Recibimos una solicitud para restablecer "
+            "la contraseña de tu cuenta en el Sistema "
+            "de Trámites Académicos de la UCB — Sede La Paz."
+        ),
+        (
+            "Para establecer una nueva contraseña, "
+            "selecciona el botón que aparece a continuación."
+        ),
+        (
+            f"Por seguridad, el enlace vence en "
+            f"{vigencia} minutos. Después de cambiar "
+            "tu contraseña, deberás iniciar sesión "
+            "nuevamente."
+        ),
+    ]
+
+    aviso = (
+        "Si no solicitaste este cambio, puedes ignorar "
+        "el mensaje. Tu contraseña actual no se modifica "
+        "por recibir este correo."
     )
 
-    contenido_html = f"""
-    <html>
-      <body>
-        <h2>Recuperación de contraseña</h2>
-        <p>
-          Se solicitó restablecer la contraseña de tu cuenta.
-        </p>
-        <p>
-          <a href="{enlace}">
-            Restablecer contraseña
-          </a>
-        </p>
-        <p>
-          Si no realizaste esta solicitud, puedes ignorar
-          este mensaje.
-        </p>
-      </body>
-    </html>
-    """
+    contenido_texto = (
+        "Recuperación de contraseña — Sistema de "
+        "Trámites Académicos UCB\n\n"
+        + "\n\n".join(parrafos)
+        + f"\n\nRestablecer contraseña:\n{enlace}\n\n"
+        + aviso
+    )
+
+    contenido_html = construir_html_institucional(
+        titulo="Restablece tu contraseña",
+        parrafos=parrafos,
+        texto_accion="Restablecer contraseña",
+        url_accion=enlace,
+        aviso=aviso,
+    )
 
     enviar_correo(
         destinatario=destinatario,
-        asunto="Recuperación de contraseña",
+        asunto=(
+            "Restablece tu contraseña — "
+            "Sistema de Trámites Académicos UCB"
+        ),
         contenido_texto=contenido_texto,
         contenido_html=contenido_html,
     )
@@ -108,10 +130,10 @@ def solicitar_recuperacion_contrasena(
     """
     Solicita la recuperación de contraseña.
 
-    Si el correo no existe, la función no revela esa
-    información. La ruta deberá devolver siempre el mismo
-    mensaje genérico.
+    La respuesta pública no revela si el correo
+    está registrado.
     """
+
     usuario = obtener_usuario_por_correo(
         db,
         correo,
@@ -128,7 +150,6 @@ def solicitar_recuperacion_contrasena(
                 direccion_ip=direccion_ip,
                 user_agent=user_agent,
             )
-
             db.commit()
 
         except Exception:
@@ -171,7 +192,6 @@ def solicitar_recuperacion_contrasena(
             direccion_ip=direccion_ip,
             user_agent=user_agent,
         )
-
         db.commit()
         return
 
@@ -233,9 +253,10 @@ def restablecer_contrasena(
     user_agent: str | None = None,
 ) -> None:
     """
-    Valida el token, cambia la contraseña y revoca todas las
-    sesiones anteriores de la cuenta.
+    Valida el token, cambia la contraseña y
+    revoca todas las sesiones anteriores.
     """
+
     ahora = utc_now()
     token_hash = generar_hash_token(token)
 
