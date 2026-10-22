@@ -271,4 +271,9 @@
     margin: 0 4px;
     color: #888fa7;
   }
+
+  // Separación entre la tarjeta de seguridad y el acceso público.
+  .auth-brand .auth-security-card + .auth-public-button {
+    margin-top: 26px;
+  }
 }

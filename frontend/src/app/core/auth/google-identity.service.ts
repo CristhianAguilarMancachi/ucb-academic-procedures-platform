@@ -326,10 +326,7 @@ export class GoogleIdentityService {
         theme: 'outline',
         size: 'large',
 
-        text:
-          modo === 'register'
-            ? 'signup_with'
-            : 'signin_with',
+        text: 'continue_with',
 
         shape: 'rectangular',
         logo_alignment: 'left',
