@@ -50,8 +50,27 @@ export class DocumentosInstitucionalesComponent implements OnInit {
     this.cargarUnidades();
   }
 
+  private fechaLocalActual(): string {
+    const hoy = new Date();
+    const anio = hoy.getFullYear();
+    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+    const dia = String(hoy.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
+  }
+
+  get fechaMaxima(): string {
+    return this.fechaLocalActual();
+  }
+
   private nuevoFormulario(): DocumentoCrear {
-    return { titulo: '', unidad_origen: '', descripcion: '', estado: 'activo', vigente_desde: '', vigente_hasta: null };
+    return {
+      titulo: '',
+      unidad_origen: '',
+      descripcion: '',
+      estado: 'activo',
+      vigente_desde: this.fechaLocalActual(),
+      vigente_hasta: null,
+    };
   }
 
   cargar() {
@@ -101,29 +120,50 @@ export class DocumentosInstitucionalesComponent implements OnInit {
     this.idVersion = version?.id_version_documento || 0;
     if (version) {
       this.formulario.vigente_desde = version.desde_efectivo;
-      this.formulario.vigente_hasta = version.vigente_hasta;
     }
     this.modal.set(tipo);
   }
 
   seleccionarArchivo(event: Event) {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] || null;
-    this.archivo = null;
+    const seleccionado = input.files?.[0] ?? null;
+
+    if (!seleccionado) return;
+
     this.error.set('');
-    if (file && (!file.name.toLowerCase().endsWith('.pdf') || !file.size || file.size > 19 * 1024 * 1024)) {
+
+    if (
+      !seleccionado.name.toLowerCase().endsWith('.pdf') ||
+      seleccionado.size === 0 ||
+      seleccionado.size > 19 * 1024 * 1024
+    ) {
       this.error.set('Selecciona un PDF no vacío de hasta 19 MiB.');
       input.value = '';
       return;
     }
-    this.archivo = file;
+
+    this.archivo = seleccionado;
+  }
+
+  quitarArchivo(input: HTMLInputElement) {
+    if (this.ocupado()) return;
+    this.archivo = null;
+    input.value = '';
+    this.error.set('');
+  }
+
+  tamanoArchivo(bytes: number): string {
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toLocaleString('es-BO', {
+      maximumFractionDigits: 2,
+    })} MiB`;
   }
 
   guardar() {
     if (this.ocupado()) return;
-    const vigencia = { vigente_desde: this.formulario.vigente_desde, vigente_hasta: this.formulario.vigente_hasta || null };
-    if (!vigencia.vigente_desde || (vigencia.vigente_hasta && vigencia.vigente_hasta < vigencia.vigente_desde)) {
-      this.error.set('Revisa el período de vigencia.');
+    const vigencia = { vigente_desde: this.formulario.vigente_desde, vigente_hasta: null };
+    if (!vigencia.vigente_desde) {
+      this.error.set('Indica la fecha de inicio de uso.');
       return;
     }
     if (this.modal() === 'vigencia' && this.idDocumento) {

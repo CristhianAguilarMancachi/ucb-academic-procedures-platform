@@ -166,7 +166,7 @@
                           {{ v.vigente ? 'Vigente' : 'No vigente' }}
                         </span>
 
-                        <small [title]="v.desde_efectivo + ' — ' + (v.vigente_hasta || 'Sin fecha final')">
+                        <small [title]="v.desde_efectivo + ' — ' + (v.vigente_hasta || 'En uso')">
                           Desde {{ v.desde_efectivo }}
                         </small>
                       </div>
@@ -362,11 +362,11 @@
             </div>
 
             <div class="detail-info">
-              <small>Vigencia de la versión actual</small>
+              <small>Periodo de uso de la versión actual</small>
               <strong>
                 @if (d.version_actual; as v) {
                   {{ v.desde_efectivo }} —
-                  {{ v.vigente_hasta || 'Sin fecha final' }}
+                  {{ v.vigente_hasta || 'En uso' }}
                 } @else {
                   No definida
                 }
@@ -478,9 +478,9 @@
                   </div>
 
                   <div class="version-row__validity">
-                    <strong>Periodo de vigencia:</strong>
+                    <strong>Periodo de uso:</strong>
                     {{ v.desde_efectivo }} —
-                    {{ v.vigente_hasta || 'Sin fecha final' }}
+                    {{ v.vigente_hasta || 'En uso' }}
                   </div>
 
                   @if (!v.vigente_desde) {
@@ -501,10 +501,10 @@
                   <button
                     type="button"
                     class="doc-button doc-button--outline doc-button--small"
-                    [disabled]="ocupado()"
+                    [disabled]="ocupado() || v.id_version_documento !== d.id_version_actual"
                     (click)="abrir('vigencia', v)"
                   >
-                    Definir vigencia
+                    Editar inicio de uso
                   </button>
 
                   @if (v.descargable) {
@@ -560,7 +560,7 @@
         ? 'Cargar documento institucional'
         : tipo === 'version'
           ? 'Cargar nueva versión'
-          : 'Definir vigencia'"
+          : 'Editar inicio de uso'"
       [operativo]="true"
       [ocupado]="ocupado()"
       (cerrar)="modal.set(null)"
@@ -585,7 +585,7 @@
               @switch (tipo) {
                 @case ('carga') { Cargar documento PDF }
                 @case ('version') { Nueva versión del documento }
-                @case ('vigencia') { Definir periodo de vigencia }
+                @case ('vigencia') { Editar inicio de uso }
               }
             </h2>
 
@@ -598,7 +598,7 @@
                   Actualiza el PDF sin eliminar las versiones anteriores.
                 }
                 @case ('vigencia') {
-                  Establece las fechas de aplicación de esta versión.
+                  Modifica desde cuándo se utiliza esta versión.
                 }
               }
             </p>
@@ -747,33 +747,86 @@
           <!-- ARCHIVO PDF -->
           @if (tipo !== 'vigencia') {
             <div class="doc-field doc-field--file">
-              <label for="documento-archivo">
+              <label id="documento-archivo-etiqueta">
                 Archivo PDF <span>*</span>
               </label>
 
               <input
+                #pdfInput
                 id="documento-archivo"
+                class="doc-pdf-native-input"
                 type="file"
                 accept="application/pdf,.pdf"
+                aria-labelledby="documento-archivo-etiqueta"
                 (change)="seleccionarArchivo($event)"
-                required
               />
 
-              @if (archivo) {
-                <div class="selected-file">
-                  <svg viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="1.8"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M6 3h9l4 4v14H6V3Z"/>
-                    <path d="M15 3v5h4M9 13h7"/>
-                  </svg>
-                  <span>{{ archivo.name }}</span>
+              @if (!archivo) {
+                <div class="doc-pdf-picker">
+                  <span class="doc-pdf-picker__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.7"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 16V4M7 9l5-5 5 5"/>
+                      <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+                    </svg>
+                  </span>
+                  <strong>Selecciona el archivo que deseas cargar</strong>
+                  <small>Formato PDF · Tamaño máximo 19 MiB</small>
+                  <button
+                    type="button"
+                    class="doc-pdf-picker__button"
+                    [disabled]="ocupado()"
+                    (click)="pdfInput.click()"
+                  >
+                    Explorar archivos
+                  </button>
+                </div>
+              } @else {
+                <div class="doc-pdf-selected">
+                  <span class="doc-pdf-selected__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.7"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M6 3h9l4 4v14H6V3Z"/>
+                      <path d="M15 3v5h4M9 13h7M9 17h6"/>
+                    </svg>
+                  </span>
+
+                  <div class="doc-pdf-selected__info">
+                    <strong [title]="archivo.name">
+                      {{ archivo.name }}
+                    </strong>
+                    <small>
+                      {{ tamanoArchivo(archivo.size) }}
+                      · Listo para cargar
+                    </small>
+                  </div>
+
+                  <span class="doc-pdf-selected__check" aria-label="Seleccionado">
+                    ✓
+                  </span>
+                </div>
+
+                <div class="doc-pdf-actions">
+                  <button
+                    type="button"
+                    class="doc-pdf-action"
+                    [disabled]="ocupado()"
+                    (click)="pdfInput.click()"
+                  >
+                    Cambiar PDF
+                  </button>
+                  <button
+                    type="button"
+                    class="doc-pdf-action doc-pdf-action--remove"
+                    [disabled]="ocupado()"
+                    (click)="quitarArchivo(pdfInput)"
+                  >
+                    Quitar selección
+                  </button>
                 </div>
               }
-
-              <small>
-                Solo PDF, no vacío, hasta 19 MiB.
-              </small>
             </div>
           }
 
@@ -783,22 +836,22 @@
               <small>Documento</small>
               <strong>{{ detalle()?.titulo }}</strong>
               <span>
-                Actualiza el periodo de vigencia de la versión seleccionada.
+                Actualiza la fecha de inicio de uso de la versión actual.
               </span>
             </div>
           }
 
           <div class="document-dialog__section-title">
-            <strong>Periodo de vigencia</strong>
+            <strong>Periodo de uso documental</strong>
             <small>
-              Fechas en las que se considera aplicable esta versión.
+              Indica desde cuándo se utiliza esta versión en el módulo informativo.
             </small>
           </div>
 
           <div class="document-dialog__dates">
             <div class="doc-field">
               <label for="vigencia-desde">
-                Vigente desde <span>*</span>
+                Inicio de uso <span>*</span>
               </label>
 
               <input
@@ -806,29 +859,14 @@
                 type="date"
                 name="desde"
                 [(ngModel)]="formulario.vigente_desde"
+                [max]="fechaMaxima"
                 required
-              />
-            </div>
-
-            <div class="doc-field">
-              <label for="vigencia-hasta">
-                Vigente hasta <span class="optional">(opcional)</span>
-              </label>
-
-              <input
-                id="vigencia-hasta"
-                type="date"
-                name="hasta"
-                [(ngModel)]="formulario.vigente_hasta"
-                [min]="formulario.vigente_desde"
               />
             </div>
           </div>
 
           <div class="document-dialog__info">
-            El estado administrativo y la vigencia se evalúan
-            por separado. Solo una versión actual, activa y vigente
-            puede utilizarse en nuevas respuestas RAG.
+            La fecha final de uso se registra automáticamente cuando una nueva versión sustituye a la anterior. Solo la versión actual habilitada puede utilizarse en nuevas consultas RAG.
           </div>
         </fieldset>
 
@@ -858,7 +896,7 @@
               @switch (tipo) {
                 @case ('carga') { Cargar documento }
                 @case ('version') { Guardar versión }
-                @case ('vigencia') { Guardar vigencia }
+                @case ('vigencia') { Guardar fecha }
               }
             }
           </button>

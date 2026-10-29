@@ -1435,3 +1435,203 @@
     animation: none;
   }
 }
+
+
+/* ==========================================================
+   SELECTOR PDF PERSONALIZADO Y FECHA DE INICIO DE USO
+   ========================================================== */
+
+.doc-field .doc-pdf-native-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.doc-pdf-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 144px;
+  padding: 1rem;
+  border: 1px dashed rgba(158, 180, 201, 0.5);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.018);
+  text-align: center;
+
+  strong {
+    color: var(--ucb-text-strong);
+    font-size: 0.8rem;
+    font-weight: 650;
+  }
+
+  small {
+    color: var(--ucb-text-muted);
+    font-size: 0.7rem;
+  }
+}
+
+.doc-pdf-picker__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--ucb-yellow-soft);
+  color: var(--ucb-yellow);
+
+  svg {
+    width: 21px;
+    height: 21px;
+  }
+}
+
+.doc-pdf-picker__button {
+  margin-top: 0.3rem;
+  padding: 0.48rem 0.95rem;
+  border: 1px solid var(--ucb-yellow-border);
+  border-radius: 6px;
+  background: var(--ucb-yellow-soft);
+  color: var(--ucb-yellow);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 750;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 203, 0, 0.17);
+  }
+}
+
+.doc-pdf-selected {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid rgba(68, 194, 129, 0.3);
+  border-radius: 9px;
+  background: rgba(8, 115, 78, 0.08);
+}
+
+.doc-pdf-selected__icon {
+  display: grid;
+  flex: 0 0 36px;
+  place-items: center;
+  height: 36px;
+  border-radius: 7px;
+  background: rgba(239, 91, 91, 0.12);
+  color: #f17b7b;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.doc-pdf-selected__info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+
+  strong {
+    overflow: hidden;
+    color: var(--ucb-text-strong);
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    color: var(--ucb-text-muted);
+    font-size: 0.69rem;
+  }
+}
+
+.doc-pdf-selected__check {
+  flex: 0 0 auto;
+  color: #70dca5;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.doc-pdf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.doc-pdf-action {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--ucb-border);
+  border-radius: 6px;
+  background: var(--ucb-surface-soft);
+  color: var(--ucb-text-soft);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ucb-yellow-border);
+    color: var(--ucb-yellow);
+  }
+
+  &--remove:hover:not(:disabled) {
+    border-color: rgba(239, 91, 91, 0.6);
+    color: #ff9999;
+  }
+}
+
+.doc-pdf-action:disabled,
+.doc-pdf-picker__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.document-dialog .doc-field input[type='date'] {
+  color-scheme: dark;
+  color: var(--ucb-text-strong) !important;
+  -webkit-text-fill-color: var(--ucb-text-strong);
+  font-weight: 600;
+
+  &::-webkit-datetime-edit,
+  &::-webkit-datetime-edit-fields-wrapper,
+  &::-webkit-datetime-edit-text,
+  &::-webkit-datetime-edit-day-field,
+  &::-webkit-datetime-edit-month-field,
+  &::-webkit-datetime-edit-year-field {
+    color: var(--ucb-text-strong);
+    -webkit-text-fill-color: var(--ucb-text-strong);
+  }
+
+  &::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    filter: grayscale(1) brightness(2);
+    opacity: 0.8;
+  }
+}
+
+@media (max-width: 520px) {
+  .doc-pdf-picker {
+    min-height: 128px;
+    padding: 0.8rem;
+  }
+
+  .doc-pdf-actions {
+    justify-content: stretch;
+  }
+
+  .doc-pdf-action {
+    flex: 1;
+  }
+}

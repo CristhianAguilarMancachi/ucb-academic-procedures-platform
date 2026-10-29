@@ -2199,7 +2199,6 @@ CREATE TABLE documento_institucional (
     estado VARCHAR(30) NOT NULL DEFAULT 'activo',
     fecha_publicacion DATE,
     fecha_carga TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ruta_archivo TEXT NOT NULL,
     hash_archivo VARCHAR(255) NOT NULL,
     id_version_actual INTEGER,
     fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2211,7 +2210,6 @@ CREATE TABLE version_documento (
     id_documento_institucional INTEGER NOT NULL REFERENCES documento_institucional(id_documento_institucional),
     numero_version VARCHAR(50) NOT NULL,
     fecha_version TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ruta_archivo TEXT NOT NULL,
     hash_archivo VARCHAR(255) NOT NULL,
     estado VARCHAR(30) NOT NULL DEFAULT 'activo',
     observacion TEXT,
@@ -2334,3 +2332,212 @@ ON chat_message_feedback(rating);
 
 
 COMMIT;
+
+
+
+
+-- ============================================================
+-- UCB - SISTEMA DE GESTION DE TRAMITES ACADEMICOS
+-- MODULO: ADMINISTRACION DOCUMENTAL Y RAG
+--
+-- TABLA: archivo_documento
+--
+-- OBJETIVO:
+-- Almacenar el PDF original en PostgreSQL y asociarlo
+-- con su version documental existente.
+--
+-- IMPORTANTE:
+-- No modifica documento_institucional, version_documento
+-- ni chunk_documento.
+-- No elimina archivos ni registros existentes.
+-- ============================================================
+
+BEGIN;
+
+-- ============================================================
+-- 1. CREACION DE LA TABLA
+-- ============================================================
+
+CREATE TABLE public.archivo_documento (
+
+    -- Identificador de la version documental.
+    -- Funciona como clave primaria y foranea.
+    id_version_documento INTEGER NOT NULL,
+
+    -- Nombre original del PDF.
+    nombre_archivo_original VARCHAR(255),
+
+    -- PDF completo almacenado en formato binario.
+    contenido_pdf BYTEA NOT NULL,
+
+    -- Tamano calculado automaticamente en bytes.
+    tamano_bytes INTEGER
+        GENERATED ALWAYS AS (
+            octet_length(contenido_pdf)
+        ) STORED,
+
+    -- Fecha y hora de almacenamiento en PostgreSQL.
+    fecha_almacenamiento TIMESTAMPTZ
+        NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
+
+    -- ========================================================
+    -- CLAVE PRIMARIA
+    -- Una version documental tiene como maximo un PDF.
+    -- ========================================================
+
+    CONSTRAINT pk_archivo_documento
+        PRIMARY KEY (id_version_documento),
+
+    -- ========================================================
+    -- CLAVE FORANEA
+    -- Relacion con la tabla version_documento.
+    -- ========================================================
+
+    CONSTRAINT fk_archivo_documento_version
+        FOREIGN KEY (id_version_documento)
+        REFERENCES public.version_documento (
+            id_version_documento
+        )
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    -- ========================================================
+    -- RESTRICCIONES
+    -- ========================================================
+
+    -- Impide guardar un archivo vacio.
+    -- El limite maximo se controla desde el backend.
+    CONSTRAINT ck_archivo_documento_tamano
+        CHECK (
+            octet_length(contenido_pdf) > 0
+        ),
+
+    -- Evita nombres vacios cuando se proporciona un nombre.
+    CONSTRAINT ck_archivo_documento_nombre
+        CHECK (
+            nombre_archivo_original IS NULL
+            OR LENGTH(
+                TRIM(nombre_archivo_original)
+            ) > 0
+        )
+
+);
+
+-- ============================================================
+-- 2. DESCRIPCIONES DE LA TABLA Y SUS ATRIBUTOS
+-- ============================================================
+
+COMMENT ON TABLE public.archivo_documento IS
+'Almacena los archivos PDF originales asociados a cada version documental del sistema.';
+
+COMMENT ON COLUMN
+public.archivo_documento.id_version_documento IS
+'Identificador de la version documental. Clave primaria y foranea.';
+
+COMMENT ON COLUMN
+public.archivo_documento.nombre_archivo_original IS
+'Nombre original del archivo PDF incorporado al sistema.';
+
+COMMENT ON COLUMN
+public.archivo_documento.contenido_pdf IS
+'Contenido binario completo del archivo PDF original.';
+
+COMMENT ON COLUMN
+public.archivo_documento.tamano_bytes IS
+'Tamano del PDF en bytes, calculado automaticamente.';
+
+COMMENT ON COLUMN
+public.archivo_documento.fecha_almacenamiento IS
+'Fecha y hora en que el PDF fue almacenado en PostgreSQL.';
+
+COMMIT;
+
+-- ============================================================
+-- 3. VERIFICACION DE LA TABLA CREADA
+-- ============================================================
+
+SELECT
+    column_name AS atributo,
+    data_type AS tipo_dato,
+    is_nullable AS permite_nulos,
+    column_default AS valor_defecto,
+    is_generated AS columna_generada
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'archivo_documento'
+ORDER BY ordinal_position;
+
+-- ============================================================
+-- 4. VERIFICACION DE REGISTROS
+-- ============================================================
+
+SELECT
+    COUNT(*) AS archivos_almacenados
+FROM public.archivo_documento;
+
+-- ============================================================
+-- FIN DEL SCRIPT
+-- ============================================================
+
+
+
+-- ============================================================
+-- LIMPIEZA DEFINITIVA DEL ALMACENAMIENTO DOCUMENTAL
+-- ENTORNO: POSTGRESQL LOCAL
+--
+-- No ejecutar en Neon por ahora.
+-- ============================================================
+
+BEGIN;
+
+-- 1. Comprobar que todas las versiones tienen
+--    su PDF correspondiente e integro.
+
+DO $$
+DECLARE
+    pendientes INTEGER;
+BEGIN
+    SELECT COUNT(*)
+    INTO pendientes
+    FROM public.version_documento v
+    LEFT JOIN public.archivo_documento a
+        ON a.id_version_documento = v.id_version_documento
+    WHERE
+        a.id_version_documento IS NULL
+        OR encode(
+            sha256(a.contenido_pdf),
+            'hex'
+        ) <> lower(v.hash_archivo);
+
+    IF pendientes > 0 THEN
+        RAISE EXCEPTION
+            'No se pueden eliminar las rutas: % versiones sin PDF valido',
+            pendientes;
+    END IF;
+END
+$$;
+
+-- 2. Eliminar las columnas que almacenaban
+--    referencias a rutas fisicas.
+
+ALTER TABLE public.documento_institucional
+    DROP COLUMN ruta_archivo;
+
+ALTER TABLE public.version_documento
+    DROP COLUMN ruta_archivo;
+
+COMMIT;
+
+-- 3. Confirmar que se eliminaron.
+
+SELECT
+    table_name,
+    column_name
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name IN (
+      'documento_institucional',
+      'version_documento'
+  )
+  AND column_name = 'ruta_archivo';

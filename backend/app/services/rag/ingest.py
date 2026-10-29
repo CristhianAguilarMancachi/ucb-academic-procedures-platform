@@ -6,10 +6,7 @@ from pathlib import Path
 import fitz
 import pytesseract
 from pdf2image import convert_from_path
-from sqlalchemy.orm import Session
 
-from app.core.config import DOCUMENTS_DIR
-from app.repositories import documento_repository as documentos
 from app.services.rag.embeddings import generate_embeddings
 
 
@@ -704,58 +701,3 @@ def preparar_chunks(file_path: str | Path, chunking_mode: str = "normativo") -> 
         tokens_aproximados=estimate_tokens(block["content"]), embedding=embedding, activo=True,
     ) for index, (block, embedding) in enumerate(zip(valid_blocks, embeddings), 1)]
     return file_hash, chunks
-
-
-def ingest_document(
-    db: Session,
-    file_path: str,
-    titulo: str,
-    tipo_documento: str,
-    unidad_origen: str,
-    numero_version: str = "1",
-    descripcion: str | None = None,
-    observacion: str | None = None,
-    chunking_mode: str = "normativo",
-):
-    file_hash, chunks = preparar_chunks(file_path, chunking_mode)
-    try:
-        documento = documentos.crear_documento(db, titulo=titulo, tipo_documento=tipo_documento,
-            unidad_origen=unidad_origen, descripcion=descripcion, estado="activo",
-            ruta_archivo=str(file_path), hash_archivo=file_hash)
-        version = documentos.crear_version(db, id_documento_institucional=documento.id_documento_institucional,
-            numero_version=numero_version, ruta_archivo=str(file_path), hash_archivo=file_hash,
-            estado="activo", observacion=observacion)
-        documentos.guardar_chunks(db, version.id_version_documento, chunks)
-        documentos.establecer_version_actual(db, documento, version)
-        db.commit()
-        return {"documento_id": documento.id_documento_institucional,
-                "version_id": version.id_version_documento, "chunks_creados": len(chunks), "archivo": str(file_path)}
-    except Exception:
-        db.rollback()
-        raise
-
-
-def ingest_from_documents_dir(
-    db: Session,
-    filename: str,
-    titulo: str,
-    tipo_documento: str,
-    unidad_origen: str,
-    numero_version: str = "1",
-    descripcion: str | None = None,
-    observacion: str | None = None,
-    chunking_mode: str = "normativo",
-):
-    file_path = DOCUMENTS_DIR / filename
-
-    return ingest_document(
-        db=db,
-        file_path=str(file_path),
-        titulo=titulo,
-        tipo_documento=tipo_documento,
-        unidad_origen=unidad_origen,
-        numero_version=numero_version,
-        descripcion=descripcion,
-        observacion=observacion,
-        chunking_mode=chunking_mode,
-    )
