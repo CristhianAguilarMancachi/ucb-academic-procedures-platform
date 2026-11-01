@@ -213,6 +213,7 @@ def modo_version(
     db: Session,
     id_version: int,
 ) -> str:
+    """Recupera el modo de fragmentación utilizado por una versión."""
     estrategias = set(
         db.scalars(
             select(Chunk.estrategia_chunking)
@@ -226,11 +227,14 @@ def modo_version(
     if "faq_tematico" in estrategias:
         return "faq"
 
-    return (
-        "lineamiento"
-        if "lineamiento" in estrategias
-        else "normativo"
-    )
+    if "lineamiento" in estrategias:
+        return "lineamiento"
+
+    if "general_parrafos" in estrategias:
+        return "general"
+
+    return "normativo"
+
 
 
 def guardar_chunks(

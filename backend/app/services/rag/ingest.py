@@ -646,7 +646,102 @@ def create_embeddings(
     return generate_embeddings(texts)
 
 
-def preparar_chunks(file_path: str | Path, chunking_mode: str = "normativo") -> tuple[str, list[dict]]:
+def split_general_blocks(
+    pages: list[dict],
+    max_words: int = 180,
+) -> list[dict]:
+    """
+    Fragmentador de respaldo para documentos generales.
+
+    - No depende del tipo o nombre del documento.
+    - No intenta adivinar encabezados.
+    - Conserva el contenido textual extraído.
+    - Evita fragmentos residuales innecesarios.
+    - Mantiene las referencias de página.
+    - Utiliza solapamiento en páginas con varios chunks.
+    """
+    if max_words < 40:
+        raise ValueError("max_words debe ser al menos 40")
+
+    overlap = min(20, max_words // 8)
+    blocks = []
+    chunk_number = 1
+
+    for page in pages:
+        page_number = page["page_number"]
+        text = page.get("text", "")
+
+        if not isinstance(text, str):
+            raise ValueError("El texto de la página debe ser una cadena")
+
+        words = text.split()
+        total = len(words)
+
+        if total == 0:
+            continue
+
+        if total <= max_words:
+            groups = [words]
+        else:
+            # Dividir el texto en grupos equilibrados.
+            # El solapamiento se añade entre grupos,
+            # sin superar el máximo de palabras.
+            effective = max_words - overlap
+            number_of_groups = max(
+                2,
+                (total - overlap + effective - 1) // effective,
+            )
+
+            base, extra = divmod(total, number_of_groups)
+            groups = []
+            offset = 0
+
+            for index in range(number_of_groups):
+                group_size = base + (1 if index < extra else 0)
+                end = offset + group_size
+
+                start_with_overlap = (
+                    max(0, offset - overlap)
+                    if index > 0
+                    else offset
+                )
+
+                group = words[start_with_overlap:end]
+
+                if len(group) > max_words:
+                    raise ValueError(
+                        "La fragmentación excedió max_words"
+                    )
+
+                groups.append(group)
+                offset = end
+
+        for group in groups:
+            content = " ".join(group).strip()
+
+            if not content:
+                continue
+
+            blocks.append({
+                "numero_chunk": chunk_number,
+                "pagina_inicio": page_number,
+                "pagina_fin": page_number,
+                "seccion": None,
+                "subseccion": None,
+                "articulo_numero": None,
+                "estrategia_chunking": "general_parrafos",
+                "content": content,
+            })
+
+            chunk_number += 1
+
+    return blocks
+
+
+
+
+
+def preparar_chunks(file_path: str | Path, chunking_mode: str = "auto") -> tuple[str, list[dict]]:
     """Pipeline único de extracción, OCR, segmentación y embeddings, sin persistencia."""
     path = Path(file_path)
 
@@ -669,12 +764,56 @@ def preparar_chunks(file_path: str | Path, chunking_mode: str = "normativo") -> 
     pages = normalize_page_text_content(pages)
     pages = normalize_pages_text(pages)
 
-    if chunking_mode == "faq":
+    # Seleccionar estrategia según la estructura documental.
+    mode = chunking_mode
+
+    if mode == "auto":
+        lines = [
+            line.strip()
+            for page in pages
+            for line in page["text"].splitlines()
+        ]
+
+        if any(
+            re.match(
+                r"^ART[IÍ]CULO\s+\d+[°º]?",
+                line,
+                re.I,
+            )
+            for line in lines
+        ):
+            mode = "normativo"
+
+        elif any(
+            re.match(r"^[A-Z]\.\s+", line)
+            for line in lines
+        ) and any(
+            re.match(r"^\d+\.\s+", line)
+            for line in lines
+        ):
+            mode = "lineamiento"
+
+        else:
+            mode = "general"
+
+    if mode == "faq":
         blocks = split_faq_blocks(pages)
-    elif chunking_mode == "lineamiento":
+
+    elif mode == "lineamiento":
         blocks = split_lineamiento_blocks(pages)
-    else:
+
+    elif mode == "normativo":
         blocks = split_normative_blocks(pages)
+
+    else:
+        blocks = split_general_blocks(pages)
+
+    # Evitar descartar documentos con texto válido.
+    if not blocks and any(
+        page["text"].strip()
+        for page in pages
+    ):
+        blocks = split_general_blocks(pages)
 
     valid_blocks = [
         block

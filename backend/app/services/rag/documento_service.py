@@ -218,6 +218,13 @@ def _cerrar_version_anterior(
             409,
         )
 
+    # Compatibilidad con versiones históricas que fueron
+    # registradas sin fecha explícita de inicio.
+    # PostgreSQL exige vigente_desde cuando vigente_hasta
+    # deja de ser NULL.
+    if anterior.vigente_desde is None:
+        anterior.vigente_desde = inicio_anterior
+
     anterior.vigente_hasta = fecha_sustitucion
     db.flush()
 
@@ -681,6 +688,13 @@ def nueva_version(
 
         if isinstance(exc, DocumentoError):
             raise
+
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "Error al publicar nueva versión del documento id=%s",
+            id_documento,
+        )
 
         raise DocumentoError(
             "No se pudo publicar la nueva versión. "
