@@ -10,6 +10,7 @@ from app.services.chat.query_normalization_service import (
 )
 from app.services.chat.query_rewrite_service import (
     rewrite_question_with_history,
+    should_rewrite_question,
 )
 from app.services.rag.answer_router import (
     try_intent_based_answer,
@@ -34,6 +35,7 @@ from app.services.rag.retrieval_hints import (
     get_retrieval_hints,
 )
 from app.services.rag.retriever import (
+    extract_multi_part_queries,
     retrieve_relevant_chunks,
 )
 from app.services.rag.source_ranker import (
@@ -42,6 +44,49 @@ from app.services.rag.source_ranker import (
 from app.services.rag.topic_router import (
     detect_allowed_documents,
 )
+
+
+def detect_history_allowed_documents(
+    conversation_history: list[dict[str, str]],
+) -> list[str] | None:
+    """
+    Recupera el tema documental explícito más reciente del usuario.
+
+    Solo se utiliza como respaldo para consultas que realmente
+    dependen del historial. No analiza respuestas del asistente,
+    evitando que una respuesta previa contamine el tema siguiente.
+    """
+
+    for message in reversed(
+        conversation_history
+    ):
+        role = (
+            message.get("role", "")
+            .strip()
+            .lower()
+        )
+
+        if role != "user":
+            continue
+
+        content = (
+            message.get("content", "")
+            .strip()
+        )
+
+        if not content:
+            continue
+
+        documents = (
+            detect_allowed_documents(
+                content
+            )
+        )
+
+        if documents:
+            return documents
+
+    return None
 
 
 def try_exact_answer(
@@ -376,11 +421,47 @@ def run_rag_pipeline(
     # 4. ROUTING DE DOCUMENTOS
     # ---------------------------------------------------------
 
+    direct_current_documents = (
+        detect_allowed_documents(
+            normalized_question
+        )
+    )
+
     allowed_documents = (
         detect_allowed_documents(
             standalone_question
         )
     )
+
+    context_dependent = (
+        bool(conversation_history)
+        and should_rewrite_question(
+            normalized_question,
+            query_type,
+        )
+    )
+
+    # Cuando la consulta actual depende del contexto pero no
+    # identifica por sí misma un tema institucional, conservamos
+    # el último documento explícitamente mencionado por el usuario.
+    #
+    # Esto evita que términos genéricos como un plazo, una nota,
+    # un monto o una persona lleven el retrieval a otro documento
+    # que casualmente contiene conceptos similares.
+    if (
+        not direct_current_documents
+        and context_dependent
+    ):
+        history_documents = (
+            detect_history_allowed_documents(
+                conversation_history
+            )
+        )
+
+        if history_documents:
+            allowed_documents = (
+                history_documents
+            )
 
     # ---------------------------------------------------------
     # 5. HINTS
@@ -436,10 +517,20 @@ def run_rag_pipeline(
 
     structured_response = None
 
-    if query_type in {
-        "factoid",
-        "contact",
-    }:
+    multi_part_question = bool(
+        extract_multi_part_queries(
+            standalone_question
+        )
+    )
+
+    if (
+        query_type
+        in {
+            "factoid",
+            "contact",
+        }
+        and not multi_part_question
+    ):
         structured_response = (
             try_exact_answer(
                 standalone_question,

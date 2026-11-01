@@ -111,11 +111,26 @@ REGLAS OBLIGATORIAS:
 
 15. Ante duda, utiliza siempre la formulación más conservadora.
 
-16. No acortes una respuesta correcta únicamente para hacerla más breve.
+16. Conserva exactamente las relaciones lógicas de la fuente.
+    - Si el documento presenta alternativas mediante "o", no las conviertas
+      en condiciones acumulativas mediante "y".
+    - Si el documento exige condiciones conjuntas mediante "y", no las
+      conviertas en alternativas.
+    - No cambies el alcance de excepciones, negaciones ni condiciones.
+
+17. Conserva únicamente información directamente pertinente al tema
+    preguntado. Una afirmación puede estar respaldada por el contexto y aun
+    así pertenecer a otro trámite, evaluación o procedimiento. En ese caso,
+    elimínala de la respuesta.
+
+18. Si la pregunta contiene varias partes, verifica que todas las partes que
+    sí estén respaldadas por el contexto permanezcan en la respuesta final.
+
+19. No acortes una respuesta correcta únicamente para hacerla más breve.
     Si la respuesta propuesta contiene varios puntos respaldados, conserva
     todos los puntos necesarios para responder completamente la pregunta.
 
-17. Devuelve una respuesta completa. No termines en mitad de una palabra,
+20. Devuelve una respuesta completa. No termines en mitad de una palabra,
     frase, enumeración o idea.
 
 Devuelve únicamente la respuesta final corregida.

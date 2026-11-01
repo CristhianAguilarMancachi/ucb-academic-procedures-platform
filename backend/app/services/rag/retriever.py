@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from sqlalchemy.orm import Session
 
@@ -46,6 +47,8 @@ STOPWORDS = {
     "cuantas",
     "quién",
     "quien",
+    "quiénes",
+    "quienes",
     "de",
     "la",
     "el",
@@ -75,9 +78,20 @@ STOPWORDS = {
 def tokenize(
     text: str,
 ) -> set[str]:
-    words = re.findall(
-        r"[a-zA-ZáéíóúÁÉÍÓÚñÑ]+",
+    normalized = unicodedata.normalize(
+        "NFD",
         text.lower(),
+    )
+
+    normalized = "".join(
+        character
+        for character in normalized
+        if unicodedata.category(character) != "Mn"
+    )
+
+    words = re.findall(
+        r"[a-zA-Z0-9]+",
+        normalized,
     )
 
     return {
@@ -795,6 +809,7 @@ def extract_multi_part_queries(
         r"cuántos|cuantos|"
         r"cuántas|cuantas|"
         r"cuál|cual|"
+        r"quiénes|quienes|"
         r"quién|quien|"
         r"dónde|donde|"
         r"cuándo|cuando"

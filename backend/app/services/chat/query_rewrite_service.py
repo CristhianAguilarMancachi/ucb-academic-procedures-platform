@@ -165,6 +165,60 @@ def starts_like_follow_up(
     )
 
 
+def contains_implicit_history_reference(
+    question: str,
+) -> bool:
+    """
+    Detecta consultas que dependen del turno anterior aunque
+    no contengan pronombres explícitos como "eso" o "ese trámite".
+
+    Se limita a construcciones lingüísticas típicamente elípticas
+    para no convertir cualquier pregunta corta en un follow-up.
+    """
+
+    q = (
+        question.lower()
+        .strip()
+        .lstrip("¿¡")
+        .strip()
+    )
+
+    patterns = [
+        # Referencias temporales a un plazo mencionado antes.
+        r"\bya\s+(?:pasaron|transcurrieron|vencieron|expiraron)\b",
+        r"\b(?:ese|el)\s+plazo\b",
+
+        # Demostrativos cuyo referente normalmente está en el historial.
+        r"\b(?:ese|esa|esos|esas|este|esta|estos|estas)\b",
+
+        # Preguntas breves que omiten el objeto porque ya fue mencionado.
+        r"^(?:y\s+)?(?:cuánto|cuanto)\s+(?:cuesta|tarda|demora)\b",
+        r"^(?:y\s+)?(?:cuántos|cuantos|cuántas|cuantas)\s+"
+        r"(?:necesito|son|debo)\b",
+        r"^(?:y\s+)?(?:quién|quien|quiénes|quienes)\s+"
+        r"(?:(?:lo|la|los|las|se)\s+)?",
+        r"^(?:y\s+)?(?:dónde|donde|cuándo|cuando)\b",
+
+        # Continuaciones procedimentales.
+        r"^(?:y\s+)?(?:qué|que)\s+(?:debo|tengo)\s+que\s+hacer\s+"
+        r"(?:ahora|después|despues|si\s+ya)\b",
+
+        # Continuaciones sobre consecuencias.
+        r"^(?:y\s+)?(?:qué|que)\s+"
+        r"(?:pasa|ocurre|sucede)\s+"
+        r"(?:ahora|después|despues|si)\b",
+    ]
+
+    return any(
+        re.search(
+            pattern,
+            q,
+            flags=re.IGNORECASE,
+        )
+        for pattern in patterns
+    )
+
+
 def should_rewrite_question(
     question: str,
     query_type: str,
@@ -183,6 +237,13 @@ def should_rewrite_question(
     if starts_like_follow_up(q):
         return True
 
+    # Referencias implícitas como:
+    # "¿Cuánto cuesta?"
+    # "¿Quién lo revisa?"
+    # "¿Qué debo hacer si ya pasó el plazo?"
+    if contains_implicit_history_reference(q):
+        return True
+
     # Si la pregunta ya identifica claramente un tema
     # institucional, no hace falta reformularla.
     direct_documents = detect_allowed_documents(
@@ -192,23 +253,9 @@ def should_rewrite_question(
     if direct_documents:
         return False
 
-    # Algunas consultas breves pueden depender del historial
-    # aunque no tengan un pronombre explícito.
-    word_count = len(
-        q.split()
-    )
-
-    if (
-        query_type
-        in {
-            "consequence",
-            "eligibility",
-            "factoid",
-        }
-        and word_count <= 7
-    ):
-        return True
-
+    # No asumimos que toda pregunta corta depende del historial.
+    # Esto evita arrastrar el tema anterior hacia una consulta nueva
+    # y no relacionada.
     return False
 
 

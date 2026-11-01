@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 
 STOPWORDS = {
@@ -51,9 +52,20 @@ STOPWORDS = {
 def tokenize(
     text: str,
 ) -> set[str]:
-    words = re.findall(
-        r"[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+",
+    normalized = unicodedata.normalize(
+        "NFD",
         text.lower(),
+    )
+
+    normalized = "".join(
+        character
+        for character in normalized
+        if unicodedata.category(character) != "Mn"
+    )
+
+    words = re.findall(
+        r"[a-zA-Z0-9]+",
+        normalized,
     )
 
     return {
@@ -114,6 +126,18 @@ def rank_sources_by_support(
         question
     )
 
+    # Para identificar la fuente que realmente respalda la
+    # respuesta, priorizamos los términos informativos añadidos
+    # por la respuesta y no solo las palabras ya presentes en
+    # la pregunta.
+    support_terms = (
+        answer_terms
+        - question_terms
+    )
+
+    if not support_terms:
+        support_terms = answer_terms
+
     ranked_sources: list[dict] = []
 
     for index, (
@@ -131,7 +155,7 @@ def rank_sources_by_support(
 
         answer_overlap = (
             calculate_overlap(
-                answer_terms,
+                support_terms,
                 document_terms,
             )
         )
@@ -173,9 +197,9 @@ def rank_sources_by_support(
         # porque queremos identificar qué fuente
         # respalda realmente lo que se respondió.
         support_score = (
-            answer_overlap * 0.60
-            + question_overlap * 0.20
-            + retrieval_score * 0.20
+            answer_overlap * 0.75
+            + question_overlap * 0.10
+            + retrieval_score * 0.15
         )
 
         ranked_metadata = dict(
