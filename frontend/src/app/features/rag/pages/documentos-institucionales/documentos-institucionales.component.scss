@@ -1635,3 +1635,96 @@
     flex: 1;
   }
 }
+
+
+/* ==========================================================
+   CONFIRMACIONES DE DOCUMENTOS INSTITUCIONALES
+   ========================================================== */
+
+.document-dialog--confirmation {
+  .document-dialog__body {
+    gap: 0.9rem;
+    padding: 1.1rem 1.25rem;
+  }
+
+  .document-dialog__footer {
+    justify-content: flex-end;
+  }
+}
+
+.document-dialog__icon--success {
+  background: rgba(68, 194, 129, 0.12);
+  color: #8fe0b6;
+}
+
+.document-dialog__icon--danger {
+  background: rgba(232, 70, 91, 0.12);
+  color: #f1a1a1;
+}
+
+.document-dialog__icon--warning {
+  background: var(--ucb-yellow-soft);
+  color: var(--ucb-yellow);
+}
+
+.document-confirmation__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+
+  strong {
+    color: var(--ucb-text-strong);
+    font-size: 0.9rem;
+    font-weight: 750;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  p {
+    margin: 0;
+    color: var(--ucb-text-soft);
+    font-size: 0.78rem;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+  }
+}
+
+.document-confirmation__notice {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--ucb-yellow-border);
+  border-radius: 7px;
+  background: var(--ucb-yellow-soft);
+  color: var(--ucb-text-soft);
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+
+.document-confirmation__notice--danger {
+  border-color: rgba(232, 70, 91, 0.35);
+  background: rgba(103, 23, 38, 0.18);
+  color: #ffcbd3;
+}
+
+.doc-button--danger-confirm {
+  border-color: #d94b5f !important;
+  background: #b83249 !important;
+  color: #ffffff !important;
+
+  &:hover:not(:disabled) {
+    border-color: #ec6577 !important;
+    background: #cf4058 !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .document-dialog--confirmation .document-dialog__footer {
+    gap: 0.5rem;
+
+    .doc-button {
+      flex: 1 1 auto;
+      min-width: 0;
+      white-space: normal;
+    }
+  }
+}

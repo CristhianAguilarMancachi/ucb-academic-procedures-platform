@@ -49,7 +49,7 @@
       </p>
     </div>
 
-    @if (error() && !modal()) {
+    @if (error() && !modal() && !confirmacion()) {
       <div class="doc-notice doc-notice--error" role="alert">
         {{ error() }}
       </div>
@@ -255,7 +255,7 @@
       <strong>Detalle de documento</strong>
     </nav>
 
-    @if (error() && !modal()) {
+    @if (error() && !modal() && !confirmacion()) {
       <div class="doc-notice doc-notice--error" role="alert">
         {{ error() }}
       </div>
@@ -902,6 +902,175 @@
           </button>
         </footer>
       </form>
+    </app-gestion-modal>
+  }
+
+
+  <!-- CONFIRMACIONES ADMINISTRATIVAS -->
+  @if (confirmacion(); as accion) {
+    <app-gestion-modal
+      [titulo]="
+        accion.tipo === 'activar'
+          ? 'Activar documento'
+          : accion.tipo === 'desactivar'
+            ? 'Desactivar documento'
+            : 'Reingestar versión'
+      "
+      [operativo]="true"
+      [ocupado]="ocupado()"
+      (cerrar)="cerrarConfirmacion()"
+    >
+      <div class="document-dialog document-dialog--confirmation">
+
+        <header class="document-dialog__header">
+          <span
+            class="document-dialog__icon"
+            [class.document-dialog__icon--danger]="accion.tipo === 'desactivar'"
+            [class.document-dialog__icon--warning]="accion.tipo === 'reingestar'"
+            [class.document-dialog__icon--success]="accion.tipo === 'activar'"
+            aria-hidden="true"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              @if (accion.tipo === 'activar') {
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>
+                <path d="m9 12 2 2 4-4"/>
+              } @else if (accion.tipo === 'desactivar') {
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>
+                <path d="m9 9 6 6M15 9l-6 6"/>
+              } @else {
+                <path d="M20 7v5h-5"/>
+                <path d="M4 17v-5h5"/>
+                <path d="M5.7 9A7 7 0 0 1 18 6l2 6"/>
+                <path d="M4 12l2 6a7 7 0 0 0 12.3-3"/>
+              }
+            </svg>
+          </span>
+
+          <div>
+            <h2>
+              @switch (accion.tipo) {
+                @case ('activar') { Activar documento }
+                @case ('desactivar') { Desactivar documento }
+                @case ('reingestar') { Reingestar versión }
+              }
+            </h2>
+            <p>Confirmación administrativa</p>
+          </div>
+        </header>
+
+        <div class="document-dialog__body">
+
+          @if (error()) {
+            <div
+              class="doc-notice doc-notice--error"
+              role="alert"
+            >
+              {{ error() }}
+            </div>
+          }
+
+          @if (ocupado()) {
+            <div
+              class="doc-notice doc-notice--processing"
+              role="status"
+            >
+              <span class="loading-indicator"></span>
+              Procesando operación...
+            </div>
+          }
+
+          <div class="document-confirmation__content">
+
+            <strong>
+              @switch (accion.tipo) {
+                @case ('activar') {
+                  ¿Deseas activar «{{ accion.tituloDocumento }}»?
+                }
+                @case ('desactivar') {
+                  ¿Deseas desactivar «{{ accion.tituloDocumento }}»?
+                }
+                @case ('reingestar') {
+                  ¿Deseas reingestar la versión
+                  {{ accion.numeroVersion }}
+                  de «{{ accion.tituloDocumento }}»?
+                }
+              }
+            </strong>
+
+            <p>
+              @switch (accion.tipo) {
+                @case ('activar') {
+                  El documento volverá a estar disponible para las
+                  consultas del módulo informativo RAG, siempre
+                  que su versión actual esté vigente y tenga
+                  fragmentos disponibles.
+                }
+                @case ('desactivar') {
+                  El documento dejará de utilizarse en nuevas
+                  respuestas del módulo informativo RAG.
+                  El PDF, sus versiones y el historial se conservarán.
+                }
+                @case ('reingestar') {
+                  Se regenerarán los fragmentos y embeddings
+                  de esta versión utilizando el PDF almacenado.
+                  Las demás versiones del documento se conservarán.
+                }
+              }
+            </p>
+          </div>
+
+          @if (accion.tipo === 'desactivar') {
+            <div class="document-confirmation__notice document-confirmation__notice--danger">
+              El documento no estará disponible para nuevas consultas
+              hasta que se active nuevamente.
+            </div>
+          } @else if (accion.tipo === 'reingestar') {
+            <div class="document-confirmation__notice">
+              Esta operación puede tardar mientras se procesan
+              el documento y sus embeddings.
+            </div>
+          }
+
+        </div>
+
+        <footer class="document-dialog__footer">
+          <button
+            type="button"
+            class="doc-button doc-button--subtle"
+            [disabled]="ocupado()"
+            (click)="cerrarConfirmacion()"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            class="doc-button"
+            [class.doc-button--primary]="accion.tipo !== 'desactivar'"
+            [class.doc-button--danger-confirm]="accion.tipo === 'desactivar'"
+            [disabled]="ocupado()"
+            (click)="confirmarAccion()"
+          >
+            @if (ocupado()) {
+              Procesando...
+            } @else {
+              @switch (accion.tipo) {
+                @case ('activar') { Activar documento }
+                @case ('desactivar') { Desactivar documento }
+                @case ('reingestar') { Reingestar versión }
+              }
+            }
+          </button>
+        </footer>
+
+      </div>
     </app-gestion-modal>
   }
 

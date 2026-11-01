@@ -32,6 +32,14 @@ export class DocumentosInstitucionalesComponent implements OnInit {
   readonly error = signal('');
   readonly mensaje = signal('');
   readonly modal = signal<'carga' | 'version' | 'vigencia' | null>(null);
+
+  readonly confirmacion = signal<{
+    tipo: 'activar' | 'desactivar' | 'reingestar';
+    idDocumento: number;
+    tituloDocumento: string;
+    idVersion?: number;
+    numeroVersion?: string | number;
+  } | null>(null);
   readonly total = signal(0);
   pagina = 1;
   idDocumento: number | null = null;
@@ -183,17 +191,100 @@ export class DocumentosInstitucionalesComponent implements OnInit {
 
   cambiarEstado() {
     const d = this.detalle();
-    if (!d || this.ocupado()) return;
-    const estado = d.estado === 'activo' ? 'inactivo' : 'activo';
-    if (!window.confirm(`${estado === 'inactivo' ? 'Desactivar' : 'Activar'} «${d.titulo}»? Al desactivar dejará de utilizarse en nuevas respuestas RAG. El PDF, las versiones y el historial se conservarán.`)) return;
-    this.ejecutar(this.api.estadoDocumento(d.id_documento_institucional, estado));
+
+    if (!d || this.ocupado() || this.confirmacion()) return;
+
+    this.error.set('');
+
+    this.confirmacion.set({
+      tipo: d.estado === 'activo' ? 'desactivar' : 'activar',
+      idDocumento: d.id_documento_institucional,
+      tituloDocumento: d.titulo,
+    });
   }
 
   reingestar(version: VersionDocumento) {
     const d = this.detalle();
-    if (!d || this.ocupado() || !version.descargable) return;
-    if (!window.confirm(`Reingestar «${d.titulo}», versión ${version.numero_version}? Se regenerarán únicamente sus fragmentos y embeddings. Las demás versiones se conservarán.`)) return;
-    this.ejecutar(this.api.reingestarDocumento(d.id_documento_institucional, version.id_version_documento));
+
+    if (
+      !d ||
+      this.ocupado() ||
+      this.confirmacion() ||
+      !version.descargable
+    ) {
+      return;
+    }
+
+    this.error.set('');
+
+    this.confirmacion.set({
+      tipo: 'reingestar',
+      idDocumento: d.id_documento_institucional,
+      tituloDocumento: d.titulo,
+      idVersion: version.id_version_documento,
+      numeroVersion: version.numero_version,
+    });
+  }
+
+  cerrarConfirmacion() {
+    if (this.ocupado()) return;
+
+    this.confirmacion.set(null);
+    this.error.set('');
+  }
+
+  confirmarAccion() {
+    const accion = this.confirmacion();
+    const d = this.detalle();
+
+    if (!accion || !d || this.ocupado()) return;
+
+    if (accion.idDocumento !== d.id_documento_institucional) {
+      this.cerrarConfirmacion();
+      return;
+    }
+
+    if (accion.tipo === 'activar' || accion.tipo === 'desactivar') {
+      const estadoEsperado = accion.tipo === 'activar'
+        ? 'inactivo'
+        : 'activo';
+
+      if (d.estado !== estadoEsperado) {
+        this.cerrarConfirmacion();
+        return;
+      }
+
+      const nuevoEstado = accion.tipo === 'activar'
+        ? 'activo'
+        : 'inactivo';
+
+      this.ejecutar(
+        this.api.estadoDocumento(
+          accion.idDocumento,
+          nuevoEstado
+        )
+      );
+
+      return;
+    }
+
+    if (accion.tipo === 'reingestar' && accion.idVersion) {
+      const version = d.versiones.find(
+        v => v.id_version_documento === accion.idVersion
+      );
+
+      if (!version?.descargable) {
+        this.cerrarConfirmacion();
+        return;
+      }
+
+      this.ejecutar(
+        this.api.reingestarDocumento(
+          accion.idDocumento,
+          accion.idVersion
+        )
+      );
+    }
   }
 
   descargar(version: VersionDocumento) {
@@ -223,6 +314,7 @@ export class DocumentosInstitucionalesComponent implements OnInit {
       next: d => {
         this.detalle.set(d);
         this.modal.set(null);
+        this.confirmacion.set(null);
         this.ocupado.set(false);
         this.mensaje.set('Operación completada.');
         if (this.idDocumento !== d.id_documento_institucional) {
