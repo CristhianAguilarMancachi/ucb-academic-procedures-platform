@@ -118,166 +118,606 @@ class UsuariosTests(PruebasAisladas):
 
 
 class TramitesTests(PruebasAisladas):
-    def test_edicion_de_etapas_no_admite_extremos_fuera_de_posicion(self):
-        etapas = [NS(orden=1, activo=True, es_inicial=False, es_final=False),
-                  NS(orden=2, activo=True, es_inicial=True, es_final=True)]
-        with self.assertRaises(tramites.TramiteServiceError):
-            tramites._validar_extremos_etapas(etapas)
-        etapas[0].activo = False
-        tramites._validar_extremos_etapas(etapas)
-
     def test_desactivar_tambien_impide_publicacion_y_nuevas_solicitudes(self):
-        tramite = NS(id_tramite=1, nombre='Trámite', descripcion=None, activo=True, publicado=True, permite_solicitudes=True)
-        self.mock(tramites, '_obtener_tramite_o_error', return_value=tramite)
-        actualizar = self.mock(tramites, 'actualizar_tramite')
-        self.mock(tramites, '_aplicar_extension')
-        self.mock(tramites, 'registrar_accion_simple')
-        self.mock(tramites.TramiteResponse, 'model_validate')
-        tramites.actualizar_tramite_catalogo(self.db, id_tramite=1,
-            datos=TramiteActualizarRequest(activo=False), id_usuario_actor=7)
-        self.assertFalse(actualizar.call_args.kwargs['publicado'])
-        self.assertFalse(actualizar.call_args.kwargs['permite_solicitudes'])
+        tramite = NS(
+            id_tramite=1,
+            nombre="Trámite",
+            descripcion=None,
+            activo=True,
+            publicado=True,
+            permite_solicitudes=True,
+            tipo_finalizacion="resultado_registrado",
+            tipo_intervencion="ninguna",
+        )
 
-    def test_orden_rechaza_ids_ajenos_duplicados_y_posicion_inicial(self):
-        self.mock(tramites.configuracion_repo, 'bloquear_configuracion', return_value=NS())
-        etapas = [NS(id_etapa=1, activo=True, es_inicial=True, es_final=False),
-                  NS(id_etapa=2, activo=True, es_inicial=False, es_final=True)]
-        self.mock(tramites.configuracion_repo, 'listar_etapas_tramite', return_value=etapas)
-        guardar = self.mock(tramites.configuracion_repo, 'guardar_orden_etapas')
-        for ids in ([1, 3], [1, 1], [2, 1]):
-            with self.subTest(ids=ids), self.assertRaises(tramites.TramiteServiceError):
-                tramites.reordenar_etapas(self.db, id_tramite=1, ids=ids, id_usuario_actor=7)
-        guardar.assert_not_called()
+        self.mock(
+            tramites,
+            "_obtener_tramite_o_error",
+            return_value=tramite,
+        )
 
-    def test_reordenamiento_valido_audita(self):
-        self.mock(tramites.configuracion_repo, 'bloquear_configuracion', return_value=NS())
-        etapas = [NS(id_etapa=i, activo=True, es_inicial=i == 1, es_final=i == 4) for i in range(1, 5)]
-        self.mock(tramites.configuracion_repo, 'listar_etapas_tramite', return_value=etapas)
-        guardar = self.mock(tramites.configuracion_repo, 'guardar_orden_etapas')
-        auditar = self.mock(tramites, 'registrar_accion_simple')
-        self.mock(tramites, 'obtener_tramite_administracion')
-        tramites.reordenar_etapas(self.db, id_tramite=1, ids=[1, 3, 2, 4], id_usuario_actor=7)
-        self.assertEqual([e.id_etapa for e in guardar.call_args.args[1]], [1, 3, 2, 4])
-        auditar.assert_called_once()
+        actualizar = self.mock(
+            tramites.repo,
+            "actualizar_tramite",
+        )
+
+        self.mock(tramites, "_aplicar_extension")
+        self.mock(tramites, "registrar_accion_simple")
+        self.mock(
+            tramites,
+            "_respuesta_tramite",
+            return_value=NS(),
+        )
+
+        tramites.actualizar_tramite_catalogo(
+            self.db,
+            id_tramite=1,
+            datos=TramiteActualizarRequest(
+                activo=False
+            ),
+            id_usuario_actor=7,
+        )
+
+        self.assertFalse(
+            actualizar.call_args.kwargs["activo"]
+        )
+        self.assertFalse(
+            actualizar.call_args.kwargs["publicado"]
+        )
+        self.assertFalse(
+            actualizar.call_args.kwargs[
+                "permite_solicitudes"
+            ]
+        )
+
+    def test_estado_tramite_impide_combinaciones_invalidas(self):
+        with self.assertRaises(
+            tramites.ConfiguracionTramiteInvalidaError
+        ):
+            tramites._validar_estado_tramite(
+                activo=False,
+                publicado=True,
+                permite_solicitudes=False,
+            )
+
+        with self.assertRaises(
+            tramites.ConfiguracionTramiteInvalidaError
+        ):
+            tramites._validar_estado_tramite(
+                activo=True,
+                publicado=False,
+                permite_solicitudes=True,
+            )
+
+        tramites._validar_estado_tramite(
+            activo=True,
+            publicado=True,
+            permite_solicitudes=True,
+        )
+
+    def test_requisitos_ya_no_se_asocian_a_etapas(self):
+        datos = Mock()
+        datos.model_dump.return_value = {
+            "id_etapa": 10
+        }
+
+        with self.assertRaises(
+            tramites.ConfiguracionTramiteInvalidaError
+        ):
+            tramites._validar_extension_requisito(
+                self.db,
+                1,
+                datos,
+            )
+
+    def test_intervencion_exige_finalizacion_por_resultado(self):
+        tramite = NS(
+            tipo_intervencion="ninguna",
+            tipo_finalizacion="entrega",
+        )
+
+        datos = Mock()
+        datos.model_dump.return_value = {
+            "tipo_intervencion": "firma",
+            "tipo_finalizacion": "entrega",
+        }
+
+        with self.assertRaises(
+            tramites.ConfiguracionTramiteInvalidaError
+        ):
+            tramites._validar_intervencion(
+                tramite,
+                datos,
+            )
 
 
 class DocumentosTests(PruebasAisladas):
     def setUp(self):
         super().setUp()
-        self.documento = NS(id_documento_institucional=1, id_version_actual=10, estado='activo')
-        self.version = NS(id_version_documento=10, hash_archivo='hash', vigente_desde=date(2026, 1, 1),
-                          vigente_hasta=date(2026, 12, 31), fecha_version=datetime(2025, 1, 1))
-        self.mock(docs.repo, 'obtener_documento', return_value=self.documento)
-        self.mock(docs.repo, 'obtener_version', return_value=self.version)
-        self.mock(docs.repo, 'guardar_cambios')
-        self.mock(docs.repo, 'modo_version', return_value='normativo')
-        self.mock(docs, 'detalle_documento', return_value=NS())
-        self.auditar = self.mock(docs, 'registrar_accion_simple')
-        self.preparar = self.mock(docs, 'preparar_chunks', return_value=('hash', [{'contenido': 'Texto'}]))
-        self.chunks = self.mock(docs.repo, 'guardar_chunks')
-        self.actualizar = self.mock(docs.repo, 'establecer_version_actual')
+
+        self.temporal = TemporaryDirectory()
+        self.addCleanup(self.temporal.cleanup)
+
+        self.mock(
+            docs,
+            "DOCUMENTS_DIR",
+            new=Path(self.temporal.name),
+        )
+
+        self.documento = NS(
+            id_documento_institucional=1,
+            id_version_actual=10,
+            estado="activo",
+        )
+
+        self.version = NS(
+            id_version_documento=10,
+            id_documento_institucional=1,
+            hash_archivo="hash",
+            vigente_desde=date(2026, 1, 1),
+            vigente_hasta=date(2026, 12, 31),
+            fecha_version=datetime(2025, 1, 1),
+            estado="activo",
+        )
+
+        self.mock(
+            docs.repo,
+            "obtener_documento",
+            return_value=self.documento,
+        )
+
+        self.mock(
+            docs.repo,
+            "obtener_version",
+            return_value=self.version,
+        )
+
+        self.mock(
+            docs.repo,
+            "guardar_cambios",
+        )
+
+        self.mock(
+            docs.repo,
+            "modo_version",
+            return_value="normativo",
+        )
+
+        self.mock(
+            docs,
+            "detalle_documento",
+            return_value=NS(),
+        )
+
+        self.mock(
+            docs,
+            "_fecha_actual_bd",
+            return_value=date(2026, 1, 1),
+        )
+
+        self.cerrar = self.mock(
+            docs,
+            "_cerrar_version_anterior",
+        )
+
+        self.auditar = self.mock(
+            docs,
+            "registrar_accion_simple",
+        )
+
+        self.preparar = self.mock(
+            docs,
+            "preparar_chunks",
+            return_value=(
+                "hash",
+                [{"contenido": "Texto"}],
+            ),
+        )
+
+        self.chunks = self.mock(
+            docs.repo,
+            "guardar_chunks",
+        )
+
+        self.archivo = self.mock(
+            docs.repo,
+            "guardar_archivo_pdf",
+        )
+
+        self.actualizar = self.mock(
+            docs.repo,
+            "establecer_version_actual",
+        )
 
     def test_vigencia_rechaza_fechas_invertidas(self):
         with self.assertRaises(ValidationError):
-            VigenciaDocumentoRequest(vigente_desde='2026-05-10', vigente_hasta='2026-05-09')
+            VigenciaDocumentoRequest(
+                vigente_desde="2026-05-10",
+                vigente_hasta="2026-05-09",
+            )
 
     def test_limites_vigencia_y_compatibilidad_historica(self):
-        self.assertTrue(docs.version_vigente(self.version, date(2026, 1, 1)))
-        self.assertTrue(docs.version_vigente(self.version, date(2026, 12, 31)))
-        self.assertFalse(docs.version_vigente(self.version, date(2027, 1, 1)))
-        self.assertFalse(docs.version_vigente(self.version, date(2025, 12, 31)))
-        self.version.vigente_desde = self.version.vigente_hasta = None
-        self.assertTrue(docs.version_vigente(self.version, date(2026, 1, 1)))
+        self.assertTrue(
+            docs.version_vigente(
+                self.version,
+                date(2026, 1, 1),
+            )
+        )
+
+        self.assertTrue(
+            docs.version_vigente(
+                self.version,
+                date(2026, 12, 31),
+            )
+        )
+
+        self.assertFalse(
+            docs.version_vigente(
+                self.version,
+                date(2027, 1, 1),
+            )
+        )
+
+        self.assertFalse(
+            docs.version_vigente(
+                self.version,
+                date(2025, 12, 31),
+            )
+        )
+
+        self.version.vigente_desde = None
+        self.version.vigente_hasta = None
+
+        self.assertTrue(
+            docs.version_vigente(
+                self.version,
+                date(2026, 1, 1),
+            )
+        )
 
     def test_desactivar_no_borra_chunks_ni_cambia_version(self):
-        docs.actualizar_documento(self.db, 1, 7, estado='inactivo')
-        self.assertEqual(self.documento.estado, 'inactivo')
+        docs.actualizar_documento(
+            self.db,
+            1,
+            7,
+            estado="inactivo",
+        )
+
+        self.assertEqual(
+            self.documento.estado,
+            "inactivo",
+        )
+
         self.chunks.assert_not_called()
         self.actualizar.assert_not_called()
         self.preparar.assert_not_called()
         self.auditar.assert_called_once()
 
     def test_reingesta_reemplaza_solo_version_seleccionada(self):
-        self.mock(docs, 'descargar_version', return_value=Path('/no-se-abre.pdf'))
-        docs.actualizar_documento(self.db, 1, 7, id_version=10, reingestar=True)
-        self.chunks.assert_called_once_with(self.db, 10, [{'contenido': 'Texto'}], reemplazar=True)
+        self.mock(
+            docs,
+            "_leer_pdf",
+            return_value=b"contenido",
+        )
+
+        docs.actualizar_documento(
+            self.db,
+            1,
+            7,
+            id_version=10,
+            reingestar=True,
+        )
+
+        self.chunks.assert_called_once_with(
+            self.db,
+            10,
+            [{"contenido": "Texto"}],
+            reemplazar=True,
+        )
+
         self.actualizar.assert_not_called()
         self.db.commit.assert_called_once()
 
     def test_fallo_reingesta_no_toca_chunks_previos(self):
-        self.mock(docs, 'descargar_version', return_value=Path('/no-se-abre.pdf'))
-        self.preparar.side_effect = RuntimeError('proveedor no disponible')
-        with self.assertRaises(docs.DocumentoError):
-            docs.actualizar_documento(self.db, 1, 7, id_version=10, reingestar=True)
+        self.mock(
+            docs,
+            "_leer_pdf",
+            return_value=b"contenido",
+        )
+
+        self.preparar.side_effect = RuntimeError(
+            "proveedor no disponible"
+        )
+
+        with self.assertRaises(
+            docs.DocumentoError
+        ):
+            docs.actualizar_documento(
+                self.db,
+                1,
+                7,
+                id_version=10,
+                reingestar=True,
+            )
+
         self.chunks.assert_not_called()
         self.db.rollback.assert_called_once()
         self.db.commit.assert_not_called()
 
     def test_archivo_modificado_exige_nueva_version(self):
-        self.mock(docs, 'descargar_version', return_value=Path('/no-se-abre.pdf'))
-        self.preparar.return_value = ('hash-distinto', [])
-        with self.assertRaises(docs.DocumentoError) as exc:
-            docs.actualizar_documento(self.db, 1, 7, id_version=10, reingestar=True)
-        self.assertEqual(exc.exception.status_code, 409)
+        self.mock(
+            docs,
+            "_leer_pdf",
+            return_value=b"contenido",
+        )
+
+        self.preparar.return_value = (
+            "hash-distinto",
+            [],
+        )
+
+        with self.assertRaises(
+            docs.DocumentoError
+        ) as exc:
+            docs.actualizar_documento(
+                self.db,
+                1,
+                7,
+                id_version=10,
+                reingestar=True,
+            )
+
+        self.assertEqual(
+            exc.exception.status_code,
+            409,
+        )
+
         self.chunks.assert_not_called()
 
     def test_fallo_persistencia_reingesta_revierte_transaccion(self):
-        self.mock(docs, 'descargar_version', return_value=Path('/no-se-abre.pdf'))
-        self.chunks.side_effect = RuntimeError('error al persistir')
-        with self.assertRaises(docs.DocumentoError):
-            docs.actualizar_documento(self.db, 1, 7, id_version=10, reingestar=True)
+        self.mock(
+            docs,
+            "_leer_pdf",
+            return_value=b"contenido",
+        )
+
+        self.chunks.side_effect = RuntimeError(
+            "error al persistir"
+        )
+
+        with self.assertRaises(
+            docs.DocumentoError
+        ):
+            docs.actualizar_documento(
+                self.db,
+                1,
+                7,
+                id_version=10,
+                reingestar=True,
+            )
+
         self.db.rollback.assert_called_once()
         self.db.commit.assert_not_called()
         self.actualizar.assert_not_called()
 
     def test_nueva_version_no_publica_si_ingesta_falla(self):
         path = Mock()
-        self.mock(docs, 'guardar_pdf', return_value=path)
-        self.preparar.side_effect = RuntimeError('fallo de extracción')
-        crear = self.mock(docs.repo, 'crear_version')
-        with self.assertRaises(docs.DocumentoError):
-            docs.nueva_version(self.db, 1, VersionCrearRequest(vigente_desde='2026-01-01'), BytesIO(), 'a.pdf', 7)
+
+        self.mock(
+            docs,
+            "guardar_pdf",
+            return_value=path,
+        )
+
+        self.preparar.side_effect = RuntimeError(
+            "fallo de extracción"
+        )
+
+        crear = self.mock(
+            docs.repo,
+            "crear_version",
+        )
+
+        with self.assertRaises(
+            docs.DocumentoError
+        ):
+            docs.nueva_version(
+                self.db,
+                1,
+                VersionCrearRequest(
+                    vigente_desde="2026-01-01"
+                ),
+                BytesIO(),
+                "a.pdf",
+                7,
+            )
+
         crear.assert_not_called()
         self.actualizar.assert_not_called()
-        self.assertEqual(self.documento.id_version_actual, 10)
+
+        self.assertEqual(
+            self.documento.id_version_actual,
+            10,
+        )
+
         path.unlink.assert_called_once()
 
-    def test_nueva_version_persiste_antes_de_publicar(self):
-        self.mock(docs, 'guardar_pdf', return_value=Path('/no-se-abre.pdf'))
-        self.mock(docs.repo, 'siguiente_numero_version', return_value='2')
-        self.mock(docs.repo, 'crear_version', return_value=NS(id_version_documento=11))
+    def test_nueva_version_persiste_archivo_chunks_y_version_actual(self):
+        contenido = b"contenido-pdf"
+        file_hash = docs.sha256(
+            contenido
+        ).hexdigest()
+
+        path = Mock()
+        path.read_bytes.return_value = contenido
+
+        self.mock(
+            docs,
+            "guardar_pdf",
+            return_value=path,
+        )
+
+        self.preparar.return_value = (
+            file_hash,
+            [{"contenido": "Texto"}],
+        )
+
+        self.mock(
+            docs.repo,
+            "siguiente_numero_version",
+            return_value="2",
+        )
+
+        self.mock(
+            docs.repo,
+            "crear_version",
+            return_value=NS(
+                id_version_documento=11
+            ),
+        )
+
         orden = []
-        self.chunks.side_effect = lambda *a, **k: orden.append('chunks')
-        self.actualizar.side_effect = lambda *a: orden.append('actual')
-        self.db.commit.side_effect = lambda: orden.append('commit')
-        docs.nueva_version(self.db, 1, VersionCrearRequest(vigente_desde='2026-01-01'), BytesIO(), 'a.pdf', 7)
-        self.assertEqual(orden, ['chunks', 'actual', 'commit'])
-        self.assertNotIn('reemplazar', self.chunks.call_args.kwargs)
+
+        self.archivo.side_effect = (
+            lambda *a, **k:
+            orden.append("archivo")
+        )
+
+        self.chunks.side_effect = (
+            lambda *a, **k:
+            orden.append("chunks")
+        )
+
+        self.actualizar.side_effect = (
+            lambda *a, **k:
+            orden.append("actual")
+        )
+
+        self.db.commit.side_effect = (
+            lambda:
+            orden.append("commit")
+        )
+
+        docs.nueva_version(
+            self.db,
+            1,
+            VersionCrearRequest(
+                vigente_desde="2026-01-01"
+            ),
+            BytesIO(),
+            "a.pdf",
+            7,
+        )
+
+        self.assertEqual(
+            orden,
+            [
+                "archivo",
+                "chunks",
+                "actual",
+                "commit",
+            ],
+        )
+
+        self.assertNotIn(
+            "reemplazar",
+            self.chunks.call_args.kwargs,
+        )
+
+        path.unlink.assert_called_once()
 
     def test_unidad_inexistente_no_inicia_ingesta(self):
-        self.mock(docs, 'obtener_unidad_por_nombre', return_value=None)
-        with self.assertRaises(docs.DocumentoError):
-            docs.cargar_documento(self.db, DocumentoCrearRequest(titulo='Documento', unidad_origen='Inexistente',
-                vigente_desde='2026-01-01'), BytesIO(), 'a.pdf', 7)
+        self.mock(
+            docs,
+            "obtener_unidad_por_nombre",
+            return_value=None,
+        )
+
+        with self.assertRaises(
+            docs.DocumentoError
+        ):
+            docs.cargar_documento(
+                self.db,
+                DocumentoCrearRequest(
+                    titulo="Documento",
+                    unidad_origen="Inexistente",
+                    vigente_desde="2026-01-01",
+                ),
+                BytesIO(),
+                "a.pdf",
+                7,
+            )
+
         self.preparar.assert_not_called()
 
     def test_archivo_falso_y_vacio_rechazados_y_limpiados(self):
-        with TemporaryDirectory() as directorio:
-            self.mock(docs, 'DOCUMENTS_DIR', new=Path(directorio))
-            for contenido in (b'', b'no es PDF'):
-                with self.assertRaises(docs.DocumentoError):
-                    docs.guardar_pdf(BytesIO(contenido), '../../nombre.pdf')
-            self.assertEqual(list(Path(directorio).rglob('*.pdf')), [])
+        for contenido in (
+            b"",
+            b"no es PDF",
+        ):
+            with self.assertRaises(
+                docs.DocumentoError
+            ):
+                docs.guardar_pdf(
+                    BytesIO(contenido),
+                    "../../nombre.pdf",
+                )
 
-    def test_descarga_impide_escapes_y_symlinks(self):
-        with TemporaryDirectory() as directorio, TemporaryDirectory() as fuera:
-            self.mock(docs, 'DOCUMENTS_DIR', new=Path(directorio))
-            externo = Path(fuera) / 'archivo.pdf'
-            externo.write_bytes(b'contenido')
-            enlace = Path(directorio) / 'enlace.pdf'
-            enlace.symlink_to(externo)
-            self.assertIsNone(docs.archivo_conservado(str(externo)))
-            self.assertIsNone(docs.archivo_conservado(str(enlace)))
+        self.assertEqual(
+            list(
+                Path(
+                    self.temporal.name
+                ).rglob("*.pdf")
+            ),
+            [],
+        )
+
+    def test_descarga_usa_postgresql_y_verifica_integridad(self):
+        contenido = b"pdf almacenado"
+
+        self.version.hash_archivo = (
+            docs.sha256(
+                contenido
+            ).hexdigest()
+        )
+
+        obtener = self.mock(
+            docs.repo,
+            "obtener_archivo_pdf",
+            return_value=contenido,
+        )
+
+        resultado = docs.descargar_version(
+            self.db,
+            1,
+            10,
+        )
+
+        self.assertEqual(
+            resultado,
+            contenido,
+        )
+
+        obtener.assert_called_once_with(
+            self.db,
+            10,
+        )
+
+        self.version.hash_archivo = "hash-distinto"
+
+        with self.assertRaises(
+            docs.DocumentoError
+        ) as exc:
+            docs.descargar_version(
+                self.db,
+                1,
+                10,
+            )
+
+        self.assertEqual(
+            exc.exception.status_code,
+            409,
+        )
 
 
 class ContratosTests(PruebasAisladas):

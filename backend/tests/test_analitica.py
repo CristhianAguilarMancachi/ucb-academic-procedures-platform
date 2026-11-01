@@ -151,17 +151,66 @@ class ConsultasTests(Aisladas):
 
     def test_conclusion_y_mediana_postgresql(self):
         sql = self.consultas()[2]
-        self.assertIn('percentile_cont(0.5) WITHIN GROUP', sql)
-        self.assertIn('EXTRACT(epoch FROM', sql)
-        self.assertIn('86400', sql)
-        self.assertIn('FILTER (WHERE', sql)
-        self.assertIn("solicitud.estado = 'finalizada'", sql)
-        self.assertIn('THEN solicitud_entrega.fecha_entrega', sql)
-        self.assertIn('THEN solicitud_resultado.fecha_registro', sql)
-        self.assertIn("('resultado_registrado', 'externo')", sql)
-        self.assertIn('solicitud_entrega.fecha_entrega >= solicitud_resultado.fecha_registro', sql)
-        self.assertNotIn('fecha_actualizacion', sql)
-        self.assertNotIn('avg(', sql)
+
+        self.assertIn(
+            "percentile_cont(0.5) WITHIN GROUP",
+            sql,
+        )
+
+        self.assertIn(
+            "EXTRACT(epoch FROM",
+            sql,
+        )
+
+        self.assertIn(
+            "86400",
+            sql,
+        )
+
+        self.assertIn(
+            "FILTER (WHERE",
+            sql,
+        )
+
+        self.assertIn(
+            "solicitud_resultado.fecha_registro",
+            sql,
+        )
+
+        self.assertIn(
+            "solicitud_resultado.tipo_finalizacion = solicitud.tipo_finalizacion",
+            sql,
+        )
+
+        self.assertIn(
+            "solicitud.estado = 'finalizada'",
+            sql,
+        )
+
+        self.assertIn(
+            "solicitud.estado = 'lista_para_entrega'",
+            sql,
+        )
+
+        self.assertIn(
+            "solicitud.tipo_finalizacion = 'entrega'",
+            sql,
+        )
+
+        self.assertNotIn(
+            "solicitud_entrega",
+            sql,
+        )
+
+        self.assertNotIn(
+            "fecha_actualizacion",
+            sql,
+        )
+
+        self.assertNotIn(
+            "avg(",
+            sql,
+        )
 
     def test_top_cinco_orden_y_nombre_real(self):
         sql = self.consultas()[4]

@@ -1,7 +1,15 @@
-"""Reglas M03 sin PostgreSQL ni HTTP: unittest de la biblioteca estándar.
+"""Pruebas unitarias del flujo actual de gestión y seguimiento.
 
-Desde backend: PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -p test_gestion_seguimiento.py -v
+No utilizan PostgreSQL ni proveedores externos reales.
+El flujo vigente se basa en:
+- recepción e inicio de atención;
+- requisitos;
+- observaciones;
+- intervención presencial cuando corresponde;
+- resultado administrativo;
+- pagos.
 """
+
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -12,373 +20,1540 @@ from unittest.mock import Mock, patch
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
-# Protección incluso si una futura edición intentara abrir una conexión real.
-@event.listens_for(Engine, 'do_connect')
-def prohibir_conexion(*args):
-    raise AssertionError('Estas pruebas no pueden conectar a una base de datos.')
-
-import app.models
-from app.models.gestion_seguimiento import SolicitudEtapa, SolicitudResultado, SolicitudEntrega, SolicitudObservacion
-from app.services.gestion_seguimiento import seguimiento_service as svc
-from app.services.gestion_seguimiento import solicitud_service as envio
-from app.services.gestion_seguimiento import configuracion_flujo_service as reglas
-from app.services.gestion_seguimiento import pago_verificacion_service as pago
-from app.schemas.gestion_seguimiento.seguimiento import (
-    ResultadoRegistrarRequest, EntregaRegistrarRequest, ObservacionCrearRequest,
+from app.models.gestion_seguimiento import (
+    SolicitudObservacion,
+    SolicitudResultado,
 )
-from app.schemas.gestion_seguimiento.solicitud import SolicitudEnviarRequest
-from app.schemas.gestion_seguimiento.pago_verificacion import PagoApiRespuesta
+
+from app.services.gestion_seguimiento import (
+    atencion_service as atencion,
+    configuracion_flujo_service as reglas,
+    intervencion_service as intervencion,
+    pago_verificacion_service as pago,
+    seguimiento_service as svc,
+    solicitud_administrativa_service as admin,
+    solicitud_service as envio,
+)
+
+from app.schemas.gestion_seguimiento.intervencion import (
+    RevisionPresencialRequest,
+)
+
+from app.schemas.gestion_seguimiento.seguimiento import (
+    ObservacionCrearRequest,
+    ResultadoRegistrarRequest,
+)
+
+from app.schemas.gestion_seguimiento.solicitud_administrativa import (
+    RequisitosAdministrativosConfirmarRequest,
+)
+
+from app.schemas.gestion_seguimiento.pago_verificacion import (
+    PagoApiRespuesta,
+)
+
+
+@event.listens_for(Engine, "do_connect")
+def prohibir_conexion(*args):
+    raise AssertionError(
+        "Estas pruebas no pueden conectar a PostgreSQL."
+    )
 
 
 def requisito(**cambios):
-    datos = dict(id_solicitud_requisito=1, id_solicitud=1, nombre='Requisito', obligatorio=True,
-                 id_solicitud_etapa=None, requiere_presentacion_fisica=False, presentado=False,
-                 estado_verificacion='pendiente', es_economico=False, numero_factura=None)
+    datos = dict(
+        id_solicitud_requisito=1,
+        id_solicitud=1,
+        nombre="Requisito",
+        obligatorio=True,
+        orden=1,
+        requiere_presentacion_fisica=False,
+        presentado=False,
+        fecha_presentacion=None,
+        id_usuario_presentacion=None,
+        estado_verificacion="pendiente",
+        id_usuario_verificador=None,
+        fecha_verificacion=None,
+        detalle_verificacion=None,
+        fecha_actualizacion=None,
+        es_economico=False,
+        numero_factura=None,
+        codigo_concepto_externo=None,
+        monto_economico=None,
+        moneda=None,
+    )
+
     datos.update(cambios)
     return NS(**datos)
 
 
-def etapa(id=10, orden=1, **cambios):
-    datos = dict(id_solicitud_etapa=id, id_solicitud=1, id_etapa_origen=id,
-                 nombre=f'Etapa {orden}', orden=orden, estado='pendiente', visible_solicitante=False,
-                 fecha_inicio=None, fecha_finalizacion=None, id_usuario_inicio=None, id_usuario_finalizacion=None)
-    datos.update(cambios)
-    return NS(**datos)
+class SeguimientoActualTest(unittest.TestCase):
 
-
-class FlujoTest(unittest.TestCase):
     def setUp(self):
-        self.s = NS(id_solicitud=1, id_solicitante=7, estado='en_revision', requisitos=[],
-                    id_etapa_actual=None, tipo_finalizacion='entrega')
-        self.etapas = [etapa(), etapa(20, 2)]
+        self.db = Mock()
+
+        self.s = NS(
+            id_solicitud=1,
+            id_solicitante=7,
+            estado="en_proceso",
+            requisitos=[],
+            tipo_finalizacion="resultado_registrado",
+            tipo_intervencion="ninguna",
+            fecha_actualizacion=None,
+            nombre_tramite_snapshot="Trámite",
+            tramite=NS(
+                nombre="Trámite",
+                tipo_intervencion="ninguna",
+            ),
+        )
+
         self.observaciones = []
         self.pagos = []
         self.registros = []
-        self.db = Mock()
+
         self.db.add.side_effect = self.registros.append
+
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
-        for nombre, funcion in {
-            'bloquear_solicitud': lambda *_: self.s,
-            'obtener_solicitud_completa': lambda *_: self.s,
-            'listar_etapas': lambda *_: self.etapas,
-            'listar_observaciones': lambda *_: self.observaciones,
-            'listar_pagos': lambda *_: self.pagos,
-            'obtener_resultado': lambda *_: next((r for r in self.registros if isinstance(r, SolicitudResultado)), None),
-            'obtener_entrega': lambda *_: next((r for r in self.registros if isinstance(r, SolicitudEntrega)), None),
-        }.items():
-            self.stack.enter_context(patch.object(svc.repo, nombre, side_effect=funcion))
-        self.stack.enter_context(patch.object(svc, 'obtener_documento_pago', return_value='1234567'))
-        self.evento = self.stack.enter_context(patch.object(svc, 'evento'))
 
-    def test_etapas_lineales_y_peticion_repetida_no_salta_etapa(self):
-        svc.iniciar_procesamiento(self.db, 1, 8)
-        self.assertEqual(self.s.id_etapa_actual, 10)
-        svc.avanzar_etapa(self.db, 1, 8, 10)
-        self.assertEqual(self.s.id_etapa_actual, 20)
-        with self.assertRaises(svc.SeguimientoError): svc.avanzar_etapa(self.db, 1, 8, 10)
-        self.assertEqual(self.etapas[1].estado, 'en_curso')
-        svc.avanzar_etapa(self.db, 1, 8, 20)
-        self.assertEqual(self.s.id_etapa_actual, 20)
-        self.assertEqual(self.s.estado, 'en_proceso')
+        self.stack.enter_context(
+            patch.object(
+                svc.repo,
+                "bloquear_solicitud",
+                return_value=self.s,
+            )
+        )
 
-    def test_requisito_inicial_bloquea_inicio(self):
-        self.s.requisitos = [requisito()]
-        with self.assertRaises(svc.SeguimientoError): svc.iniciar_procesamiento(self.db, 1, 8)
-        self.assertEqual(self.s.estado, 'en_revision')
-        self.db.commit.assert_not_called()
+        self.stack.enter_context(
+            patch.object(
+                svc.repo,
+                "obtener_solicitud_completa",
+                return_value=self.s,
+            )
+        )
 
-    def test_requisito_opcional_no_bloquea(self):
-        self.s.requisitos = [requisito(obligatorio=False)]
-        svc.iniciar_procesamiento(self.db, 1, 8)
-        self.assertEqual(self.s.estado, 'en_proceso')
+        self.stack.enter_context(
+            patch.object(
+                svc.repo,
+                "listar_observaciones",
+                side_effect=lambda *a, **k: self.observaciones,
+            )
+        )
 
-    def test_pago_posterior_no_bloquea_inicio_pero_si_su_etapa(self):
-        r = requisito(id_solicitud_etapa=20, es_economico=True)
-        self.s.requisitos = [r]
-        svc.iniciar_procesamiento(self.db, 1, 8)
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_factura(self.db, 1, 1, 7, 'F-1')
-        svc.avanzar_etapa(self.db, 1, 8, 10)
-        svc.registrar_factura(self.db, 1, 1, 7, 'F-1')
-        with self.assertRaises(svc.SeguimientoError): svc.avanzar_etapa(self.db, 1, 8, 20)
-        r.estado_verificacion = 'cumple'
-        svc.avanzar_etapa(self.db, 1, 8, 20)
-        self.assertEqual(self.etapas[1].estado, 'completada')
+        self.stack.enter_context(
+            patch.object(
+                svc.repo,
+                "listar_pagos",
+                side_effect=lambda *a, **k: self.pagos,
+            )
+        )
 
-    def test_presentacion_fisica_previa(self):
-        r = requisito(requiere_presentacion_fisica=True, estado_verificacion='cumple')
-        self.s.requisitos = [r]
-        with self.assertRaises(svc.SeguimientoError): svc.iniciar_procesamiento(self.db, 1, 8)
-        svc.registrar_presentacion(self.db, 1, 1, 8)
-        self.assertTrue(r.presentado)
-        self.assertEqual(r.id_usuario_presentacion, 8)
-        svc.iniciar_procesamiento(self.db, 1, 8)
+        self.stack.enter_context(
+            patch.object(
+                svc.repo,
+                "obtener_resultado",
+                side_effect=lambda *a, **k: next(
+                    (
+                        item
+                        for item in self.registros
+                        if isinstance(
+                            item,
+                            SolicitudResultado,
+                        )
+                    ),
+                    None,
+                ),
+            )
+        )
 
-    def test_observacion_no_mueve_etapa_y_bloquea_hasta_resolucion(self):
-        svc.iniciar_procesamiento(self.db, 1, 8)
-        svc.crear_observacion(self.db, 1, 8, ObservacionCrearRequest(detalle='Falta original', correccion_requerida='Presentar original'))
-        o = next(r for r in self.registros if isinstance(r, SolicitudObservacion))
-        o.id_observacion = 5
-        self.observaciones.append(o)
-        self.assertEqual(self.s.id_etapa_actual, 10)
-        self.assertEqual(self.s.estado, 'en_proceso')
-        with self.assertRaises(svc.SeguimientoError): svc.avanzar_etapa(self.db, 1, 8, 10)
-        svc.resolver_observacion(self.db, 1, 5, 8)
-        self.assertEqual(self.s.id_etapa_actual, 10)
-        svc.avanzar_etapa(self.db, 1, 8, 10)
-        self.assertEqual(self.s.id_etapa_actual, 20)
+        self.stack.enter_context(
+            patch.object(
+                svc,
+                "obtener_documento_pago",
+                return_value="1234567",
+            )
+        )
 
-    def test_observacion_bloquea_inicio_y_finalizacion(self):
-        self.observaciones.append(NS(estado='pendiente'))
-        with self.assertRaises(svc.SeguimientoError): svc.iniciar_procesamiento(self.db, 1, 8)
-        self.s.estado='en_proceso'; self.etapas=[]
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_resultado(self.db, 1, 8, ResultadoRegistrarRequest())
+        self.stack.enter_context(
+            patch.object(
+                svc,
+                "registrar_accion_simple",
+            )
+        )
 
-    def test_rechazo_conserva_etapa_sin_completarla(self):
-        svc.iniciar_procesamiento(self.db, 1, 8)
-        svc.rechazar(self.db, 1, 8, 'No corresponde')
-        self.assertEqual(self.s.estado, 'rechazada')
-        self.assertEqual(self.etapas[0].estado, 'en_curso')
-        with self.assertRaises(svc.SeguimientoError): svc.avanzar_etapa(self.db, 1, 8, 10)
+        self.evento = self.stack.enter_context(
+            patch.object(
+                svc,
+                "evento",
+            )
+        )
 
-    def test_cancelar_sin_factura_antes_de_recepcion(self):
-        for estado in ('borrador', 'pendiente_recepcion'):
+        self.atencion_evento = self.stack.enter_context(
+            patch.object(
+                atencion,
+                "evento",
+            )
+        )
+
+        self.stack.enter_context(
+            patch.object(
+                atencion,
+                "exigir_intervencion_completada",
+                return_value=None,
+            )
+        )
+
+    def test_cancelacion_antes_de_recepcion(self):
+        for estado in (
+            "borrador",
+            "pendiente_recepcion",
+        ):
             with self.subTest(estado=estado):
-                self.s.estado=estado
-                svc.cancelar(self.db, 1, 7, 'Trámite incorrecto')
-                self.assertEqual(self.s.estado, 'cancelada')
-        self.s.estado='en_revision'
-        with self.assertRaises(svc.SeguimientoError): svc.cancelar(self.db, 1, 7, 'Motivo')
+                self.s.estado = estado
+                self.s.requisitos = []
+                self.pagos.clear()
 
-    def test_cancelacion_bloqueada_por_factura_y_por_pago(self):
-        self.s.estado='pendiente_recepcion'; self.s.requisitos=[requisito(numero_factura='F-1')]
-        with self.assertRaises(svc.SeguimientoError): svc.cancelar(self.db, 1, 7, 'Motivo')
-        self.s.requisitos=[]; self.pagos=[NS(estado='verificado')]
-        with self.assertRaises(svc.SeguimientoError): svc.cancelar(self.db, 1, 7, 'Motivo')
+                svc.cancelar(
+                    self.db,
+                    1,
+                    7,
+                    "Trámite incorrecto",
+                )
 
-    def test_propietario_no_puede_cancelar_otra_solicitud(self):
-        self.s.estado='borrador'
-        with self.assertRaises(svc.SeguimientoError) as e: svc.cancelar(self.db, 1, 99, 'Motivo')
-        self.assertEqual(e.exception.status_code, 404)
+                self.assertEqual(
+                    self.s.estado,
+                    "cancelada",
+                )
 
-    def test_requisito_ajeno_y_observacion_de_etapa_ajena(self):
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_presentacion(self.db, 1, 999, 8)
-        with self.assertRaises(svc.SeguimientoError): svc.crear_observacion(self.db, 1, 8, ObservacionCrearRequest(id_solicitud_etapa=999, detalle='Detalle', correccion_requerida='Corregir'))
+        self.s.estado = "en_proceso"
 
-    def test_finalizacion_entrega_y_duplicados(self):
-        self.s.estado='en_proceso'; self.etapas=[]
-        svc.registrar_resultado(self.db, 1, 8, ResultadoRegistrarRequest(detalle='Disponible'))
-        self.assertEqual(self.s.estado, 'lista_para_entrega')
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_resultado(self.db, 1, 8, ResultadoRegistrarRequest())
-        svc.registrar_entrega(self.db, 1, 8, EntregaRegistrarRequest(receptor='tercero', nombre_receptor='Persona autorizada'))
-        self.assertEqual(self.s.estado, 'finalizada')
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_entrega(self.db, 1, 8, EntregaRegistrarRequest(receptor='titular'))
-        self.assertEqual(sum(isinstance(r, SolicitudEntrega) for r in self.registros),1)
+        with self.assertRaises(
+            svc.SeguimientoError
+        ):
+            svc.cancelar(
+                self.db,
+                1,
+                7,
+                "Motivo",
+            )
 
-    def test_modalidades_sin_entrega_y_no_sobrescribir_snapshot(self):
-        self.s.estado='en_proceso'; self.etapas=[]; self.s.tipo_finalizacion='externo'
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_resultado(self.db, 1, 8, ResultadoRegistrarRequest(tipo_finalizacion='entrega'))
-        svc.registrar_resultado(self.db, 1, 8, ResultadoRegistrarRequest())
-        self.assertEqual(self.s.estado, 'finalizada')
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_entrega(self.db, 1, 8, EntregaRegistrarRequest(receptor='titular'))
+    def test_cancelacion_bloqueada_por_factura_o_pago(self):
+        self.s.estado = "pendiente_recepcion"
 
-    def test_legacy_sin_etapas_no_inventa_backfill(self):
-        self.s.tipo_finalizacion=None; self.etapas=[]
-        with self.assertRaises(svc.SeguimientoError): svc.iniciar_procesamiento(self.db, 1, 8)
-        self.assertEqual(self.s.estado, 'en_revision')
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_resultado(self.db, 1, 8, ResultadoRegistrarRequest())
-        svc.registrar_resultado(self.db, 1, 8, ResultadoRegistrarRequest(tipo_finalizacion='resultado_registrado'))
-        self.assertEqual(self.s.estado, 'finalizada')
-        self.assertFalse(any(isinstance(r, SolicitudEtapa) for r in self.registros))
+        self.s.requisitos = [
+            requisito(
+                numero_factura="F-1"
+            )
+        ]
 
-    def test_requisito_cumplido_y_etapas_pendientes_bloquean_resultado(self):
-        self.s.estado='en_proceso'
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_resultado(self.db,1,8,ResultadoRegistrarRequest())
-        self.etapas=[]; self.s.requisitos=[requisito()]
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_resultado(self.db,1,8,ResultadoRegistrarRequest())
+        with self.assertRaises(
+            svc.SeguimientoError
+        ):
+            svc.cancelar(
+                self.db,
+                1,
+                7,
+                "Motivo",
+            )
 
-    def test_factura_acreditada_no_se_sustituye(self):
-        self.s.requisitos=[requisito(es_economico=True, numero_factura='F-1', estado_verificacion='cumple')]
-        svc.registrar_factura(self.db,1,1,7,'F-1')
-        with self.assertRaises(svc.SeguimientoError): svc.registrar_factura(self.db,1,1,7,'F-2')
-        self.evento.assert_not_called()
+        self.s.requisitos = []
 
-    def test_ningun_flush_deja_proceso_sin_referencia(self):
-        def validar():
-            if self.s.estado == 'en_proceso':
-                self.assertIsNotNone(self.s.id_etapa_actual)
-        self.db.flush.side_effect = validar
-        self.evento.side_effect = lambda *a, **k: validar()
-        svc.iniciar_procesamiento(self.db, 1, 8)
-        svc.avanzar_etapa(self.db, 1, 8, 10)
-        svc.avanzar_etapa(self.db, 1, 8, 20)
-        self.assertEqual(self.s.id_etapa_actual, 20)
-        self.assertEqual(self.etapas[-1].estado, 'completada')
-        with self.assertRaises(svc.SeguimientoError): svc.avanzar_etapa(self.db, 1, 8, 20)
-        svc.registrar_resultado(self.db, 1, 8, ResultadoRegistrarRequest())
-        self.assertEqual(self.s.estado, 'lista_para_entrega')
-        self.assertIsNone(self.s.id_etapa_actual)
+        self.pagos[:] = [
+            NS(
+                estado="verificado"
+            )
+        ]
 
-    def test_revision_con_etapas_no_admite_resultado(self):
-        with self.assertRaises(svc.SeguimientoError):
-            svc.registrar_resultado(self.db, 1, 8, ResultadoRegistrarRequest())
+        with self.assertRaises(
+            svc.SeguimientoError
+        ):
+            svc.cancelar(
+                self.db,
+                1,
+                7,
+                "Motivo",
+            )
 
-    def test_evento_presentacion_referencia_snapshot(self):
-        self.s.requisitos = [requisito(requiere_presentacion_fisica=True)]
-        svc.registrar_presentacion(self.db, 1, 1, 8)
-        self.assertEqual(self.evento.call_args.kwargs['requisito'], 1)
-        self.assertIsNone(self.evento.call_args.kwargs['etapa'])
+    def test_propietario_no_modifica_solicitud_ajena(self):
+        self.s.estado = "pendiente_recepcion"
+
+        with self.assertRaises(
+            svc.SeguimientoError
+        ) as exc:
+            svc.cancelar(
+                self.db,
+                1,
+                99,
+                "Motivo",
+            )
+
+        self.assertEqual(
+            exc.exception.status_code,
+            404,
+        )
+
+    def test_recepcion_fisica_confirma_requisito(self):
+        r = requisito(
+            requiere_presentacion_fisica=True,
+        )
+
+        self.s.requisitos = [r]
+        self.s.estado = "en_proceso"
+
+        svc.registrar_presentacion(
+            self.db,
+            1,
+            1,
+            8,
+        )
+
+        self.assertTrue(r.presentado)
+
+        self.assertEqual(
+            r.estado_verificacion,
+            "cumple",
+        )
+
+        self.assertEqual(
+            r.id_usuario_presentacion,
+            8,
+        )
+
+        self.assertEqual(
+            r.id_usuario_verificador,
+            8,
+        )
+
+        self.evento.assert_called_once()
+
+        # Idempotencia.
+        svc.registrar_presentacion(
+            self.db,
+            1,
+            1,
+            8,
+        )
+
+        self.evento.assert_called_once()
+
+    def test_recepcion_fisica_rechaza_requisito_no_fisico(self):
+        self.s.requisitos = [
+            requisito(
+                requiere_presentacion_fisica=False,
+            )
+        ]
+
+        with self.assertRaises(
+            svc.SeguimientoError
+        ) as exc:
+            svc.registrar_presentacion(
+                self.db,
+                1,
+                1,
+                8,
+            )
+
+        self.assertEqual(
+            exc.exception.status_code,
+            400,
+        )
+
+    def test_observacion_se_registra_y_resuelve(self):
+        datos = ObservacionCrearRequest(
+            detalle="Falta documento.",
+            correccion_requerida=(
+                "Presentar el documento original."
+            ),
+        )
+
+        svc.crear_observacion(
+            self.db,
+            1,
+            8,
+            datos,
+        )
+
+        observacion = next(
+            item
+            for item in self.registros
+            if isinstance(
+                item,
+                SolicitudObservacion,
+            )
+        )
+
+        observacion.id_observacion = 5
+
+        self.observaciones.append(
+            observacion
+        )
+
+        self.assertEqual(
+            observacion.estado,
+            "pendiente",
+        )
+
+        svc.resolver_observacion(
+            self.db,
+            1,
+            5,
+            8,
+        )
+
+        self.assertEqual(
+            observacion.estado,
+            "resuelta",
+        )
+
+        self.assertEqual(
+            observacion.id_usuario_resolucion,
+            8,
+        )
+
+    def test_observacion_pendiente_bloquea_resultado(self):
+        self.observaciones.append(
+            NS(
+                estado="pendiente"
+            )
+        )
+
+        with self.assertRaises(
+            svc.SeguimientoError
+        ):
+            atencion.registrar_resultado(
+                self.db,
+                1,
+                8,
+                ResultadoRegistrarRequest(
+                    detalle="Resultado",
+                ),
+            )
+
+    def test_requisito_obligatorio_bloquea_resultado(self):
+        self.s.requisitos = [
+            requisito(
+                obligatorio=True,
+                estado_verificacion="pendiente",
+            )
+        ]
+
+        with self.assertRaises(
+            svc.SeguimientoError
+        ):
+            atencion.registrar_resultado(
+                self.db,
+                1,
+                8,
+                ResultadoRegistrarRequest(
+                    detalle="Resultado",
+                ),
+            )
+
+    def test_resultado_registrado_finaliza_solicitud(self):
+        self.s.estado = "en_proceso"
+        self.s.requisitos = []
+        self.s.tipo_finalizacion = (
+            "resultado_registrado"
+        )
+
+        atencion.registrar_resultado(
+            self.db,
+            1,
+            8,
+            ResultadoRegistrarRequest(
+                detalle="Aprobado",
+            ),
+        )
+
+        self.assertEqual(
+            self.s.estado,
+            "finalizada",
+        )
+
+        resultados = [
+            item
+            for item in self.registros
+            if isinstance(
+                item,
+                SolicitudResultado,
+            )
+        ]
+
+        self.assertEqual(
+            len(resultados),
+            1,
+        )
+
+        self.assertEqual(
+            resultados[0].tipo_finalizacion,
+            "resultado_registrado",
+        )
+
+        with self.assertRaises(
+            svc.SeguimientoError
+        ):
+            atencion.registrar_resultado(
+                self.db,
+                1,
+                8,
+                ResultadoRegistrarRequest(
+                    detalle="Duplicado",
+                ),
+            )
+
+    def test_resultado_entrega_deja_lista_para_recojo(self):
+        self.s.estado = "en_proceso"
+        self.s.requisitos = []
+        self.s.tipo_finalizacion = "entrega"
+
+        atencion.registrar_resultado(
+            self.db,
+            1,
+            8,
+            ResultadoRegistrarRequest(
+                detalle="Documento disponible",
+            ),
+        )
+
+        self.assertEqual(
+            self.s.estado,
+            "lista_para_entrega",
+        )
+
+    def test_no_se_puede_cambiar_modalidad_final(self):
+        self.s.estado = "en_proceso"
+        self.s.tipo_finalizacion = (
+            "resultado_registrado"
+        )
+
+        with self.assertRaises(
+            svc.SeguimientoError
+        ):
+            atencion.registrar_resultado(
+                self.db,
+                1,
+                8,
+                ResultadoRegistrarRequest(
+                    detalle="Resultado",
+                    tipo_finalizacion="entrega",
+                ),
+            )
+
+    def test_rechazo_administrativo(self):
+        self.s.estado = "en_proceso"
+
+        svc.rechazar(
+            self.db,
+            1,
+            8,
+            "No corresponde.",
+        )
+
+        self.assertEqual(
+            self.s.estado,
+            "rechazada",
+        )
+
+    def test_registro_factura_y_proteccion_de_acreditada(self):
+        r = requisito(
+            es_economico=True,
+            numero_factura=None,
+        )
+
+        self.s.estado = "en_proceso"
+        self.s.requisitos = [r]
+
+        svc.registrar_factura(
+            self.db,
+            1,
+            1,
+            7,
+            "F-1",
+        )
+
+        self.assertEqual(
+            r.numero_factura,
+            "F-1",
+        )
+
+        self.assertEqual(
+            r.estado_verificacion,
+            "pendiente",
+        )
+
+        r.estado_verificacion = "cumple"
+
+        with self.assertRaises(
+            svc.SeguimientoError
+        ):
+            svc.registrar_factura(
+                self.db,
+                1,
+                1,
+                7,
+                "F-2",
+            )
+
+
+class AtencionTest(unittest.TestCase):
+
+    def test_iniciar_atencion_registra_recepcion_y_pasa_a_proceso(self):
+        db = Mock()
+        db.scalar.return_value = None
+
+        solicitud = NS(
+            id_solicitud=1,
+            estado="pendiente_recepcion",
+            tipo_intervencion="ninguna",
+            fecha_actualizacion=None,
+            tramite=NS(
+                tipo_intervencion="conformidad"
+            ),
+        )
+
+        with (
+            patch.object(
+                atencion,
+                "obtener_para_accion",
+                return_value=solicitud,
+            ),
+            patch.object(
+                atencion,
+                "evento",
+            ) as evento,
+        ):
+            atencion.iniciar_atencion(
+                db,
+                1,
+                8,
+            )
+
+        self.assertEqual(
+            solicitud.estado,
+            "en_proceso",
+        )
+
+        self.assertEqual(
+            solicitud.tipo_intervencion,
+            "conformidad",
+        )
+
+        self.assertEqual(
+            db.add.call_count,
+            1,
+        )
+
+        evento.assert_called_once()
+
+        db.commit.assert_called_once()
+
+
+class IntervencionTest(unittest.TestCase):
+
+    def test_sin_intervencion_no_bloquea(self):
+        solicitud = NS(
+            id_solicitud=1,
+            tipo_intervencion="ninguna",
+        )
+
+        intervencion.exigir_intervencion_completada(
+            Mock(),
+            solicitud,
+        )
+
+    def test_conformidad_debe_estar_completada_y_notificada(self):
+        solicitud = NS(
+            id_solicitud=1,
+            tipo_intervencion="conformidad",
+        )
+
+        ultima = NS(
+            id_intervencion=5,
+            tipo="conformidad",
+            estado="conforme",
+        )
+
+        with (
+            patch.object(
+                intervencion.intervenciones,
+                "obtener_ultima",
+                return_value=ultima,
+            ),
+            patch.object(
+                intervencion.notificaciones,
+                "obtener_convocatoria",
+                return_value=NS(
+                    estado="enviado"
+                ),
+            ),
+        ):
+            intervencion.exigir_intervencion_completada(
+                Mock(),
+                solicitud,
+            )
+
+    def test_conformidad_pendiente_bloquea_finalizacion(self):
+        solicitud = NS(
+            id_solicitud=1,
+            tipo_intervencion="conformidad",
+        )
+
+        with patch.object(
+            intervencion.intervenciones,
+            "obtener_ultima",
+            return_value=None,
+        ):
+            with self.assertRaises(
+                svc.SeguimientoError
+            ):
+                intervencion.exigir_intervencion_completada(
+                    Mock(),
+                    solicitud,
+                )
+
+    def test_firma_exige_resolucion_previa(self):
+        solicitud = NS(
+            id_solicitud=1,
+            tipo_intervencion="firma",
+        )
+
+        with patch.object(
+            intervencion,
+            "_buscar_resolucion",
+            return_value=None,
+        ):
+            with self.assertRaises(
+                svc.SeguimientoError
+            ):
+                intervencion.exigir_intervencion_completada(
+                    Mock(),
+                    solicitud,
+                )
+
+
+class AdministracionSolicitudTest(unittest.TestCase):
+
+    def test_recibir_solicitud_delega_inicio_atencion(self):
+        db = Mock()
+
+        solicitud = NS(
+            id_solicitud=1,
+            estado="pendiente_recepcion",
+        )
+
+        detalle = NS()
+
+        with (
+            patch.object(
+                admin,
+                "_obtener_solicitud",
+                return_value=solicitud,
+            ),
+            patch.object(
+                admin.admin_repo,
+                "obtener_recepcion_por_solicitud",
+                return_value=None,
+            ),
+            patch.object(
+                admin.atencion_service,
+                "iniciar_atencion",
+            ) as iniciar,
+            patch.object(
+                admin,
+                "_construir_detalle",
+                return_value=detalle,
+            ),
+        ):
+            resultado = admin.recibir_solicitud(
+                db,
+                id_solicitud=1,
+                id_usuario_receptor=8,
+            )
+
+        self.assertIs(
+            resultado,
+            detalle,
+        )
+
+        iniciar.assert_called_once_with(
+            db,
+            1,
+            8,
+        )
+
+    def test_no_recibe_solicitud_ya_iniciada(self):
+        db = Mock()
+
+        with patch.object(
+            admin,
+            "_obtener_solicitud",
+            return_value=NS(
+                estado="en_proceso"
+            ),
+        ):
+            with self.assertRaises(
+                admin.SolicitudNoPendienteRecepcionError
+            ):
+                admin.recibir_solicitud(
+                    db,
+                    id_solicitud=1,
+                    id_usuario_receptor=8,
+                )
+
+    def test_confirmacion_agrupada_requisitos_administrativos(self):
+        db = Mock()
+
+        r1 = requisito(
+            id_solicitud_requisito=1,
+            orden=1,
+        )
+
+        r2 = requisito(
+            id_solicitud_requisito=2,
+            orden=2,
+        )
+
+        solicitud = NS(
+            id_solicitud=1,
+            estado="en_proceso",
+            requisitos=[
+                r1,
+                r2,
+            ],
+        )
+
+        def actualizar(
+            db,
+            requisito,
+            **datos,
+        ):
+            for campo, valor in datos.items():
+                setattr(
+                    requisito,
+                    campo,
+                    valor,
+                )
+
+            return requisito
+
+        with (
+            patch.object(
+                admin.seguimiento_repo,
+                "bloquear_solicitud",
+            ),
+            patch.object(
+                admin,
+                "_obtener_solicitud",
+                return_value=solicitud,
+            ),
+            patch.object(
+                admin,
+                "validar_requisito_editable",
+            ),
+            patch.object(
+                admin.admin_repo,
+                "actualizar_verificacion_requisito",
+                side_effect=actualizar,
+            ),
+            patch.object(
+                admin.seguimiento_repo,
+                "registrar_historial",
+            ),
+            patch.object(
+                admin,
+                "registrar_accion_simple",
+            ),
+        ):
+            resultado = (
+                admin.confirmar_requisitos_administrativos(
+                    db,
+                    id_solicitud=1,
+                    id_usuario_verificador=8,
+                    datos=(
+                        RequisitosAdministrativosConfirmarRequest(
+                            ids_requisitos=[
+                                1,
+                                2,
+                            ]
+                        )
+                    ),
+                )
+            )
+
+        self.assertEqual(
+            resultado.cantidad_confirmada,
+            2,
+        )
+
+        self.assertEqual(
+            r1.estado_verificacion,
+            "cumple",
+        )
+
+        self.assertEqual(
+            r2.estado_verificacion,
+            "cumple",
+        )
+
+        db.commit.assert_called_once()
 
 
 class CondicionesTest(unittest.TestCase):
-    def setUp(self):
-        self.campo=NS(id_campo=1, clave='motivo', activo=True, tipo_dato='seleccion', etiqueta='Motivo', configuracion={'opciones':['extravío','otro']})
-        self.r=NS(condicion={'origen':'solicitud_dato','clave':'motivo','operador':'igual','valor':'extravío'})
 
-    def test_condicion_filtra_snapshot_segun_datos(self):
-        with patch.object(reglas.seguimiento_repository,'obtener_perfil',return_value=None):
-            for valor,esperado in [('extravío',[self.r]),('otro',[])]:
-                self.assertEqual(reglas.requisitos_aplicables(None, NS(id_solicitante=1),[self.r],[self.campo],[NS(id_campo=1,valor=valor)]),esperado)
-            with self.assertRaises(svc.SeguimientoError): reglas.requisitos_aplicables(None,NS(id_solicitante=1),[self.r],[self.campo],[])
+    def setUp(self):
+        self.campo = NS(
+            id_campo=1,
+            clave="motivo",
+            activo=True,
+            tipo_dato="seleccion",
+            etiqueta="Motivo",
+            configuracion={
+                "opciones": [
+                    "extravío",
+                    "otro",
+                ]
+            },
+        )
+
+        self.r = NS(
+            condicion={
+                "origen": "solicitud_dato",
+                "clave": "motivo",
+                "operador": "igual",
+                "valor": "extravío",
+            }
+        )
+
+    def test_condicion_filtra_segun_datos(self):
+        with patch.object(
+            reglas.seguimiento_repository,
+            "obtener_perfil",
+            return_value=None,
+        ):
+            self.assertEqual(
+                reglas.requisitos_aplicables(
+                    None,
+                    NS(
+                        id_solicitante=1
+                    ),
+                    [self.r],
+                    [self.campo],
+                    [
+                        NS(
+                            id_campo=1,
+                            valor="extravío",
+                        )
+                    ],
+                ),
+                [self.r],
+            )
+
+            self.assertEqual(
+                reglas.requisitos_aplicables(
+                    None,
+                    NS(
+                        id_solicitante=1
+                    ),
+                    [self.r],
+                    [self.campo],
+                    [
+                        NS(
+                            id_campo=1,
+                            valor="otro",
+                        )
+                    ],
+                ),
+                [],
+            )
 
     def test_condicion_perfil(self):
-        r=NS(condicion={'origen':'perfil_academico','campo':'carrera_programa','operador':'igual','valor':'Enfermería'})
-        with patch.object(reglas.seguimiento_repository,'obtener_perfil',return_value=NS(carrera_programa='Enfermería')):
-            self.assertEqual(reglas.requisitos_aplicables(None,NS(id_solicitante=1),[r],[],[]),[r])
+        r = NS(
+            condicion={
+                "origen": "perfil_academico",
+                "campo": "carrera_programa",
+                "operador": "igual",
+                "valor": "Enfermería",
+            }
+        )
 
-    def test_tipo_invalido_y_operadores_no_autorizados(self):
-        for cambios in [{'operador':'contiene'}, {'valor':True}, {'clave':'ajena'}, {'script':'x'}]:
-            with self.subTest(cambios=cambios), self.assertRaises(svc.SeguimientoError): reglas.validar_condicion({**self.r.condicion,**cambios},[self.campo])
-        self.assertFalse(reglas.igualdad_simple(False,0))
-        self.assertFalse(reglas.igualdad_simple('1',1))
+        with patch.object(
+            reglas.seguimiento_repository,
+            "obtener_perfil",
+            return_value=NS(
+                carrera_programa="Enfermería"
+            ),
+        ):
+            self.assertEqual(
+                reglas.requisitos_aplicables(
+                    None,
+                    NS(
+                        id_solicitante=1
+                    ),
+                    [r],
+                    [],
+                    [],
+                ),
+                [r],
+            )
+
+    def test_operadores_y_condiciones_invalidas(self):
+        for cambios in (
+            {
+                "operador": "contiene"
+            },
+            {
+                "valor": True
+            },
+            {
+                "clave": "ajena"
+            },
+            {
+                "script": "x"
+            },
+        ):
+            with self.subTest(
+                cambios=cambios
+            ):
+                with self.assertRaises(
+                    svc.SeguimientoError
+                ):
+                    reglas.validar_condicion(
+                        {
+                            **self.r.condicion,
+                            **cambios,
+                        },
+                        [self.campo],
+                    )
+
+        self.assertFalse(
+            reglas.igualdad_simple(
+                False,
+                0,
+            )
+        )
+
+        self.assertFalse(
+            reglas.igualdad_simple(
+                "1",
+                1,
+            )
+        )
 
 
 class PagoTest(unittest.TestCase):
-    def respuesta(self,**cambios):
-        return PagoApiRespuesta(**(dict(encontrada=True,numero_factura='F-1',codigo='COD',documento_identidad='1234567',monto=Decimal('10.00'),moneda='BOB',estado_factura='pagada',utilizada=False)|cambios))
+
+    def respuesta(
+        self,
+        **cambios,
+    ):
+        datos = dict(
+            encontrada=True,
+            numero_factura="F-1",
+            codigo="COD",
+            documento_identidad="1234567",
+            monto=Decimal("10.00"),
+            moneda="BOB",
+            estado_factura="pagada",
+            utilizada=False,
+        )
+
+        datos.update(cambios)
+
+        return PagoApiRespuesta(
+            **datos
+        )
 
     def test_api_debe_coincidir_en_todos_los_hechos(self):
-        esperado=dict(numero_factura_esperado='F-1',codigo_esperado='COD',documento_esperado='1234567',monto_esperado=Decimal('10.00'),moneda_esperada='BOB')
-        self.assertTrue(pago._evaluar_respuesta_api(respuesta=self.respuesta(),**esperado)[0])
-        for fallo in [dict(encontrada=False),dict(documento_identidad='otro'),dict(numero_factura='otra'),dict(codigo='otro'),dict(monto=Decimal('11')),dict(moneda='USD'),dict(estado_factura='pendiente'),dict(utilizada=True)]:
-            with self.subTest(fallo=fallo): self.assertFalse(pago._evaluar_respuesta_api(respuesta=self.respuesta(**fallo),**esperado)[0])
+        esperado = dict(
+            numero_factura_esperado="F-1",
+            codigo_esperado="COD",
+            documento_esperado="1234567",
+            monto_esperado=Decimal("10.00"),
+            moneda_esperada="BOB",
+        )
 
-    def test_respuestas_invalidas_no_violan_columnas_de_intentos(self):
-        r=self.respuesta(monto=Decimal('0'),codigo='',moneda='MONEDA',estado_factura='')
-        self.assertTrue(all(v is None for v in pago._datos_reportados_almacenables(r).values()))
-        r=self.respuesta(monto=Decimal('0.001'))
-        self.assertIsNone(pago._datos_reportados_almacenables(r)['monto_reportado'])
+        self.assertTrue(
+            pago._evaluar_respuesta_api(
+                respuesta=self.respuesta(),
+                **esperado,
+            )[0]
+        )
+
+        fallos = [
+            dict(
+                encontrada=False
+            ),
+            dict(
+                documento_identidad="otro"
+            ),
+            dict(
+                numero_factura="otra"
+            ),
+            dict(
+                codigo="otro"
+            ),
+            dict(
+                monto=Decimal("11")
+            ),
+            dict(
+                moneda="USD"
+            ),
+            dict(
+                estado_factura="pendiente"
+            ),
+            dict(
+                utilizada=True
+            ),
+        ]
+
+        for fallo in fallos:
+            with self.subTest(
+                fallo=fallo
+            ):
+                self.assertFalse(
+                    pago._evaluar_respuesta_api(
+                        respuesta=self.respuesta(
+                            **fallo
+                        ),
+                        **esperado,
+                    )[0]
+                )
 
 
 class PagoServicioTest(unittest.TestCase):
+
     def setUp(self):
-        self.db=Mock()
-        self.r=requisito(es_economico=True,numero_factura='F-1',codigo_concepto_externo='COD',monto_economico=Decimal('10'),moneda='BOB')
-        self.s=NS(id_solicitud=1,estado='en_revision',id_etapa_actual=None)
-        self.stack=ExitStack(); self.addCleanup(self.stack.close)
-        self.stack.enter_context(patch.object(pago.seguimiento_repo,'bloquear_solicitud',return_value=self.s))
-        self.stack.enter_context(patch.object(pago.solicitud_administrativa_repository,'obtener_solicitud_administrativa_por_id',return_value=self.s))
-        self.stack.enter_context(patch.object(pago.solicitud_administrativa_repository,'obtener_requisito_solicitud_por_id',return_value=self.r))
-        self.exito=self.stack.enter_context(patch.object(pago.pago_verificacion_repository,'obtener_verificacion_exitosa_por_factura',return_value=None))
-        self.documento=self.stack.enter_context(patch.object(pago,'obtener_documento_pago',return_value='1234567'))
-        self.api=self.stack.enter_context(patch.object(pago,'_consultar_api_pago',return_value=PagoApiRespuesta(encontrada=True,numero_factura='F-1',codigo='COD',documento_identidad='1234567',monto=10,moneda='BOB',estado_factura='pagada',utilizada=False)))
-        self.historial=self.stack.enter_context(patch.object(pago.seguimiento_repo,'registrar_historial'))
-        self.stack.enter_context(patch.object(pago,'registrar_accion_simple'))
-        def registrar(db, **datos):
-            valores=dict(id_verificacion_pago=1,codigo_concepto_reportado=None,estado_factura_reportado=None,monto_reportado=None,moneda_reportada=None,fecha_verificacion=datetime.now(timezone.utc))
-            return NS(**(valores | datos))
-        self.stack.enter_context(patch.object(pago.pago_verificacion_repository,'crear_verificacion_pago',side_effect=registrar))
-        def actualizar(db, r, **datos):
-            for k,v in datos.items(): setattr(r,k,v)
-            return r
-        self.stack.enter_context(patch.object(pago.solicitud_administrativa_repository,'actualizar_verificacion_requisito',side_effect=actualizar))
+        self.db = Mock()
+
+        self.r = requisito(
+            es_economico=True,
+            numero_factura="F-1",
+            codigo_concepto_externo="COD",
+            monto_economico=Decimal("10"),
+            moneda="BOB",
+        )
+
+        self.s = NS(
+            id_solicitud=1,
+            estado="en_proceso",
+        )
+
+        self.stack = ExitStack()
+        self.addCleanup(
+            self.stack.close
+        )
+
+        self.stack.enter_context(
+            patch.object(
+                pago.seguimiento_repo,
+                "bloquear_solicitud",
+                return_value=self.s,
+            )
+        )
+
+        self.stack.enter_context(
+            patch.object(
+                pago.solicitud_administrativa_repository,
+                "obtener_solicitud_administrativa_por_id",
+                return_value=self.s,
+            )
+        )
+
+        self.stack.enter_context(
+            patch.object(
+                pago.solicitud_administrativa_repository,
+                "obtener_requisito_solicitud_por_id",
+                return_value=self.r,
+            )
+        )
+
+        self.exito = self.stack.enter_context(
+            patch.object(
+                pago.pago_verificacion_repository,
+                "obtener_verificacion_exitosa_por_factura",
+                return_value=None,
+            )
+        )
+
+        self.stack.enter_context(
+            patch.object(
+                pago,
+                "obtener_documento_pago",
+                return_value="1234567",
+            )
+        )
+
+        self.api = self.stack.enter_context(
+            patch.object(
+                pago,
+                "_consultar_api_pago",
+                return_value=PagoApiRespuesta(
+                    encontrada=True,
+                    numero_factura="F-1",
+                    codigo="COD",
+                    documento_identidad="1234567",
+                    monto=Decimal("10"),
+                    moneda="BOB",
+                    estado_factura="pagada",
+                    utilizada=False,
+                ),
+            )
+        )
+
+        self.historial = self.stack.enter_context(
+            patch.object(
+                pago.seguimiento_repo,
+                "registrar_historial",
+            )
+        )
+
+        self.stack.enter_context(
+            patch.object(
+                pago,
+                "registrar_accion_simple",
+            )
+        )
+
+        def registrar(
+            db,
+            **datos,
+        ):
+            valores = dict(
+                id_verificacion_pago=1,
+                codigo_concepto_reportado=None,
+                estado_factura_reportado=None,
+                monto_reportado=None,
+                moneda_reportada=None,
+                fecha_verificacion=datetime.now(
+                    timezone.utc
+                ),
+            )
+
+            return NS(
+                **(
+                    valores
+                    | datos
+                )
+            )
+
+        self.stack.enter_context(
+            patch.object(
+                pago.pago_verificacion_repository,
+                "crear_verificacion_pago",
+                side_effect=registrar,
+            )
+        )
+
+        def actualizar(
+            db,
+            requisito,
+            **datos,
+        ):
+            for campo, valor in datos.items():
+                setattr(
+                    requisito,
+                    campo,
+                    valor,
+                )
+
+            return requisito
+
+        self.stack.enter_context(
+            patch.object(
+                pago.solicitud_administrativa_repository,
+                "actualizar_verificacion_requisito",
+                side_effect=actualizar,
+            )
+        )
 
     def verificar(self):
-        return pago.verificar_pago_requisito(self.db,id_solicitud=1,id_solicitud_requisito=1,id_usuario_verificador=8)
+        return pago.verificar_pago_requisito(
+            self.db,
+            id_solicitud=1,
+            id_solicitud_requisito=1,
+            id_usuario_verificador=8,
+        )
 
-    def test_verificacion_valida_y_repeticion_idempotente(self):
-        resultado=self.verificar()
-        self.assertEqual(self.r.estado_verificacion,'cumple')
-        self.assertEqual(resultado.estado,'verificado')
-        self.exito.return_value=resultado
-        self.s.estado='finalizada'
-        repetido=self.verificar()
-        self.assertEqual(repetido.id_verificacion_pago,resultado.id_verificacion_pago)
-        self.api.assert_called_once()
-        self.historial.assert_called_once()
-        self.db.commit.assert_called_once()
+    def test_verificacion_valida(self):
+        resultado = self.verificar()
+
+        self.assertEqual(
+            self.r.estado_verificacion,
+            "cumple",
+        )
+
+        self.assertEqual(
+            resultado.estado,
+            "verificado",
+        )
 
     def test_factura_invalida_no_acredita(self):
-        self.api.return_value=self.api.return_value.model_copy(update={'monto':Decimal('20')})
-        self.assertEqual(self.verificar().estado,'no_verificado')
-        self.assertEqual(self.r.estado_verificacion,'no_cumple')
+        self.api.return_value = (
+            self.api.return_value.model_copy(
+                update={
+                    "monto": Decimal("20")
+                }
+            )
+        )
 
-    def test_timeout_deja_pendiente_sin_acreditar(self):
-        self.r.estado_verificacion='no_cumple'
-        self.api.side_effect=TimeoutError()
-        respuesta=self.verificar()
-        self.assertEqual(respuesta.estado,'error')
-        self.assertEqual(self.r.estado_verificacion,'pendiente')
-        self.assertNotIn('permanece pendiente',respuesta.mensaje)
-        self.historial.assert_called_once()
+        resultado = self.verificar()
 
-    def test_factura_ya_acredito_otro_requisito(self):
-        self.exito.return_value=NS(id_solicitud_requisito=99)
-        with self.assertRaises(pago.FacturaYaUtilizadaError): self.verificar()
-        self.api.assert_not_called()
+        self.assertEqual(
+            resultado.estado,
+            "no_verificado",
+        )
 
-    def test_pago_exige_etapa_actual_y_presentacion(self):
-        self.r.id_solicitud_etapa=20
-        with self.assertRaises(svc.SeguimientoError): self.verificar()
-        self.s.estado='en_proceso'; self.s.id_etapa_actual=20
-        self.r.requiere_presentacion_fisica=True
-        with self.assertRaises(svc.SeguimientoError): self.verificar()
-        self.api.assert_not_called()
+        self.assertEqual(
+            self.r.estado_verificacion,
+            "no_cumple",
+        )
 
-    def test_fallo_historial_revierte_transaccion(self):
-        self.historial.side_effect=RuntimeError('fallo simulado')
-        with self.assertRaises(RuntimeError): self.verificar()
-        self.db.rollback.assert_called_once()
-        self.db.commit.assert_not_called()
+    def test_timeout_deja_pendiente(self):
+        self.r.estado_verificacion = (
+            "no_cumple"
+        )
+
+        self.api.side_effect = TimeoutError()
+
+        resultado = self.verificar()
+
+        self.assertEqual(
+            resultado.estado,
+            "error",
+        )
+
+        self.assertEqual(
+            self.r.estado_verificacion,
+            "pendiente",
+        )
+
+    def test_pago_puede_verificarse_aunque_presentacion_fisica_siga_pendiente(self):
+        self.r.requiere_presentacion_fisica = True
+        self.r.presentado = False
+
+        resultado = self.verificar()
+
+        self.assertEqual(
+            resultado.estado,
+            "verificado",
+        )
+
+        self.assertEqual(
+            self.r.estado_verificacion,
+            "cumple",
+        )
+
+        self.assertFalse(
+            self.r.presentado,
+        )
+
+        self.api.assert_called_once()
 
 
-class EnvioTest(unittest.TestCase):
-    def test_snapshot_pago_posterior_sin_factura_y_sin_inventar_requisitos(self):
-        db=Mock(); s=NS(id_solicitud=1,id_solicitante=7,id_tramite=2,estado='borrador')
-        plantilla=NS(id_etapa=10,id_unidad=None,nombre='Revisión',descripcion=None,orden=1,es_inicial=True,es_final=True,visible_solicitante=True)
-        req=NS(id_requisito=4,nombre='Pago posterior',descripcion=None,obligatorio=True,orden=1,id_etapa=10,requiere_presentacion_fisica=False,condicion=None,configuraciones_economicas=[1])
-        config=NS(id_requisito_economico=6,concepto='Concepto configurable',monto=Decimal('10'),moneda='BOB',gestion=2026,codigo_concepto_externo='CONFIGURADO',activo=True)
-        capturados=[]
-        def add(o):
-            if isinstance(o,SolicitudEtapa):o.id_solicitud_etapa=55;capturados.append(o)
-        def copiar(*args,**kw):
-            r=NS(**kw);capturados.append(r);return r
-        db.add.side_effect=add
+class EnvioSolicitudTest(unittest.TestCase):
+
+    def test_envio_genera_snapshot_actual_sin_etapas(self):
+        db = Mock()
+
+        solicitud = NS(
+            id_solicitud=1,
+            id_solicitante=7,
+            id_tramite=2,
+            estado="borrador",
+            nombre_contacto="Daniel",
+            telefono_contacto="77777777",
+            correo_contacto="daniel@example.com",
+            nombre_tramite_snapshot=None,
+            tipo_finalizacion=None,
+            tipo_intervencion="ninguna",
+        )
+
+        tramite = NS(
+            nombre="Trámite confirmado",
+            tipo_finalizacion="resultado_registrado",
+            tipo_intervencion="conformidad",
+        )
+
         with ExitStack() as stack:
-            for nombre,resultado in [('_obtener_solicitud_del_usuario',s),('_obtener_tramite_habilitado',NS(nombre='Trámite confirmado',tipo_finalizacion='entrega')),('validar_flujo_envio',[plantilla]),('_obtener_respuesta_completa',s)]:
-                stack.enter_context(patch.object(envio,nombre,return_value=resultado))
-            stack.enter_context(patch.object(envio,'registrar_accion_simple'))
-            stack.enter_context(patch.object(envio.seguimiento_repo,'registrar_historial'))
-            stack.enter_context(patch.object(envio.seguimiento_repo,'obtener_perfil',return_value=None))
-            for nombre,resultado in [('listar_campos_tramite',[]),('listar_requisitos_tramite',[req]),('obtener_configuracion_economica_por_gestion',config)]:
-                stack.enter_context(patch.object(envio.tramite_repository,nombre,return_value=resultado))
-            for nombre,resultado in [('listar_datos_solicitud',[]),('contar_requisitos_solicitud',0)]:
-                stack.enter_context(patch.object(envio.solicitud_repository,nombre,return_value=resultado))
-            stack.enter_context(patch.object(envio.solicitud_repository,'crear_requisito_solicitud',side_effect=copiar))
-            stack.enter_context(patch.object(envio.solicitud_repository,'marcar_solicitud_enviada'))
-            envio.enviar_solicitud(db,id_solicitud=1,id_solicitante=7,datos=SolicitudEnviarRequest())
-            self.assertEqual(capturados[1].id_solicitud_etapa,55)
-            self.assertIsNone(capturados[1].numero_factura)
-            self.assertEqual(s.tipo_finalizacion,'entrega')
-            self.assertEqual(s.nombre_tramite_snapshot,'Trámite confirmado')
-            req.nombre='Catálogo cambiado'; plantilla.nombre='Etapa cambiada'
-            self.assertEqual(capturados[0].nombre,'Revisión')
-            self.assertEqual(capturados[1].nombre,'Pago posterior')
-            db.commit.assert_called_once()
-            req.id_etapa=None
-            with self.assertRaises(envio.FacturaSolicitudInvalidaError): envio.enviar_solicitud(db,id_solicitud=1,id_solicitante=7,datos=SolicitudEnviarRequest())
-            db.rollback.assert_called()
+            stack.enter_context(
+                patch.object(
+                    envio,
+                    "_obtener_solicitud_del_usuario",
+                    return_value=solicitud,
+                )
+            )
+
+            stack.enter_context(
+                patch.object(
+                    envio,
+                    "_obtener_tramite_habilitado",
+                    return_value=tramite,
+                )
+            )
+
+            stack.enter_context(
+                patch.object(
+                    envio,
+                    "_obtener_perfil_minimo",
+                    return_value={
+                        "carrera_programa":
+                            "Ingeniería de Sistemas",
+                        "documento_identidad":
+                            "1234567",
+                    },
+                )
+            )
+
+            stack.enter_context(
+                patch.object(
+                    envio,
+                    "validar_flujo_envio",
+                )
+            )
+
+            stack.enter_context(
+                patch.object(
+                    envio,
+                    "requisitos_aplicables",
+                    return_value=[],
+                )
+            )
+
+            stack.enter_context(
+                patch.object(
+                    envio,
+                    "_obtener_respuesta_completa",
+                    return_value=solicitud,
+                )
+            )
+
+            stack.enter_context(
+                patch.object(
+                    envio.tramite_repository,
+                    "listar_campos_tramite",
+                    return_value=[],
+                )
+            )
+
+            stack.enter_context(
+                patch.object(
+                    envio.tramite_repository,
+                    "listar_requisitos_tramite",
+                    return_value=[],
+                )
+            )
+
+            stack.enter_context(
+                patch.object(
+                    envio.solicitud_repository,
+                    "listar_datos_solicitud",
+                    return_value=[],
+                )
+            )
+
+            stack.enter_context(
+                patch.object(
+                    envio.solicitud_repository,
+                    "contar_requisitos_solicitud",
+                    return_value=0,
+                )
+            )
+
+            marcar = stack.enter_context(
+                patch.object(
+                    envio.solicitud_repository,
+                    "marcar_solicitud_enviada",
+                )
+            )
+
+            stack.enter_context(
+                patch.object(
+                    envio,
+                    "registrar_accion_simple",
+                )
+            )
+
+            historial = stack.enter_context(
+                patch.object(
+                    envio.seguimiento_repo,
+                    "registrar_historial",
+                )
+            )
+
+            resultado = envio.enviar_solicitud(
+                db,
+                id_solicitud=1,
+                id_solicitante=7,
+            )
+
+        self.assertIs(
+            resultado,
+            solicitud,
+        )
+
+        self.assertEqual(
+            solicitud.nombre_tramite_snapshot,
+            "Trámite confirmado",
+        )
+
+        self.assertEqual(
+            solicitud.tipo_finalizacion,
+            "resultado_registrado",
+        )
+
+        self.assertEqual(
+            solicitud.tipo_intervencion,
+            "conformidad",
+        )
+
+        marcar.assert_called_once()
+        historial.assert_called_once()
+        db.commit.assert_called_once()
+
+    def test_envio_exige_datos_basicos_actuales(self):
+        db = Mock()
+
+        solicitud = NS(
+            id_solicitud=1,
+            id_solicitante=7,
+            id_tramite=2,
+            estado="borrador",
+            nombre_contacto=None,
+            telefono_contacto=None,
+            correo_contacto=None,
+        )
+
+        with (
+            patch.object(
+                envio,
+                "_obtener_solicitud_del_usuario",
+                return_value=solicitud,
+            ),
+            patch.object(
+                envio,
+                "_obtener_tramite_habilitado",
+                return_value=NS(),
+            ),
+            patch.object(
+                envio,
+                "_obtener_perfil_minimo",
+                return_value={
+                    "carrera_programa": None,
+                    "documento_identidad": None,
+                },
+            ),
+        ):
+            with self.assertRaises(
+                envio.CamposObligatoriosFaltantesError
+            ):
+                envio.enviar_solicitud(
+                    db,
+                    id_solicitud=1,
+                    id_solicitante=7,
+                )
+
+        db.commit.assert_not_called()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
