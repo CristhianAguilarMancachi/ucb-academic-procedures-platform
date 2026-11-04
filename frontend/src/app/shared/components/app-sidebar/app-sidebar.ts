@@ -31,6 +31,11 @@ import {
   heroChevronUp,
   heroArrowRightOnRectangle,
   heroLockClosed,
+  heroChartBar,
+  heroDocumentText,
+  heroClipboardDocumentList,
+  heroCog6Tooth,
+  heroUsers,
 } from '@ng-icons/heroicons/outline';
 
 import {
@@ -76,6 +81,11 @@ interface MenuSection {
       heroChevronUp,
       heroArrowRightOnRectangle,
       heroLockClosed,
+      heroChartBar,
+      heroDocumentText,
+      heroClipboardDocumentList,
+      heroCog6Tooth,
+      heroUsers,
     }),
   ],
 

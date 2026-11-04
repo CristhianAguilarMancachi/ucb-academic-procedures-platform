@@ -9,7 +9,7 @@ export const SIDEBAR_MENU:
     label: 'Analítica e indicadores',
     route: '/admin/analitica',
     section: 'ADMINISTRACIÓN',
-    icon: 'folder',
+    icon: 'chart',
     requiresAuth: true,
     roles: ['personal_administrativo', 'administrador'],
   },
@@ -17,7 +17,7 @@ export const SIDEBAR_MENU:
     label: 'Documentos institucionales',
     route: '/admin/documentos',
     section: 'ADMINISTRACIÓN',
-    icon: 'folder',
+    icon: 'document',
     requiresAuth: true,
     roles: ['administrador'],
   },
@@ -94,7 +94,7 @@ export const SIDEBAR_MENU:
       'ADMINISTRACIÓN',
 
     icon:
-      'folder',
+      'clipboard',
 
     requiresAuth:
       true,
@@ -116,7 +116,7 @@ export const SIDEBAR_MENU:
       'ADMINISTRACIÓN',
 
     icon:
-      'folder',
+      'settings',
 
     requiresAuth:
       true,
@@ -137,7 +137,7 @@ export const SIDEBAR_MENU:
       'ADMINISTRACIÓN',
 
     icon:
-      'folder',
+      'users',
 
     requiresAuth:
       true,
