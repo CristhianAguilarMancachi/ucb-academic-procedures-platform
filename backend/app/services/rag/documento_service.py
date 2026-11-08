@@ -846,6 +846,14 @@ def actualizar_documento(
         if isinstance(exc, DocumentoError):
             raise
 
+        logger.exception(
+            "[RAG][DOCUMENTOS][ACTUALIZAR] "
+            "Error interno: documento=%s version=%s reingestar=%s",
+            id_documento,
+            id_version,
+            reingestar,
+        )
+
         raise DocumentoError(
             "No se completó la operación. "
             "Se conserva el estado anterior.",
