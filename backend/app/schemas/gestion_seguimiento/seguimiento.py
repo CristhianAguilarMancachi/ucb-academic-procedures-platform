@@ -129,15 +129,7 @@ class ObservacionCrearRequest(BaseModel):
         max_length=3000,
     )
 
-    correccion_requerida: str = Field(
-        min_length=1,
-        max_length=3000,
-    )
 
-    canal_subsanacion: str | None = Field(
-        default=None,
-        max_length=1000,
-    )
 
 
 class ObservacionPublicaResponse(BaseModel):
@@ -147,8 +139,6 @@ class ObservacionPublicaResponse(BaseModel):
     id_solicitud_requisito: int | None
 
     detalle: str
-    correccion_requerida: str
-    canal_subsanacion: str | None
 
     estado: Literal[
         "pendiente",

@@ -107,10 +107,7 @@ interface PagoVerificacionResultado {
   mensaje: string;
 }
 
-interface UnidadSubsanacion {
-  id_unidad: number;
-  nombre: string;
-}
+
 
 @Component({
   selector: 'app-solicitud-detalle',
@@ -186,12 +183,7 @@ export class SeguimientoSolicitudComponent implements OnInit {
 
   observacion = this.nuevaObservacion();
 
-  readonly unidadesSubsanacion = signal<UnidadSubsanacion[]>([]);
-  readonly cargandoUnidadesSubsanacion = signal(false);
-  readonly errorUnidadesSubsanacion = signal('');
 
-  canalSubsanacionSeleccionado = '';
-  canalSubsanacionPersonalizado = '';
 
   facturas: Record<number, string> = {};
   verificaciones: Record<number, string> = {};
@@ -212,66 +204,15 @@ export class SeguimientoSolicitudComponent implements OnInit {
   private nuevaObservacion() {
     return {
       detalle: '',
-      correccion_requerida: '',
-      canal_subsanacion: '',
       id_solicitud_requisito: null as number | null,
     };
   }
 
-  cargarUnidadesSubsanacion(): void {
-    if (!this.admin) {
-      return;
-    }
 
-    this.cargandoUnidadesSubsanacion.set(true);
-    this.errorUnidadesSubsanacion.set('');
 
-    this.api
-      .get<UnidadSubsanacion[]>(
-        'admin/solicitudes/unidades-subsanacion'
-      )
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: unidades => {
-          this.unidadesSubsanacion.set(
-            unidades.filter(
-              unidad =>
-                Number.isInteger(unidad.id_unidad) &&
-                !!unidad.nombre?.trim()
-            )
-          );
-          this.cargandoUnidadesSubsanacion.set(false);
-        },
-        error: () => {
-          this.unidadesSubsanacion.set([]);
-          this.errorUnidadesSubsanacion.set(
-            'No se pudieron consultar las unidades registradas. ' +
-            'Puedes escribir el canal manualmente.'
-          );
-          this.canalSubsanacionSeleccionado = '__otra__';
-          this.cargandoUnidadesSubsanacion.set(false);
-        },
-      });
-  }
 
-  seleccionarCanalSubsanacion(valor: string): void {
-    this.canalSubsanacionSeleccionado = valor;
 
-    if (valor === '__otra__') {
-      this.observacion.canal_subsanacion =
-        this.canalSubsanacionPersonalizado.trim();
-    } else {
-      this.observacion.canal_subsanacion = valor;
-    }
-  }
 
-  private canalSubsanacionActual(): string | null {
-    const valor = this.canalSubsanacionSeleccionado === '__otra__'
-      ? this.canalSubsanacionPersonalizado.trim()
-      : this.canalSubsanacionSeleccionado.trim();
-
-    return valor || null;
-  }
 
   private fechaLocal(): string {
     const fecha = new Date();
@@ -508,12 +449,18 @@ export class SeguimientoSolicitudComponent implements OnInit {
     const perfil =
       this.solicitud()?.perfil_academico || {};
 
-    return Object.entries(perfil).map(
-      ([clave, valor]) => ({
-        clave,
-        valor: valor || 'No registrado',
-      })
-    );
+    return Object.entries(perfil)
+      .filter(
+        ([, valor]) =>
+          typeof valor === 'string' &&
+          valor.trim().length > 0
+      )
+      .map(
+        ([clave, valor]) => ({
+          clave,
+          valor: String(valor).trim(),
+        })
+      );
   }
 
   carreraPrograma(s: Solicitud): string {
@@ -1153,9 +1100,6 @@ export class SeguimientoSolicitudComponent implements OnInit {
 
     if (modal === 'observacion') {
       this.observacion = this.nuevaObservacion();
-      this.canalSubsanacionSeleccionado = '';
-      this.canalSubsanacionPersonalizado = '';
-      this.cargarUnidadesSubsanacion();
     }
 
     if (modal === 'confirmar_administrativos') {
@@ -1274,26 +1218,21 @@ export class SeguimientoSolicitudComponent implements OnInit {
   }
 
   crearObservacion(): void {
-    if (!this.admin) {
+    if (!this.admin || this.ocupado()) {
       return;
     }
 
-    if (
-      !this.observacion.detalle.trim() ||
-      !this.observacion.correccion_requerida.trim()
-    ) {
-      this.error.set(
-        'Completa la observación y la corrección requerida.'
-      );
+    const detalle = this.observacion.detalle.trim();
+
+    if (!detalle) {
+      this.error.set('Escribe una observación.');
       return;
     }
 
     this.accion('observaciones', {
-      ...this.observacion,
-      detalle: this.observacion.detalle.trim(),
-      correccion_requerida:
-        this.observacion.correccion_requerida.trim(),
-      canal_subsanacion: this.canalSubsanacionActual(),
+      detalle,
+      id_solicitud_requisito:
+        this.observacion.id_solicitud_requisito,
     });
   }
 
@@ -1403,10 +1342,6 @@ export class SeguimientoSolicitudComponent implements OnInit {
           `admin/solicitudes/${this.id}/observaciones`,
           {
             detalle: this.revisionObservacion.trim(),
-            correccion_requerida:
-              this.revisionObservacion.trim(),
-            canal_subsanacion:
-              'Presentación física en Kardex',
             id_solicitud_requisito:
               documentos.length === 1
                 ? documentos[0].id_solicitud_requisito

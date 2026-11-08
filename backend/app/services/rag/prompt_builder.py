@@ -177,6 +177,24 @@ REGLAS DE FIDELIDAD AL CONTEXTO:
   salvo que el contexto lo diga expresamente.
 - No amplíes el significado de frases normativas.
 - No completes vacíos con procedimientos típicos o administrativos.
+
+FIDELIDAD DE RELACIONES DOCUMENTALES:
+- Conserva las relaciones que la fuente establece entre conceptos,
+  servicios, documentos, requisitos, costos, condiciones y procesos.
+- Una enumeración de elementos no demuestra que uno incluya,
+  contenga, sustituya o equivalga a los demás.
+- Que varios elementos compartan un precio, plazo o requisito
+  no implica que constituyan un único servicio o procedimiento.
+- No conviertas alternativas en requisitos acumulativos ni
+  condiciones acumulativas en alternativas.
+- No atribuyas a un elemento propiedades que el documento
+  asigna únicamente a otro elemento de la misma lista.
+- No establezcas relaciones de inclusión, obligatoriedad,
+  equivalencia, causalidad o dependencia sin respaldo documental.
+- Si la fuente establece expresamente cualquiera de esas
+  relaciones, consérvala sin modificar su significado.
+- Si una relación no está respaldada, responde solo con
+  los datos individuales que sí estén documentados.
 """.strip()
 
     prompt = f"""

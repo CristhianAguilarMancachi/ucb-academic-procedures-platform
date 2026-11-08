@@ -118,6 +118,22 @@ REGLAS OBLIGATORIAS:
       conviertas en alternativas.
     - No cambies el alcance de excepciones, negaciones ni condiciones.
 
+VERIFICACION DE RELACIONES DOCUMENTALES:
+
+- Comprueba las relaciones entre elementos, no solamente
+  que cada elemento aparezca en el contexto.
+- Si la respuesta afirma que un elemento incluye, contiene,
+  sustituye, equivale, requiere, depende de o causa otro,
+  verifica que esa relación esté respaldada por la fuente.
+- Una lista de servicios con el mismo precio no significa
+  que esos servicios estén incluidos unos dentro de otros.
+- Conserva las relaciones explícitas y las condiciones reales.
+- Cuando una relación agregada no esté respaldada, elimina
+  solamente esa relación y conserva la información válida.
+- No elimines una inclusión, equivalencia o dependencia
+  que la fuente sí establezca expresamente.
+- No inventes relaciones nuevas al corregir la respuesta.
+
 17. Conserva únicamente información directamente pertinente al tema
     preguntado. Una afirmación puede estar respaldada por el contexto y aun
     así pertenecer a otro trámite, evaluación o procedimiento. En ese caso,

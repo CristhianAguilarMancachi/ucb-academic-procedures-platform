@@ -751,11 +751,23 @@ def actualizar_documento(
                         fuente.write(contenido)
                         temporal = Path(fuente.name)
 
+                    modo_anterior = repo.modo_version(
+                        db,
+                        id_version,
+                    )
+
+                    # Una versión inicialmente clasificada
+                    # como general pudo perder sus artículos
+                    # cuando las páginas escaneadas no se leyeron.
+                    modo_reingesta = (
+                        "auto"
+                        if modo_anterior == "general"
+                        else modo_anterior
+                    )
+
                     file_hash, chunks = preparar_chunks(
                         temporal,
-                        repo.modo_version(
-                            db, id_version
-                        ),
+                        modo_reingesta,
                     )
 
                     if file_hash != version.hash_archivo:

@@ -1,11 +1,13 @@
 import hashlib
+import logging
 import re
 import unicodedata
+from functools import lru_cache
 from pathlib import Path
 
 import fitz
 import pytesseract
-from pdf2image import convert_from_path
+from PIL import Image
 
 from app.services.rag.embeddings import generate_embeddings
 
@@ -65,41 +67,238 @@ def has_meaningful_text(
     return non_empty_pages > 0
 
 
-def extract_text_by_page_with_ocr(
-    file_path: str | Path,
-) -> list[dict]:
-    path = Path(file_path)
+logger = logging.getLogger(__name__)
 
-    images = convert_from_path(
-        str(path),
-        dpi=300,
+OCR_DPI = 220
+OCR_TIMEOUT_SECONDS = 60
+OCR_MIN_ALNUM = 12
+OCR_IMAGE_COVERAGE = 0.20
+
+
+@lru_cache(maxsize=1)
+def get_ocr_languages() -> str:
+    """Valida Tesseract y el idioma español una vez."""
+    try:
+        languages = set(pytesseract.get_languages(config=""))
+    except Exception as exc:
+        raise RuntimeError(
+            "Tesseract OCR no está disponible."
+        ) from exc
+
+    if "spa" not in languages:
+        raise RuntimeError(
+            "Falta el idioma español de Tesseract. "
+            "Reconstruye el backend con tesseract-ocr-spa."
+        )
+
+    return "spa+eng" if "eng" in languages else "spa"
+
+
+def useful_characters(text: str) -> int:
+    return sum(character.isalnum() for character in text)
+
+
+def image_coverage(page) -> float:
+    """Estimación de la superficie ocupada por imágenes."""
+    total_area = page.rect.get_area()
+
+    if total_area <= 0:
+        return 0.0
+
+    image_area = 0.0
+
+    for image in page.get_image_info():
+        rectangle = fitz.Rect(image["bbox"]) & page.rect
+
+        if not rectangle.is_empty:
+            image_area += rectangle.get_area()
+
+    return min(1.0, image_area / total_area)
+
+
+def page_requires_ocr(
+    native_text: str,
+    coverage: float,
+) -> bool:
+    """No ejecutar OCR por tener simplemente una imagen decorativa."""
+    count = useful_characters(native_text)
+
+    if coverage >= OCR_IMAGE_COVERAGE and count < 350:
+        return True
+
+    if count < OCR_MIN_ALNUM and coverage > 0:
+        return True
+
+    return False
+
+
+def recognize_page(page, languages: str) -> str:
+    """Renderiza exclusivamente la página requerida."""
+    longest = max(
+        page.rect.width,
+        page.rect.height,
+        1,
     )
 
+    # Limitar memoria para páginas de tamaño extraordinario.
+    dpi = min(
+        OCR_DPI,
+        max(90, int(4600 * 72 / longest)),
+    )
+
+    pixmap = page.get_pixmap(
+        dpi=dpi,
+        colorspace=fitz.csRGB,
+        alpha=False,
+    )
+
+    with Image.frombytes(
+        "RGB",
+        (pixmap.width, pixmap.height),
+        pixmap.samples,
+    ) as image:
+        result = pytesseract.image_to_string(
+            image,
+            lang=languages,
+            config="--psm 3",
+            timeout=OCR_TIMEOUT_SECONDS,
+        )
+
+    return result.strip()
+
+
+def extract_text_by_page_with_ocr(
+    file_path: str | Path,
+    page_numbers: list[int] | None = None,
+) -> list[dict]:
+    """Mantiene compatibilidad con la extracción OCR explícita."""
     pages = []
 
-    for page_index, image in enumerate(
-        images,
-        start=1,
-    ):
-        try:
-            text = pytesseract.image_to_string(
-                image,
-                lang="spa",
-                config="--psm 6",
-            )
-        except Exception:
-            text = pytesseract.image_to_string(
-                image,
-                lang="eng",
-                config="--psm 6",
+    with fitz.open(file_path) as pdf:
+        numbers = (
+            list(range(1, len(pdf) + 1))
+            if page_numbers is None
+            else page_numbers
+        )
+
+        if any(number < 1 or number > len(pdf) for number in numbers):
+            raise ValueError("Número de página fuera del PDF.")
+
+        languages = get_ocr_languages() if numbers else ""
+
+        for number in numbers:
+            text = recognize_page(
+                pdf[number - 1],
+                languages,
             )
 
-        pages.append(
-            {
-                "page_number": page_index,
-                "text": text.strip(),
-            }
+            pages.append({
+                "page_number": number,
+                "text": text,
+            })
+
+    return pages
+
+
+def extract_text_by_page_hybrid(
+    file_path: str | Path,
+) -> list[dict]:
+    """
+    Extracción híbrida independiente del documento.
+
+    - Primero intenta texto digital.
+    - Evalúa imágenes por página.
+    - Ejecuta OCR solo cuando corresponde.
+    - Conserva el número de página original.
+    - No modifica ni duplica el PDF.
+    - Detiene una ingesta si falla el OCR necesario.
+    """
+    pages = []
+    digital_count = 0
+    ocr_count = 0
+    empty_count = 0
+    languages = None
+
+    with fitz.open(file_path) as pdf:
+        for number, page in enumerate(pdf, start=1):
+            native_text = page.get_text("text").strip()
+            coverage = image_coverage(page)
+
+            selected_text = native_text
+            used_ocr = False
+
+            if page_requires_ocr(native_text, coverage):
+                if languages is None:
+                    languages = get_ocr_languages()
+
+                try:
+                    recognized_text = recognize_page(
+                        page,
+                        languages,
+                    )
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Falló el OCR de la página {number}. "
+                        "Se canceló la ingesta para evitar "
+                        "publicar información incompleta."
+                    ) from exc
+
+                native_count = useful_characters(native_text)
+                recognized_count = useful_characters(recognized_text)
+
+                # Se prefiere el OCR únicamente cuando recupera
+                # contenido adicional significativo.
+                if (
+                    recognized_count >= OCR_MIN_ALNUM
+                    and (
+                        native_count < OCR_MIN_ALNUM
+                        or recognized_count >= max(
+                            native_count + 40,
+                            int(native_count * 1.2),
+                        )
+                    )
+                ):
+                    selected_text = recognized_text
+                    used_ocr = True
+
+                # Un escaneo extenso con OCR ilegible no debe
+                # considerarse una ingesta satisfactoria.
+                if (
+                    coverage >= 0.55
+                    and useful_characters(selected_text)
+                    < OCR_MIN_ALNUM
+                ):
+                    raise ValueError(
+                        f"La página {number} contiene una "
+                        "imagen extensa cuyo texto no pudo "
+                        "recuperarse de manera suficiente."
+                    )
+
+            if used_ocr:
+                ocr_count += 1
+            elif selected_text.strip():
+                digital_count += 1
+            else:
+                empty_count += 1
+
+            pages.append({
+                "page_number": number,
+                "text": selected_text,
+            })
+
+    if not any(page["text"].strip() for page in pages):
+        raise ValueError(
+            "El PDF no contiene texto recuperable."
         )
+
+    logger.info(
+        "[RAG][PDF] paginas=%s digitales=%s "
+        "ocr=%s sin_texto=%s",
+        len(pages),
+        digital_count,
+        ocr_count,
+        empty_count,
+    )
 
     return pages
 
@@ -107,114 +306,53 @@ def extract_text_by_page_with_ocr(
 def clean_page_lines(
     lines: list[str],
 ) -> list[str]:
+    """
+    Limpieza conservadora para cualquier documento.
+
+    No elimina títulos, encabezados institucionales,
+    artículos, porcentajes, importes ni referencias.
+
+    Solamente elimina líneas vacías y espacios
+    horizontales redundantes.
+    """
     cleaned = []
 
-    skip_patterns = [
-        "UNIVERSIDAD CATÓLICA BOLIVIANA",
-        "PABLO”",
-        "Versión",
-        "Vigencia",
-        "Nº Página",
-        "LINEAMIENTOS PARA LA IMPLEMENTACIÓN",
-        "DE LOS CURSOS Y TALLERES DE FORMACIÓN",
-        "INTEGRAL",
-        "REGLAMENTO GENERAL DE MODALIDADES DE GRADUACIÓN",
-    ]
-
     for line in lines:
-        normalized = " ".join(
-            line.split()
+        normalized = re.sub(
+            r"[ \t]+",
+            " ",
+            line,
         ).strip()
 
-        if not normalized:
-            continue
-
-        if normalized in {
-            "1",
-            "2",
-            "3",
-            "4",
-        }:
-            continue
-
-        if normalized.startswith("Jun.-2025"):
-            continue
-
-        if re.fullmatch(
-            r"Página \d+ de \d+",
-            normalized,
-            flags=re.IGNORECASE,
-        ):
-            continue
-
-        if any(
-            pattern in normalized
-            for pattern in skip_patterns
-        ):
-            continue
-
-        cleaned.append(normalized)
+        if normalized:
+            cleaned.append(normalized)
 
     return cleaned
 
 
 def normalize_ocr_text(text: str) -> str:
+    """
+    Normalización no destructiva.
+
+    Reglas:
+    - Conservar símbolos y valores numéricos.
+    - Conservar nombres y denominaciones oficiales.
+    - Conservar artículos y referencias normativas.
+    - No realizar sustituciones léxicas automáticas.
+    - Mantener los saltos de línea.
+    """
     if not text:
         return ""
 
-    text = unicodedata.normalize(
-        "NFKC",
-        text,
+    text = unicodedata.normalize("NFC", text)
+
+    text = text.replace(
+        "\\r\\n",
+        "\\n",
+    ).replace(
+        "\\r",
+        "\\n",
     )
-
-    replacements = {
-        "evaluacibn": "evaluación",
-        "informacibn": "información",
-        "habilitacibn": "habilitación",
-        "reposicibn": "reposición",
-        "calificacibn": "calificación",
-        "Direccidn": "Dirección",
-        "direction": "dirección",
-        "reprobation": "reprobación",
-        "option": "opción",
-        "formacibn": "formación",
-        "contribution": "contribución",
-        "formative": "formativo",
-        "Académico Administrativa": (
-            "Académico Administrativa"
-        ),
-        "Io": "lo",
-        "tai": "tal",
-        "motive": "motivo",
-        "deformación": "de formación",
-        "cursarla asignatura": "cursar la asignatura",
-        "Debera": "Deberá",
-        "debera": "deberá",
-        "Evaluacion": "Evaluación",
-        "evaluacion": "evaluación",
-        "Titulo": "Título",
-        "titulo": "título",
-        "Modalidades de Graduacion": (
-            "Modalidades de Graduación"
-        ),
-        "Graduacion": "Graduación",
-        "graduacion": "graduación",
-        "Monografia": "Monografía",
-        "Pasantia": "Pasantía",
-        "Tecnico": "Técnico",
-        "tecnico": "técnico",
-        "Universitario Superior": (
-            "Universitario Superior"
-        ),
-        "Via Diplomado": "Vía Diplomado",
-        "via diplomado": "vía diplomado",
-    }
-
-    for wrong, right in replacements.items():
-        text = text.replace(
-            wrong,
-            right,
-        )
 
     text = re.sub(
         r"[ \t]+",
@@ -223,49 +361,8 @@ def normalize_ocr_text(text: str) -> str:
     )
 
     text = re.sub(
-        r"\n{3,}",
-        "\n\n",
-        text,
-    )
-
-    text = re.sub(
-        r"\n?\s*[%£§¢¬]+\s*\n?",
-        "\n",
-        text,
-    )
-
-    text = re.sub(
-        r"\n?\s*\d+\s*S\s*[’']\s*\n?",
-        "\n",
-        text,
-    )
-
-    text = re.sub(
-        r"\n?\s*Pagina\s+\d+\s+de\s+\d+\s*\n?",
-        "\n",
-        text,
-        flags=re.IGNORECASE,
-    )
-
-    text = re.sub(
-        r"REGLAMENTO GENERAL DE MODALIDADES "
-        r"DE GRADUACI[OÓ]N",
-        "",
-        text,
-        flags=re.IGNORECASE,
-    )
-
-    text = re.sub(
-        r"UNIVERSIDAD CAT[OÓ]LICA BOLIVIANA"
-        r".*?SAN PABLO",
-        "",
-        text,
-        flags=re.IGNORECASE,
-    )
-
-    text = re.sub(
-        r"\s+([,.;:])",
-        r"\1",
+        r"\\n{3,}",
+        "\\n\\n",
         text,
     )
 
@@ -741,6 +838,78 @@ def split_general_blocks(
 
 
 
+def split_normative_with_attachments(
+    pages: list[dict],
+) -> list[dict]:
+    """
+    Conserva el fragmentador normativo, pero evita
+    incorporar circulares y resoluciones posteriores
+    al contenido del último artículo.
+
+    No depende del título ni del nombre del PDF.
+    """
+    article_pattern = re.compile(
+        r"^ART[IÍ]CULO\s+\d+",
+        re.IGNORECASE,
+    )
+
+    attachment_pattern = re.compile(
+        r"^(?:CIRCULAR|RESOLUCI[ÓO]N|ANEXO|"
+        r"MEMORANDO|MEMORÁNDUM|COMUNICADO)\b",
+        re.IGNORECASE,
+    )
+
+    first_article = None
+
+    for index, page in enumerate(pages):
+        if any(
+            article_pattern.match(line.strip())
+            for line in page["text"].splitlines()
+        ):
+            first_article = index
+            break
+
+    if first_article is None:
+        return split_general_blocks(pages)
+
+    attachment_start = len(pages)
+
+    for index in range(first_article + 1, len(pages)):
+        lines = [
+            line.strip()
+            for line in pages[index]["text"].splitlines()
+            if line.strip()
+        ]
+
+        contains_article = any(
+            article_pattern.match(line)
+            for line in lines
+        )
+
+        contains_attachment = any(
+            attachment_pattern.match(line)
+            for line in lines[:25]
+        )
+
+        if contains_attachment and not contains_article:
+            attachment_start = index
+            break
+
+    introduction = split_general_blocks(
+        pages[:first_article]
+    )
+
+    normative = split_normative_blocks(
+        pages[first_article:attachment_start]
+    )
+
+    attachments = split_general_blocks(
+        pages[attachment_start:]
+    )
+
+    return introduction + normative + attachments
+
+
 def preparar_chunks(file_path: str | Path, chunking_mode: str = "auto") -> tuple[str, list[dict]]:
     """Pipeline único de extracción, OCR, segmentación y embeddings, sin persistencia."""
     path = Path(file_path)
@@ -751,15 +920,7 @@ def preparar_chunks(file_path: str | Path, chunking_mode: str = "auto") -> tuple
         )
 
     file_hash = calculate_file_hash(path)
-    pages = extract_text_by_page(path)
-
-    if not has_meaningful_text(pages):
-        print(
-            f"[INFO] No se encontró texto suficiente "
-            f"en {path.name}. Aplicando OCR..."
-        )
-
-        pages = extract_text_by_page_with_ocr(path)
+    pages = extract_text_by_page_hybrid(path)
 
     pages = normalize_page_text_content(pages)
     pages = normalize_pages_text(pages)
@@ -803,7 +964,7 @@ def preparar_chunks(file_path: str | Path, chunking_mode: str = "auto") -> tuple
         blocks = split_lineamiento_blocks(pages)
 
     elif mode == "normativo":
-        blocks = split_normative_blocks(pages)
+        blocks = split_normative_with_attachments(pages)
 
     else:
         blocks = split_general_blocks(pages)
@@ -814,6 +975,42 @@ def preparar_chunks(file_path: str | Path, chunking_mode: str = "auto") -> tuple
         for page in pages
     ):
         blocks = split_general_blocks(pages)
+
+    # No perder páginas con texto cuando una estrategia
+    # estructural no reconoce sus encabezados.
+    covered_pages = set()
+
+    for block in blocks:
+        covered_pages.update(
+            range(
+                block["pagina_inicio"],
+                block["pagina_fin"] + 1,
+            )
+        )
+
+    missing_pages = [
+        page
+        for page in pages
+        if page["page_number"] not in covered_pages
+        and useful_characters(page["text"]) >= 35
+    ]
+
+    if missing_pages:
+        blocks.extend(
+            split_general_blocks(missing_pages)
+        )
+
+        logger.info(
+            "[RAG][PDF] paginas_recuperadas_general=%s",
+            len(missing_pages),
+        )
+
+    blocks.sort(
+        key=lambda block: (
+            block["pagina_inicio"],
+            block["pagina_fin"],
+        )
+    )
 
     valid_blocks = [
         block
@@ -826,10 +1023,10 @@ def preparar_chunks(file_path: str | Path, chunking_mode: str = "auto") -> tuple
         for block in valid_blocks
     ]
 
-    embeddings = create_embeddings(contents)
-
     if not valid_blocks:
         raise ValueError("El PDF no contiene texto suficiente para generar fragmentos.")
+
+    embeddings = create_embeddings(contents)
     if len(embeddings) != len(valid_blocks) or any(len(e) != 512 for e in embeddings):
         raise ValueError("Los embeddings deben corresponder a todos los fragmentos y tener dimensión 512.")
     chunks = [dict(

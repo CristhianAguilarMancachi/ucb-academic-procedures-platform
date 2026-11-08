@@ -565,3 +565,26 @@ dialog.operativo .modal-body {
     padding: 0;
   }
 }
+
+/* FIX-MODAL-VIEWPORT-V1 */
+
+/*
+ * Los modales operativos deben respetar el alto
+ * disponible y permitir desplazamiento de respaldo.
+ *
+ * Se preserva el encabezado del dialog.
+ * No afecta el comportamiento de los botones.
+ */
+dialog.operativo[open] {
+  max-height: calc(100dvh - 32px) !important;
+  min-height: 0 !important;
+}
+
+dialog.operativo .modal-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: calc(100dvh - 88px);
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}

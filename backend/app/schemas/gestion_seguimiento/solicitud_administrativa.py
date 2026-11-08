@@ -157,6 +157,7 @@ class SolicitudAdministrativaDetalleResponse(BaseModel):
     id_tramite: int
     nombre_tramite: str
     nombre_solicitante: str
+    correo_solicitante: str | None = None
 
     estado: str
 

@@ -263,6 +263,14 @@ def _construir_detalle(
         nombre_solicitante=(
             solicitud.solicitante.nombre_completo
         ),
+        correo_solicitante=next(
+            (
+                correo.correo
+                for correo in solicitud.solicitante.correos
+                if correo.activo and correo.es_principal
+            ),
+            None,
+        ),
 
         estado=solicitud.estado,
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from app.services.rag.llm_client import (
     complete_text,
     LLMUnavailableError,
@@ -110,6 +112,28 @@ def heuristic_query_type(
         ]
     ):
         return "consequence"
+
+    # RAG-INTENCION-PROCEDIMIENTO-V1
+    #
+    # Reconocer solicitudes de instrucciones formuladas
+    # con "cómo puedo..." sin depender del trámite concreto.
+    # No confundir con preguntas condicionales de permiso:
+    # "¿puedo solicitarlo si tengo una inhabilitación?".
+    how_can = re.search(
+        r"\b(?:como|cómo)\s+(?:yo\s+)?"
+        r"(?:puedo|podria|podría)\b",
+        q,
+    )
+
+    procedure_actions = re.search(
+        r"\b(?:solicitar|tramitar|sacar|obtener|conseguir|"
+        r"presentar|realizar|iniciar|hacer|pedir|"
+        r"inscribirme|registrarme|postular)\b",
+        q,
+    )
+
+    if how_can and procedure_actions:
+        return "procedure"
 
     if any(
         token in q

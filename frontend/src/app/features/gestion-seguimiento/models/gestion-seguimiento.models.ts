@@ -172,8 +172,6 @@ export interface Historial {
 export interface Observacion {
   id_observacion: number;
   detalle: string;
-  correccion_requerida: string;
-  canal_subsanacion: string | null;
   estado: string;
   fecha_observacion: string;
   fecha_resolucion: string | null;
@@ -210,6 +208,7 @@ export interface SolicitudResumen {
   };
   id_solicitante?: number;
   nombre_solicitante?: string;
+  correo_solicitante?: string | null;
   documento_identidad?: string | null;
 }
 

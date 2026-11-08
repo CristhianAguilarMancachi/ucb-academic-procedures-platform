@@ -455,4 +455,15 @@ def detect_allowed_documents(
     ]
 
 
-    return best_documents
+    # RAG-ROUTING-GENERAL-SEGURO-V1
+    #
+    # Las coincidencias de palabras generales no son
+    # evidencia suficiente para excluir otros documentos.
+    #
+    # Las reglas específicas anteriores se mantienen.
+    # Cuando no existe un tema inequívoco, el retrieval
+    # debe consultar todos los documentos utilizables.
+    #
+    # No se desactivan las condiciones de vigencia,
+    # estado ni actividad del repositorio de chunks.
+    return None

@@ -4323,3 +4323,99 @@
     min-width: 0;
   }
 }
+
+/* FIX-ADMIN-REVIEW-SCROLL-V1 */
+
+/*
+ * Recepción de documentos y confirmaciones administrativas.
+ *
+ * Encabezado y acciones accesibles.
+ * Listados largos con scroll interno.
+ * Respaldo de scroll en el modal compartido.
+ */
+.operation-modal.admin-v2-review-modal {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  max-height: calc(100dvh - 100px);
+  overflow: hidden;
+}
+
+.operation-modal.admin-v2-review-modal
+.operation-modal__heading {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.operation-modal.admin-v2-review-modal
+.admin-v2-review-documents {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  max-height: min(44dvh, 420px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.operation-modal.admin-v2-review-modal
+.operation-modal__form {
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 0;
+  max-height: min(25dvh, 210px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.operation-modal.admin-v2-review-modal
+.operation-modal__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-top: 12px;
+  padding-top: 12px;
+  padding-bottom: 2px;
+  background: #071b31;
+  border-top: 1px solid var(--ucb-border-soft);
+}
+
+@media (max-height: 650px) {
+  .operation-modal.admin-v2-review-modal {
+    max-height: calc(100dvh - 70px);
+  }
+
+  .operation-modal.admin-v2-review-modal
+  .admin-v2-review-documents {
+    max-height: 32dvh;
+  }
+
+  .operation-modal.admin-v2-review-modal
+  .operation-modal__form {
+    max-height: 24dvh;
+  }
+}
+
+@media (max-width: 560px) {
+  .operation-modal.admin-v2-review-modal {
+    max-height: calc(100dvh - 72px);
+  }
+
+  .operation-modal.admin-v2-review-modal
+  .operation-modal__actions {
+    position: sticky;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .operation-modal.admin-v2-review-modal
+  .operation-modal__actions .modal-action {
+    flex: 1 1 130px;
+    min-width: 0;
+  }
+}

@@ -412,14 +412,6 @@
 
                   <p>{{ o.detalle }}</p>
 
-                  <div class="student-observation__action">
-                    <strong>Corrección requerida</strong>
-                    <span>{{ o.correccion_requerida }}</span>
-                  </div>
-
-                  @if (o.canal_subsanacion) {
-                    <small>Canal: {{ o.canal_subsanacion }}</small>
-                  }
                 </article>
               } @empty {
                 <div class="student-observations-empty">
@@ -667,7 +659,7 @@
                     </strong>
                   </div>
 
-                  <dl class="admin-v2-data-list">
+                  <dl class="admin-v2-data-list admin-data-list--grouped">
                     <div>
                       <dt>Documentos pendientes de recepción</dt>
                       <dd>{{ documentosPendientesRecepcion().length }}</dd>
@@ -703,7 +695,7 @@
                     s.tipo_intervencion === 'firma' ||
                     s.tipo_intervencion === 'conformidad'
                   ) {
-                    <dl class="admin-v2-data-list">
+                    <dl class="admin-v2-data-list admin-data-list--grouped">
                       <div>
                         <dt>Intervención presencial</dt>
                         <dd>{{ etiquetaIntervencion() }}</dd>
@@ -746,7 +738,22 @@
                     </div>
                   </header>
 
-                  <dl class="admin-v2-data-list">
+
+                                    <dl class="admin-v2-data-list admin-data-list--grouped">
+
+                    <div>
+                      <dt>Nombre completo</dt>
+                      <dd>
+                        {{ s.nombre_solicitante || 'No registrado' }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Correo electrónico</dt>
+                      <dd>
+                        {{ s.correo_solicitante || 'No registrado' }}
+                      </dd>
+                    </div>
+
                     @for (
                       dato of datosPerfil();
                       track dato.clave
@@ -774,7 +781,7 @@
                       </div>
                     </header>
 
-                    <dl class="admin-v2-data-list">
+                    <dl class="admin-v2-data-list admin-data-list--grouped">
                       @for (
                         dato of datosFormulario();
                         track dato.id_campo
@@ -1072,44 +1079,12 @@
                   </div>
                 </header>
 
-                <div class="admin-v2-history-list">
-                  @for (
-                    h of historial();
-                    track h.id_historial
-                  ) {
-                    <article class="admin-v2-history-item">
-                      <span class="admin-v2-history-item__point">
-                        ✓
-                      </span>
-
-                      <time>
-                        {{ h.fecha_evento | date:'dd/MM/yyyy' }}
-                        <span>
-                          {{ h.fecha_evento | date:'HH:mm' }}
-                        </span>
-                      </time>
-
-                      <div class="admin-v2-history-item__content">
-                        <strong>
-                          {{ tituloHistorial(h.evento) }}
-                        </strong>
-
-                        @if (h.detalle) {
-                          <p>{{ h.detalle }}</p>
-                        }
-
-                        @if (h.id_usuario_actor) {
-                          <small>
-                            Usuario #{{ h.id_usuario_actor }}
-                          </small>
-                        }
-                      </div>
-                    </article>
-                  } @empty {
-                    <div class="admin-v2-empty">
-                      No hay eventos registrados.
-                    </div>
-                  }
+                <div class="admin-shared-history">
+                  <app-gestion-timeline
+                    [historial]="historial()"
+                    [administrativo]="true"
+                    [detenida]="s.estado === 'cancelada' || s.estado === 'rechazada'"
+                  />
                 </div>
               </section>
 
@@ -1130,7 +1105,7 @@
                     o of obs();
                     track o.id_observacion
                   ) {
-                    <article>
+                    <article class="admin-observation-item" [attr.data-status]="o.estado">
                       <strong>
                         {{
                           o.estado === 'resuelta'
@@ -1141,17 +1116,7 @@
 
                       <p>{{ o.detalle }}</p>
 
-                      @if (o.correccion_requerida) {
-                        <small>
-                          Corrección: {{ o.correccion_requerida }}
-                        </small>
-                      }
 
-                      @if (o.canal_subsanacion) {
-                        <small>
-                          Canal: {{ o.canal_subsanacion }}
-                        </small>
-                      }
 
                       @if (
                         o.estado === 'pendiente' &&
@@ -1160,7 +1125,7 @@
                           s.estado === 'en_proceso'
                         )
                       ) {
-                        <div style="margin-top:8px">
+                        <div class="admin-observation-item__actions">
                           <button
                             type="button"
                             class="admin-v2-primary-button"
@@ -1242,7 +1207,7 @@
                       <span class="admin-v2-action__content">
                         <strong>Registrar observación</strong>
                         <small>
-                          Solicita una corrección al estudiante.
+                          Comunica una observación al solicitante.
                         </small>
                       </span>
                       <span class="admin-v2-action__arrow">→</span>
@@ -1937,14 +1902,13 @@
         <div class="operation-modal ucb-observation-form">
           <header class="operation-modal__heading">
             <div class="operation-modal__icon operation-modal__icon--blue">
-              <ng-icon name="heroChatBubbleLeftRight" />
+              <app-gestion-icon tipo="observacion" />
             </div>
-
             <div>
               <h2>Registrar observación</h2>
               <p>
-                Indica el problema identificado y lo que debe
-                corregir el solicitante.
+                Describe la observación que debe conocer
+                el solicitante.
               </p>
             </div>
           </header>
@@ -1960,93 +1924,17 @@
               </span>
 
               <textarea
-                rows="2"
+                rows="5"
                 maxlength="3000"
                 [(ngModel)]="observacion.detalle"
-                placeholder="Describe el problema encontrado en la solicitud"
+                placeholder="Describe el problema y, si corresponde, qué debe corregir o presentar el solicitante."
               ></textarea>
 
               <small>
-                Describe qué se encontró durante la revisión.
+                Esta observación se mostrará al solicitante
+                y quedará registrada en el historial.
               </small>
             </label>
-
-            <label class="ucb-observation-form__field">
-              <span class="ucb-observation-form__label">
-                Corrección requerida
-                <span class="modal-required">*</span>
-              </span>
-
-              <textarea
-                rows="2"
-                maxlength="3000"
-                [(ngModel)]="observacion.correccion_requerida"
-                placeholder="Indica qué debe presentar o corregir el estudiante"
-              ></textarea>
-
-              <small>
-                Explica la acción concreta necesaria para subsanar.
-              </small>
-            </label>
-
-            <div class="ucb-observation-form__field">
-              <label for="ucb-canal-subsanacion">
-                <span class="ucb-observation-form__label">
-                  Unidad o canal de subsanación
-                  <small>(opcional)</small>
-                </span>
-              </label>
-
-              <select
-                id="ucb-canal-subsanacion"
-                name="ucbCanalSubsanacion"
-                [ngModel]="canalSubsanacionSeleccionado"
-                (ngModelChange)="seleccionarCanalSubsanacion($event)"
-                [disabled]="ocupado() || cargandoUnidadesSubsanacion()"
-              >
-                <option value="">No especificar</option>
-
-                @for (
-                  unidad of unidadesSubsanacion();
-                  track unidad.id_unidad
-                ) {
-                  <option [value]="unidad.nombre">
-                    {{ unidad.nombre }}
-                  </option>
-                }
-
-                <option value="__otra__">
-                  Otra unidad o canal (escribir)
-                </option>
-              </select>
-
-              @if (cargandoUnidadesSubsanacion()) {
-                <small>Cargando unidades disponibles...</small>
-              } @else if (errorUnidadesSubsanacion()) {
-                <small class="ucb-observation-form__notice">
-                  {{ errorUnidadesSubsanacion() }}
-                </small>
-              }
-
-              @if (canalSubsanacionSeleccionado === '__otra__') {
-                <label
-                  class="ucb-observation-form__custom"
-                  for="ucb-canal-personalizado"
-                >
-                  Nombre de la unidad o canal
-
-                  <input
-                    id="ucb-canal-personalizado"
-                    name="ucbCanalPersonalizado"
-                    type="text"
-                    maxlength="1000"
-                    [(ngModel)]="canalSubsanacionPersonalizado"
-                    [disabled]="ocupado()"
-                    placeholder="Escribe la unidad o el canal de atención"
-                  />
-                </label>
-              }
-            </div>
           </fieldset>
 
           <div class="operation-modal__actions">
@@ -2062,15 +1950,7 @@
             <button
               type="button"
               class="modal-action modal-action--primary"
-              [disabled]="
-                ocupado() ||
-                !observacion.detalle.trim() ||
-                !observacion.correccion_requerida.trim() ||
-                (
-                  canalSubsanacionSeleccionado === '__otra__' &&
-                  !canalSubsanacionPersonalizado.trim()
-                )
-              "
+              [disabled]="ocupado() || !observacion.detalle.trim()"
               (click)="crearObservacion()"
             >
               Registrar observación

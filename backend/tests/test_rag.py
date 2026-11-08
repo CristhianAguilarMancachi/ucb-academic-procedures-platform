@@ -104,7 +104,7 @@ class GroqRagTests(unittest.TestCase):
         )
 
         complete.assert_called_once_with(
-            "PROMPT",
+            generator.ANSWER_FOCUS_POLICY + "\n\nPROMPT",
             temperature=0.0,
             max_completion_tokens=900,
             reasoning_effort="low",
@@ -152,7 +152,7 @@ class GroqRagTests(unittest.TestCase):
         )
 
         complete.assert_called_once_with(
-            "PROMPT",
+            generator.ANSWER_FOCUS_POLICY + "\n\nPROMPT",
             temperature=0.0,
             max_completion_tokens=1600,
             reasoning_effort="medium",

@@ -361,9 +361,6 @@ class SeguimientoActualTest(unittest.TestCase):
     def test_observacion_se_registra_y_resuelve(self):
         datos = ObservacionCrearRequest(
             detalle="Falta documento.",
-            correccion_requerida=(
-                "Presentar el documento original."
-            ),
         )
 
         svc.crear_observacion(
