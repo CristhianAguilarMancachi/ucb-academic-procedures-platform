@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+import time
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
@@ -69,8 +70,10 @@ def has_meaningful_text(
 
 logger = logging.getLogger(__name__)
 
-OCR_DPI = 220
-OCR_TIMEOUT_SECONDS = 60
+OCR_DPI = 170
+OCR_FALLBACK_DPI = 130
+OCR_TIMEOUT_SECONDS = 35
+OCR_FALLBACK_TIMEOUT_SECONDS = 25
 OCR_MIN_ALNUM = 12
 OCR_IMAGE_COVERAGE = 0.20
 
@@ -133,38 +136,62 @@ def page_requires_ocr(
 
 
 def recognize_page(page, languages: str) -> str:
-    """Renderiza exclusivamente la página requerida."""
-    longest = max(
-        page.rect.width,
-        page.rect.height,
-        1,
+    """Reconoce páginas con un segundo intento acotado ante timeout."""
+    longest = max(page.rect.width, page.rect.height, 1)
+    max_dpi = max(90, int(4600 * 72 / longest))
+    attempts = (
+        (min(OCR_DPI, max_dpi), OCR_TIMEOUT_SECONDS),
+        (min(OCR_FALLBACK_DPI, max_dpi), OCR_FALLBACK_TIMEOUT_SECONDS),
     )
 
-    # Limitar memoria para páginas de tamaño extraordinario.
-    dpi = min(
-        OCR_DPI,
-        max(90, int(4600 * 72 / longest)),
-    )
-
-    pixmap = page.get_pixmap(
-        dpi=dpi,
-        colorspace=fitz.csRGB,
-        alpha=False,
-    )
-
-    with Image.frombytes(
-        "RGB",
-        (pixmap.width, pixmap.height),
-        pixmap.samples,
-    ) as image:
-        result = pytesseract.image_to_string(
-            image,
-            lang=languages,
-            config="--psm 3",
-            timeout=OCR_TIMEOUT_SECONDS,
+    for attempt, (dpi, timeout_seconds) in enumerate(attempts, start=1):
+        started_at = time.monotonic()
+        pixmap = page.get_pixmap(
+            dpi=dpi,
+            colorspace=fitz.csRGB,
+            alpha=False,
         )
 
-    return result.strip()
+        try:
+            with Image.frombytes(
+                "RGB",
+                (pixmap.width, pixmap.height),
+                pixmap.samples,
+            ) as image:
+                result = pytesseract.image_to_string(
+                    image,
+                    lang=languages,
+                    config="--psm 3",
+                    timeout=timeout_seconds,
+                )
+        except RuntimeError as exc:
+            if "Tesseract process timeout" not in str(exc):
+                raise
+            logger.warning(
+                "[RAG][OCR] timeout intento=%s dpi=%s "
+                "limite_s=%s duracion_s=%.1f",
+                attempt,
+                dpi,
+                timeout_seconds,
+                time.monotonic() - started_at,
+            )
+            if attempt == len(attempts):
+                raise
+            continue
+        finally:
+            del pixmap
+
+        logger.info(
+            "[RAG][OCR] completado intento=%s dpi=%s "
+            "duracion_s=%.1f caracteres=%s",
+            attempt,
+            dpi,
+            time.monotonic() - started_at,
+            useful_characters(result),
+        )
+        return result.strip()
+
+    raise RuntimeError("No se completó el OCR de la página.")
 
 
 def extract_text_by_page_with_ocr(
