@@ -81,7 +81,6 @@
 
         <aside class="tracking-side-column">
           @if (
-            s.estado !== 'borrador' &&
             s.estado !== 'cancelada' &&
             s.estado !== 'rechazada' &&
             tieneAccionesRequisitos()
@@ -431,28 +430,18 @@
         </aside>
       </div>
 
-      @if (s.estado === 'borrador' || cancelable()) {
+      @if (cancelable()) {
         <footer class="tracking-actions">
-          @if (s.estado === 'borrador') {
-            <a
-              class="tracking-action tracking-action--primary"
-              [routerLink]="['/solicitudes', s.id_solicitud, 'preparar']"
-            >
-              Completar y enviar
-            </a>
-          }
-
-          @if (cancelable()) {
-            <button
-              type="button"
-              class="tracking-action tracking-action--cancel"
-              [disabled]="ocupado()"
-              (click)="abrir('cancelar')"
-            >
-              <ng-icon name="heroExclamationTriangle" />
-              Cancelar solicitud
-            </button>
-          }
+          <button
+            type="button"
+            class="tracking-action tracking-action--cancel"
+            [disabled]="ocupado()"
+            (click)="abrir('cancelar')"
+          >
+            <ng-icon name="heroExclamationTriangle" />
+            Cancelar solicitud
+          </button>
+        
         </footer>
       }
     </div>
@@ -1345,6 +1334,7 @@
   @if (modal) {
     <app-gestion-modal
       [titulo]="
+        
         modal === 'cancelar' ? 'Cancelar solicitud' :
         modal === 'rechazar' ? 'Rechazar solicitud' :
         modal === 'resultado' ? 'Registrar resultado final' :

@@ -2,7 +2,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   forkJoin,
@@ -136,6 +136,7 @@ interface PagoVerificacionResultado {
 export class SeguimientoSolicitudComponent implements OnInit {
   private readonly api = inject(GestionSeguimientoService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private avisoSecuencia = 0;
 
@@ -1202,13 +1203,14 @@ export class SeguimientoSolicitudComponent implements OnInit {
     this.accion('iniciar');
   }
 
+
   cancelable(): boolean {
     const solicitud = this.solicitud();
 
     return (
       !this.admin &&
       !!solicitud &&
-      ['borrador', 'pendiente_recepcion'].includes(
+      ['pendiente_recepcion'].includes(
         solicitud.estado
       ) &&
       !solicitud.requisitos.some(
@@ -1724,9 +1726,7 @@ export class SeguimientoSolicitudComponent implements OnInit {
             ).toLocaleDateString('es-BO')
           : 'Registrada',
         estado:
-          solicitud.estado === 'borrador'
-            ? 'actual'
-            : 'completado',
+          'completado',
       },
       {
         clave: 'atencion',

@@ -139,32 +139,6 @@ def _convertir_error_pago(
 # PREPARACIÓN Y SEGUIMIENTO DEL SOLICITANTE
 # ============================================================
 
-@router.get(
-    "/solicitudes/{id_solicitud}/preparacion",
-    response_model=TramiteCatalogoDetalleResponse,
-)
-def preparacion(
-    id_solicitud: int,
-    db: DatabaseSession,
-    usuario: SolicitanteActual,
-):
-    try:
-        return solicitud_service.consultar_preparacion(
-            db,
-            id_solicitud,
-            usuario.id_usuario,
-        )
-
-    except solicitud_service.SolicitudServiceError as exc:
-        raise _convertir_error_servicio(
-            exc
-        ) from exc
-
-    except TramiteNoEncontradoError as exc:
-        raise servicio.SeguimientoError(
-            str(exc),
-            404,
-        ) from exc
 
 
 @router.get(

@@ -147,7 +147,7 @@
        PREPARACIÓN
        ======================================================= -->
 
-  @if (solicitud(); as s) {
+  @if (tramite(); as formularioTramite) {
     <div class="preparation-view">
       <!-- CABECERA -->
 
@@ -155,10 +155,6 @@
         <div class="preparation-heading">
           <div class="preparation-title-row">
             <h1>Preparar solicitud</h1>
-
-            <span class="draft-status">
-              Borrador
-            </span>
           </div>
 
           @if (tramite(); as t) {
@@ -166,22 +162,13 @@
               {{ t.nombre }}
             </p>
           }
-
-          <span class="preparation-reference">
-            Solicitud #{{ formatearNumeroSolicitud(s.id_solicitud) }}
-          </span>
         </div>
 
-        <a
-          class="preparation-detail-link"
-          [routerLink]="['/solicitudes', s.id_solicitud]"
-        >
-          <app-gestion-icon tipo="proceso" />
-
-          <span>
-            Ver seguimiento o cancelar
-          </span>
-        </a>
+        <div class="preparation-header-actions">
+          <a class="preparation-detail-link" routerLink="/tramites">
+            Volver a trámites
+          </a>
+        </div>
       </header>
 
       <!-- MENSAJES -->

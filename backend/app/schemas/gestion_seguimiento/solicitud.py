@@ -16,7 +16,6 @@ from pydantic import (
 
 
 EstadoSolicitud = Literal[
-    "borrador",
     "pendiente_recepcion",
     "en_revision",
     "en_proceso",
@@ -322,6 +321,35 @@ class SolicitudActualizarRequest(BaseModel):
             )
 
         return valor
+
+
+# =========================================================
+# REGISTRO DIRECTO
+# =========================================================
+
+class SolicitudRegistrarRequest(SolicitudActualizarRequest):
+    """
+    Datos completos recibidos al confirmar el envío.
+    No expone operaciones de guardado de borradores.
+    """
+
+    id_tramite: int = Field(gt=0)
+
+    nombre_contacto: str = Field(
+        min_length=2,
+        max_length=200,
+    )
+
+    telefono_contacto: str = Field(
+        min_length=7,
+        max_length=30,
+    )
+
+    correo_contacto: EmailStr
+
+    datos: list[SolicitudDatoGuardarRequest] = Field(
+        default_factory=list,
+    )
 
 
 # =========================================================

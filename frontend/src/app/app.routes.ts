@@ -96,6 +96,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'tramites/:id/preparar',
+        canActivate: [authGuard, roleGuard],
+        data: { roles: ['solicitante', 'administrador'] },
+        loadComponent: () =>
+          import('./features/gestion-seguimiento/pages/nueva-solicitud/nueva-solicitud.component').then(
+            (m) => m.NuevaSolicitudComponent,
+          ),
+      },
+      {
         path: 'solicitudes/:id/preparar',
         canActivate: [authGuard, roleGuard],
         data: { roles: ['solicitante', 'administrador'] },

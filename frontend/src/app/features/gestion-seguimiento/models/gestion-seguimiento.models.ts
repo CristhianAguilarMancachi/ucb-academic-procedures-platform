@@ -1,6 +1,5 @@
 
 export type EstadoSolicitud =
-  | 'borrador'
   | 'pendiente_recepcion'
   | 'en_revision'
   | 'en_proceso'
@@ -253,7 +252,6 @@ export interface Lista<T> {
 }
 
 export const ESTADOS: EstadoSolicitud[] = [
-  'borrador',
   'pendiente_recepcion',
   'en_revision',
   'en_proceso',
@@ -264,7 +262,6 @@ export const ESTADOS: EstadoSolicitud[] = [
 ];
 
 export const ESTADOS_FILTRO: EstadoSolicitud[] = [
-  'borrador',
   'pendiente_recepcion',
   'en_revision',
   'en_proceso',
@@ -277,7 +274,6 @@ export function etiquetaEstado(
   estado: string,
 ): string {
   const etiquetas: Record<string, string> = {
-    borrador: 'Borrador',
     pendiente_recepcion: 'Pendiente de recepción',
     en_revision: 'En revisión',
     en_proceso: 'En proceso',

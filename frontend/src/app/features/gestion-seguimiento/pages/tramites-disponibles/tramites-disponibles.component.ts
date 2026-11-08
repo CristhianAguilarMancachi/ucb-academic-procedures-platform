@@ -133,33 +133,14 @@ export class TramitesDisponiblesComponent implements OnInit {
 
   crear(t: Tramite) {
     if (
-      !this.auth.tieneAlgunoDeLosRoles([
-        'solicitante',
-        'administrador',
-      ])
+      this.ocupado() ||
+      !t.permite_solicitudes ||
+      !this.auth.tieneAlgunoDeLosRoles(['solicitante', 'administrador'])
     ) {
       return;
     }
 
-    this.ocupado.set(true);
-
-    this.error.set('');
-
-    this.api
-      .crear(t.id_tramite)
-      .subscribe({
-        next: (s) => {
-          this.router.navigate([
-            '/solicitudes',
-            s.id_solicitud,
-            'preparar',
-          ]);
-        },
-
-        error: (e) => {
-          this.fallar(e);
-        },
-      });
+    this.router.navigate(['/tramites', t.id_tramite, 'preparar']);
   }
 
   private fallar(

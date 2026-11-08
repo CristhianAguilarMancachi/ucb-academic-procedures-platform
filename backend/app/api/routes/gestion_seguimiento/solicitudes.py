@@ -18,6 +18,7 @@ from app.schemas.gestion_seguimiento.solicitud import (
     ListaSolicitudesResponse,
     SolicitudActualizarRequest,
     SolicitudCrearRequest,
+    SolicitudRegistrarRequest,
     SolicitudEnviarRequest,
     SolicitudResponse,
 )
@@ -34,10 +35,7 @@ from app.services.gestion_seguimiento.solicitud_service import (
     TramiteNoDisponibleParaSolicitudError,
     TramiteSolicitudNoEncontradoError,
     ValorCampoInvalidoError,
-    actualizar_solicitud,
-    crear_solicitud,
-    eliminar_solicitud,
-    enviar_solicitud,
+    registrar_solicitud_directa,
     listar_mis_solicitudes,
     obtener_solicitud,
 )
@@ -131,56 +129,49 @@ def _convertir_error_servicio(
 # ============================================================
 
 
+# ============================================================
+# REGISTRAR SOLICITUD SIN BORRADOR PERSISTENTE
+# ============================================================
+
 @router.post(
-    "",
+    "/registrar",
     response_model=SolicitudResponse,
-    status_code=(
-        status.HTTP_201_CREATED
-    ),
+    status_code=status.HTTP_201_CREATED,
 )
-def crear_borrador_solicitud(
-    datos: SolicitudCrearRequest,
+def registrar_solicitud_confirmada(
+    datos: SolicitudRegistrarRequest,
     request: Request,
     db: DatabaseSession,
     usuario: SolicitanteActual,
 ) -> SolicitudResponse:
     """
-    Crea una nueva solicitud en estado borrador.
+    Recibe toda la información y registra la solicitud
+    formalmente en una única transacción.
     """
     try:
-        return crear_solicitud(
+        return registrar_solicitud_directa(
             db,
-            id_solicitante=(
-                usuario.id_usuario
-            ),
+            id_solicitante=usuario.id_usuario,
             datos=datos,
-            direccion_ip=(
-                _obtener_direccion_ip(
-                    request
-                )
-            ),
-            user_agent=(
-                request.headers.get(
-                    "user-agent"
-                )
-            ),
+            direccion_ip=_obtener_direccion_ip(request),
+            user_agent=request.headers.get("user-agent"),
         )
 
-    except Exception as exc:
-        if isinstance(
-            exc,
-            (
-                TramiteSolicitudNoEncontradoError,
-                TramiteNoDisponibleParaSolicitudError,
-            ),
-        ):
-            raise (
-                _convertir_error_servicio(
-                    exc
-                )
-            ) from exc
+    except (
+        SolicitudNoEncontradaError,
+        SolicitudNoEsBorradorError,
+        TramiteSolicitudNoEncontradoError,
+        TramiteNoDisponibleParaSolicitudError,
+        CampoSolicitudInvalidoError,
+        ValorCampoInvalidoError,
+        ConfiguracionCampoInvalidaError,
+        CamposObligatoriosFaltantesError,
+        ConfiguracionEconomicaIncompletaError,
+        SolicitudInconsistenteError,
+    ) as exc:
+        raise _convertir_error_servicio(exc) from exc
 
-        raise
+
 
 
 # ============================================================
@@ -272,57 +263,6 @@ def consultar_solicitud(
 # ============================================================
 
 
-@router.patch(
-    "/{id_solicitud}",
-    response_model=SolicitudResponse,
-    status_code=(
-        status.HTTP_200_OK
-    ),
-)
-def actualizar_borrador_solicitud(
-    id_solicitud: int,
-    datos: SolicitudActualizarRequest,
-    request: Request,
-    db: DatabaseSession,
-    usuario: SolicitanteActual,
-) -> SolicitudResponse:
-    """
-    Actualiza los datos dinámicos de una solicitud
-    mientras permanezca en borrador.
-    """
-    try:
-        return actualizar_solicitud(
-            db,
-            id_solicitud=id_solicitud,
-            id_solicitante=(
-                usuario.id_usuario
-            ),
-            datos=datos,
-            direccion_ip=(
-                _obtener_direccion_ip(
-                    request
-                )
-            ),
-            user_agent=(
-                request.headers.get(
-                    "user-agent"
-                )
-            ),
-        )
-
-    except (
-        SolicitudNoEncontradaError,
-        SolicitudNoEsBorradorError,
-        ActualizacionSolicitudVaciaError,
-        CampoSolicitudInvalidoError,
-        ValorCampoInvalidoError,
-        ConfiguracionCampoInvalidaError,
-    ) as exc:
-        raise (
-            _convertir_error_servicio(
-                exc
-            )
-        ) from exc
 
 
 # ============================================================
@@ -330,56 +270,6 @@ def actualizar_borrador_solicitud(
 # ============================================================
 
 
-@router.delete(
-    "/{id_solicitud}",
-    status_code=(
-        status.HTTP_204_NO_CONTENT
-    ),
-)
-def eliminar_borrador_solicitud(
-    id_solicitud: int,
-    request: Request,
-    db: DatabaseSession,
-    usuario: SolicitanteActual,
-) -> Response:
-    """
-    Elimina una solicitud propia únicamente
-    mientras permanezca en borrador.
-    """
-    try:
-        eliminar_solicitud(
-            db,
-            id_solicitud=id_solicitud,
-            id_solicitante=(
-                usuario.id_usuario
-            ),
-            direccion_ip=(
-                _obtener_direccion_ip(
-                    request
-                )
-            ),
-            user_agent=(
-                request.headers.get(
-                    "user-agent"
-                )
-            ),
-        )
-
-        return Response(
-            status_code=(
-                status.HTTP_204_NO_CONTENT
-            )
-        )
-
-    except (
-        SolicitudNoEncontradaError,
-        SolicitudNoEsBorradorError,
-    ) as exc:
-        raise (
-            _convertir_error_servicio(
-                exc
-            )
-        ) from exc
 
 
 # ============================================================
@@ -387,69 +277,5 @@ def eliminar_borrador_solicitud(
 # ============================================================
 
 
-@router.post(
-    "/{id_solicitud}/enviar",
-    response_model=SolicitudResponse,
-    status_code=(
-        status.HTTP_200_OK
-    ),
-)
-def enviar_borrador_solicitud(
-    id_solicitud: int,
-    datos: SolicitudEnviarRequest,
-    request: Request,
-    db: DatabaseSession,
-    usuario: SolicitanteActual,
-) -> SolicitudResponse:
-    """
-    Registra formalmente una solicitud en borrador.
 
-    El body se conserva temporalmente para compatibilidad
-    con el cliente actual, pero la operación de envío NO
-    procesa información de pago ni declaraciones físicas.
 
-    Pago y documentación se gestionan posteriormente desde
-    el seguimiento de la solicitud.
-    """
-    # El modelo de entrada está intencionalmente vacío.
-    #
-    # Una versión anterior del frontend puede seguir enviando
-    # propiedades de facturas o entrega física. El schema las
-    # ignora y nunca llegan a la lógica de negocio.
-    _ = datos
-
-    try:
-        return enviar_solicitud(
-            db,
-            id_solicitud=id_solicitud,
-            id_solicitante=(
-                usuario.id_usuario
-            ),
-            direccion_ip=(
-                _obtener_direccion_ip(
-                    request
-                )
-            ),
-            user_agent=(
-                request.headers.get(
-                    "user-agent"
-                )
-            ),
-        )
-
-    except (
-        SolicitudNoEncontradaError,
-        SolicitudNoEsBorradorError,
-        TramiteSolicitudNoEncontradoError,
-        TramiteNoDisponibleParaSolicitudError,
-        ValorCampoInvalidoError,
-        ConfiguracionCampoInvalidaError,
-        CamposObligatoriosFaltantesError,
-        ConfiguracionEconomicaIncompletaError,
-        SolicitudInconsistenteError,
-    ) as exc:
-        raise (
-            _convertir_error_servicio(
-                exc
-            )
-        ) from exc

@@ -15,7 +15,6 @@ import {
   SolicitudResumen,
   Seguimiento,
   Tramite,
-  ValorDato,
 } from '../models/gestion-seguimiento.models';
 
 
@@ -110,19 +109,6 @@ export class GestionSeguimientoService {
   }
 
 
-  crear(
-    id: number,
-  ) {
-    return this.post<Solicitud>(
-      'solicitudes',
-      {
-        id_tramite:
-          id,
-      },
-    );
-  }
-
-
   listar(
     admin: boolean,
     filtros: Record<
@@ -161,53 +147,6 @@ export class GestionSeguimientoService {
   ) {
     return this.get<Seguimiento>(
       `solicitudes/${id}/seguimiento`,
-    );
-  }
-
-
-  guardar(
-    id: number,
-
-    datos: {
-      id_campo: number;
-      valor: ValorDato;
-    }[],
-
-    contacto: ContactoSolicitud,
-  ) {
-    return this.patch<Solicitud>(
-      `solicitudes/${id}`,
-      {
-        datos,
-
-        nombre_contacto:
-          contacto.nombre_contacto,
-
-        telefono_contacto:
-          contacto.telefono_contacto,
-
-        correo_contacto:
-          contacto.correo_contacto,
-      },
-    );
-  }
-
-
-  preparacion(
-    id: number,
-  ) {
-    return this.get<Tramite>(
-      `solicitudes/${id}/preparacion`,
-    );
-  }
-
-
-  enviar(
-    id: number,
-  ) {
-    return this.post<Solicitud>(
-      `solicitudes/${id}/enviar`,
-      {},
     );
   }
 

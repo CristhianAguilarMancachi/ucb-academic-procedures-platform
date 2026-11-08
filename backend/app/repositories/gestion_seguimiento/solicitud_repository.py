@@ -22,29 +22,6 @@ from app.models.gestion_seguimiento.solicitud_requisito import (
 # ============================================================
 
 
-def crear_solicitud(
-    db: Session,
-    *,
-    id_solicitante: int,
-    id_tramite: int,
-) -> Solicitud:
-    """
-    Crea una solicitud en estado borrador.
-
-    La transacción queda pendiente de confirmación
-    por parte del service.
-    """
-    solicitud = Solicitud(
-        id_solicitante=id_solicitante,
-        id_tramite=id_tramite,
-        estado="borrador",
-    )
-
-    db.add(solicitud)
-    db.flush()
-    db.refresh(solicitud)
-
-    return solicitud
 
 
 def obtener_solicitud_por_id(
@@ -194,36 +171,8 @@ def listar_solicitudes_usuario(
     return solicitudes, int(total)
 
 
-def marcar_solicitud_enviada(
-    db: Session,
-    solicitud: Solicitud,
-    *,
-    fecha_envio: datetime,
-) -> Solicitud:
-    """
-    Cambia formalmente un borrador a pendiente de recepción.
-    """
-    solicitud.estado = "pendiente_recepcion"
-    solicitud.fecha_envio = fecha_envio
-
-    db.flush()
-    db.refresh(solicitud)
-
-    return solicitud
 
 
-def eliminar_solicitud(
-    db: Session,
-    solicitud: Solicitud,
-) -> None:
-    """
-    Elimina físicamente una solicitud.
-
-    El service debe garantizar que solamente se eliminen
-    solicitudes en estado borrador.
-    """
-    db.delete(solicitud)
-    db.flush()
 
 
 # ============================================================
@@ -308,15 +257,6 @@ def guardar_dato_solicitud(
     return dato
 
 
-def eliminar_dato_solicitud(
-    db: Session,
-    dato: SolicitudDato,
-) -> None:
-    """
-    Elimina un dato guardado del borrador.
-    """
-    db.delete(dato)
-    db.flush()
 
 
 # ============================================================

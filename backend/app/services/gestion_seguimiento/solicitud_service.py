@@ -23,6 +23,7 @@ from app.schemas.gestion_seguimiento.solicitud import (
     ListaSolicitudesResponse,
     SolicitudActualizarRequest,
     SolicitudCrearRequest,
+    SolicitudRegistrarRequest,
     SolicitudResponse,
     SolicitudResumenResponse,
 )
@@ -99,61 +100,6 @@ class SolicitudInconsistenteError(SolicitudServiceError):
 # PREPARACIÓN
 # ============================================================
 
-def consultar_preparacion(
-    db: Session,
-    id_solicitud: int,
-    id_solicitante: int,
-):
-    from app.services.gestion_seguimiento.tramite_service import (
-        obtener_tramite_catalogo_publico,
-    )
-
-    solicitud = _obtener_solicitud_del_usuario(
-        db,
-        id_solicitud=id_solicitud,
-        id_solicitante=id_solicitante,
-        completa=True,
-    )
-
-    _validar_solicitud_borrador(solicitud)
-
-    catalogo = obtener_tramite_catalogo_publico(
-        db,
-        id_tramite=solicitud.id_tramite,
-    )
-
-    campos = tramite_repository.listar_campos_tramite(
-        db,
-        solicitud.id_tramite,
-        solo_activos=True,
-    )
-
-    requisitos = tramite_repository.listar_requisitos_tramite(
-        db,
-        solicitud.id_tramite,
-        solo_activos=True,
-    )
-
-    aplicables = requisitos_aplicables(
-        db,
-        solicitud,
-        requisitos,
-        campos,
-        solicitud.datos,
-    )
-
-    ids_aplicables = {
-        requisito.id_requisito
-        for requisito in aplicables
-    }
-
-    catalogo.requisitos = [
-        requisito
-        for requisito in catalogo.requisitos
-        if requisito.id_requisito in ids_aplicables
-    ]
-
-    return catalogo
 
 
 # ============================================================
@@ -217,15 +163,6 @@ def _obtener_tramite_habilitado(
     return tramite
 
 
-def _validar_solicitud_borrador(
-    solicitud: Solicitud,
-) -> None:
-
-    if solicitud.estado != "borrador":
-        raise SolicitudNoEsBorradorError(
-            "La operación solamente está permitida "
-            "mientras la solicitud sea un borrador."
-        )
 
 
 def _validar_valor_campo(
@@ -360,7 +297,7 @@ def _validar_valor_campo(
     )
 
 
-def _normalizar_datos_borrador(
+def _normalizar_datos_formulario(
     db: Session,
     *,
     id_tramite: int,
@@ -498,63 +435,6 @@ def _obtener_respuesta_completa(
 # CREACIÓN DE BORRADOR
 # ============================================================
 
-def crear_solicitud(
-    db: Session,
-    *,
-    id_solicitante: int,
-    datos: SolicitudCrearRequest,
-    direccion_ip: str | None = None,
-    user_agent: str | None = None,
-) -> SolicitudResponse:
-
-    _obtener_tramite_habilitado(
-        db,
-        datos.id_tramite,
-    )
-
-    try:
-        solicitud = solicitud_repository.crear_solicitud(
-            db,
-            id_solicitante=id_solicitante,
-            id_tramite=datos.id_tramite,
-        )
-
-        registrar_accion_simple(
-            db,
-            accion="crear_solicitud_borrador",
-            modulo="gestion_seguimiento",
-            id_usuario_actor=id_solicitante,
-            entidad="solicitud",
-            id_entidad=str(solicitud.id_solicitud),
-            exitoso=True,
-            detalle={
-                "id_tramite": datos.id_tramite,
-                "estado": "borrador",
-            },
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
-        )
-
-        seguimiento_repo.registrar_historial(
-            db,
-            solicitud.id_solicitud,
-            id_solicitante,
-            "solicitud_creada",
-            "Solicitud creada en borrador.",
-        )
-
-        id_solicitud = solicitud.id_solicitud
-
-        db.commit()
-
-        return _obtener_respuesta_completa(
-            db,
-            id_solicitud,
-        )
-
-    except Exception:
-        db.rollback()
-        raise
 
 
 # ============================================================
@@ -616,199 +496,36 @@ def listar_mis_solicitudes(
 # ACTUALIZAR BORRADOR
 # ============================================================
 
-def actualizar_solicitud(
-    db: Session,
-    *,
-    id_solicitud: int,
-    id_solicitante: int,
-    datos: SolicitudActualizarRequest,
-    direccion_ip: str | None = None,
-    user_agent: str | None = None,
-) -> SolicitudResponse:
-
-    solicitud = _obtener_solicitud_del_usuario(
-        db,
-        id_solicitud=id_solicitud,
-        id_solicitante=id_solicitante,
-        bloquear=True,
-    )
-
-    _validar_solicitud_borrador(solicitud)
-
-    campos_recibidos = datos.model_fields_set
-
-    actualizar_datos = (
-        "datos" in campos_recibidos
-        and datos.datos is not None
-    )
-
-    campos_contacto = {
-        "nombre_contacto",
-        "telefono_contacto",
-        "correo_contacto",
-    }
-
-    contacto_recibido = campos_contacto & campos_recibidos
-
-    if not actualizar_datos and not contacto_recibido:
-        raise ActualizacionSolicitudVaciaError(
-            "Debe proporcionar información "
-            "para actualizar el borrador."
-        )
-
-    valores_normalizados: dict[int, Any] = {}
-
-    if actualizar_datos:
-        valores_normalizados = _normalizar_datos_borrador(
-            db,
-            id_tramite=solicitud.id_tramite,
-            datos=datos.datos,
-        )
-
-    try:
-        if actualizar_datos:
-            datos_actuales = solicitud_repository.listar_datos_solicitud(
-                db,
-                solicitud.id_solicitud,
-            )
-
-            ids_recibidos = set(valores_normalizados.keys())
-
-            for dato_actual in datos_actuales:
-                if dato_actual.id_campo not in ids_recibidos:
-                    solicitud_repository.eliminar_dato_solicitud(
-                        db,
-                        dato_actual,
-                    )
-
-            for id_campo, valor in valores_normalizados.items():
-                solicitud_repository.guardar_dato_solicitud(
-                    db,
-                    id_solicitud=solicitud.id_solicitud,
-                    id_campo=id_campo,
-                    valor=valor,
-                )
-
-        if "nombre_contacto" in campos_recibidos:
-            solicitud.nombre_contacto = datos.nombre_contacto
-
-        if "telefono_contacto" in campos_recibidos:
-            solicitud.telefono_contacto = datos.telefono_contacto
-
-        if "correo_contacto" in campos_recibidos:
-            solicitud.correo_contacto = (
-                str(datos.correo_contacto)
-                if datos.correo_contacto is not None
-                else None
-            )
-
-        db.flush()
-
-        registrar_accion_simple(
-            db,
-            accion="actualizar_solicitud_borrador",
-            modulo="gestion_seguimiento",
-            id_usuario_actor=id_solicitante,
-            entidad="solicitud",
-            id_entidad=str(solicitud.id_solicitud),
-            exitoso=True,
-            detalle={
-                "campos_guardados": sorted(
-                    valores_normalizados.keys()
-                ),
-                "contacto_actualizado": sorted(
-                    contacto_recibido
-                ),
-            },
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
-        )
-
-        db.commit()
-
-        return _obtener_respuesta_completa(
-            db,
-            solicitud.id_solicitud,
-        )
-
-    except Exception:
-        db.rollback()
-        raise
 
 
 # ============================================================
 # ELIMINAR BORRADOR
 # ============================================================
 
-def eliminar_solicitud(
-    db: Session,
-    *,
-    id_solicitud: int,
-    id_solicitante: int,
-    direccion_ip: str | None = None,
-    user_agent: str | None = None,
-) -> None:
-
-    solicitud = _obtener_solicitud_del_usuario(
-        db,
-        id_solicitud=id_solicitud,
-        id_solicitante=id_solicitante,
-        bloquear=True,
-    )
-
-    _validar_solicitud_borrador(solicitud)
-
-    id_tramite = solicitud.id_tramite
-
-    try:
-        solicitud_repository.eliminar_solicitud(
-            db,
-            solicitud,
-        )
-
-        registrar_accion_simple(
-            db,
-            accion="eliminar_solicitud_borrador",
-            modulo="gestion_seguimiento",
-            id_usuario_actor=id_solicitante,
-            entidad="solicitud",
-            id_entidad=str(id_solicitud),
-            exitoso=True,
-            detalle={
-                "id_tramite": id_tramite,
-            },
-            direccion_ip=direccion_ip,
-            user_agent=user_agent,
-        )
-
-        db.commit()
-
-    except Exception:
-        db.rollback()
-        raise
 
 
 # ============================================================
 # ENVÍO FORMAL
 # ============================================================
 
-def enviar_solicitud(
+
+
+
+# ============================================================
+# REGISTRO DIRECTO DE SOLICITUD
+# ============================================================
+
+
+def _completar_registro_directo(
     db: Session,
     *,
-    id_solicitud: int,
+    solicitud: Solicitud,
     id_solicitante: int,
     direccion_ip: str | None = None,
     user_agent: str | None = None,
 ) -> SolicitudResponse:
-
-    solicitud = _obtener_solicitud_del_usuario(
-        db,
-        id_solicitud=id_solicitud,
-        id_solicitante=id_solicitante,
-        bloquear=True,
-    )
-
-    _validar_solicitud_borrador(solicitud)
+    """Completa y confirma el registro directo validado."""
+    id_solicitud = solicitud.id_solicitud
 
     tramite = _obtener_tramite_habilitado(
         db,
@@ -1078,11 +795,8 @@ def enviar_solicitud(
         # ENVIAR SOLICITUD
         # ----------------------------------------------------
 
-        solicitud_repository.marcar_solicitud_enviada(
-            db,
-            solicitud,
-            fecha_envio=fecha_envio,
-        )
+        solicitud.fecha_envio = fecha_envio
+        db.flush()
 
         registrar_accion_simple(
             db,
@@ -1116,6 +830,63 @@ def enviar_solicitud(
         return _obtener_respuesta_completa(
             db,
             solicitud.id_solicitud,
+        )
+
+    except Exception:
+        db.rollback()
+        raise
+
+
+
+def registrar_solicitud_directa(
+    db: Session,
+    *,
+    id_solicitante: int,
+    datos: SolicitudRegistrarRequest,
+    direccion_ip: str | None = None,
+    user_agent: str | None = None,
+) -> SolicitudResponse:
+    """
+    Crea y envía una solicitud en una única transacción.
+
+    Nunca inserta una solicitud en estado borrador.
+    """
+    try:
+        _obtener_tramite_habilitado(db, datos.id_tramite)
+
+        valores = _normalizar_datos_formulario(
+            db,
+            id_tramite=datos.id_tramite,
+            datos=datos.datos,
+        )
+
+        solicitud = Solicitud(
+            id_solicitante=id_solicitante,
+            id_tramite=datos.id_tramite,
+            estado="pendiente_recepcion",
+            fecha_envio=sql_text("CURRENT_TIMESTAMP"),
+            nombre_contacto=datos.nombre_contacto,
+            telefono_contacto=datos.telefono_contacto,
+            correo_contacto=str(datos.correo_contacto),
+        )
+
+        db.add(solicitud)
+        db.flush()
+
+        for id_campo, valor in valores.items():
+            solicitud_repository.guardar_dato_solicitud(
+                db,
+                id_solicitud=solicitud.id_solicitud,
+                id_campo=id_campo,
+                valor=valor,
+            )
+
+        return _completar_registro_directo(
+            db,
+            solicitud=solicitud,
+            id_solicitante=id_solicitante,
+            direccion_ip=direccion_ip,
+            user_agent=user_agent,
         )
 
     except Exception:

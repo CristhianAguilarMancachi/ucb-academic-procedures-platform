@@ -86,6 +86,7 @@ interface SolicitudConContacto
 }
 
 
+
 @Component({
   selector:
     'app-preparar-solicitud',
@@ -565,62 +566,25 @@ export class NuevaSolicitudComponent
       true,
     );
 
-    this.api
-      .detalle(
-        id,
-      )
-      .pipe(
-        switchMap(
-          (solicitud) => {
-            this.solicitud.set(
-              solicitud,
-            );
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      this.error.set('El trámite seleccionado no es válido.');
+      this.ocupado.set(false);
+      return;
+    }
 
-            if (
-              solicitud.estado !==
-              'borrador'
-            ) {
-              this.router.navigate([
-                '/solicitudes',
-                id,
-              ]);
-            }
+    this.inicializarContacto({} as Solicitud);
 
-            solicitud.datos.forEach(
-              (dato) => {
-                this.valores[
-                  dato.id_campo
-                ] =
-                  dato.valor;
-              },
-            );
-
-            this.inicializarContacto(
-              solicitud,
-            );
-
-            return this.api.tramite(
-              solicitud.id_tramite,
-            );
-          },
-        ),
-      )
-      .subscribe({
-        next: (tramite) => {
-          this.tramite.set(
-            tramite,
-          );
-
-          this.ocupado.set(
-            false,
-          );
-        },
-
-        error: (e) =>
-          this.fallar(
-            e,
-          ),
-      });
+    this.api.tramite(id).subscribe({
+      next: tramite => {
+        if (!tramite.permite_solicitudes) {
+          this.error.set('Este trámite no permite solicitudes.');
+        } else {
+          this.tramite.set(tramite);
+        }
+        this.ocupado.set(false);
+      },
+      error: e => this.fallar(e),
+    });
 
     this.api
       .get<Record<string, string>>(
@@ -1232,12 +1196,9 @@ export class NuevaSolicitudComponent
       return;
     }
 
-    const solicitud =
-      this.solicitud();
+    const tramite = this.tramite();
 
-    if (
-      !solicitud
-    ) {
+    if (!tramite) {
       return;
     }
 
@@ -1324,56 +1285,9 @@ export class NuevaSolicitudComponent
               );
             }
 
-            return this.api.guardar(
-              solicitud.id_solicitud,
-
-              this.construirDatosSolicitud(),
-
-              {
-                nombre_contacto:
-                  this.contacto
-                    .nombre_contacto
-                    .trim(),
-
-                telefono_contacto:
-                  this.contacto
-                    .telefono_contacto
-                    .trim(),
-
-                correo_contacto:
-                  this.contacto
-                    .correo_contacto
-                    .trim(),
-              },
-            );
-          },
-        ),
-
-        switchMap(
-          (actualizada) => {
-            this.solicitud.set(
-              actualizada,
-            );
-
-            this.contactoGuardado = {
-              nombre_contacto:
-                this.contacto
-                  .nombre_contacto
-                  .trim(),
-
-              telefono_contacto:
-                this.contacto
-                  .telefono_contacto
-                  .trim(),
-
-              correo_contacto:
-                this.contacto
-                  .correo_contacto
-                  .trim(),
-            };
-
-            return this.api.preparacion(
-              solicitud.id_solicitud,
+            return this.api.post<Tramite>(
+              `tramites/${tramite.id_tramite}/preparacion`,
+              { datos: this.construirDatosSolicitud() },
             );
           },
         ),
@@ -1385,7 +1299,7 @@ export class NuevaSolicitudComponent
           );
 
           this.mensaje.set(
-            'Datos registrados. Revisa los requisitos antes de enviar la solicitud.',
+            'Requisitos consultados. Revisa la información antes de enviar la solicitud.',
           );
 
           this.ocupado.set(
@@ -1460,46 +1374,29 @@ export class NuevaSolicitudComponent
 
 
   enviar() {
-    const solicitud =
-      this.solicitud();
+    const tramite = this.tramite();
 
-    if (
-      !solicitud ||
-      !this.puedeEnviar()
-    ) {
+    if (!tramite || !this.puedeEnviar()) {
       return;
     }
 
-    this.ocupado.set(
-      true,
-    );
+    this.ocupado.set(true);
+    this.error.set('');
 
-    this.error.set(
-      '',
-    );
-
-    this.api
-      .enviar(
-        solicitud.id_solicitud,
-      )
-      .subscribe({
-        next: (enviada) => {
-          this.enviada.set(
-            enviada,
-          );
-
-          this.ocupado.set(
-            false,
-          );
-        },
-
-        error: (e) =>
-          this.fallar(
-            e,
-          ),
-      });
+    this.api.post<Solicitud>('solicitudes/registrar', {
+      id_tramite: tramite.id_tramite,
+      datos: this.construirDatosSolicitud(),
+      nombre_contacto: this.contacto.nombre_contacto.trim(),
+      telefono_contacto: this.contacto.telefono_contacto.trim(),
+      correo_contacto: this.contacto.correo_contacto.trim(),
+    }).subscribe({
+      next: enviada => {
+        this.enviada.set(enviada);
+        this.ocupado.set(false);
+      },
+      error: e => this.fallar(e),
+    });
   }
-
 
   // =========================================================
   // PRESENTACIÓN

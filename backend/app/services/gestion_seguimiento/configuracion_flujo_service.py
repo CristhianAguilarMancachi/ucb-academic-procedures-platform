@@ -52,7 +52,21 @@ def igualdad_simple(actual, esperado):
     return actual == esperado
 
 
-def requisitos_aplicables(db, solicitud, requisitos, campos, datos):
+def requisitos_aplicables_sin_solicitud(
+    db,
+    *,
+    id_solicitante,
+    requisitos,
+    campos,
+    datos,
+):
+    """
+    Evalúa requisitos con los valores recibidos del formulario.
+
+    No crea ni modifica solicitudes en PostgreSQL.
+    Conserva las condiciones basadas en datos dinámicos
+    y en el perfil académico del solicitante.
+    """
     valores = {
         campo.clave: dato.valor
         for campo in campos
@@ -61,12 +75,17 @@ def requisitos_aplicables(db, solicitud, requisitos, campos, datos):
     }
 
     perfil = seguimiento_repository.obtener_perfil(
-        db, solicitud.id_solicitante
+        db,
+        id_solicitante,
     )
+
     aplicables = []
 
     for requisito in requisitos:
-        regla = validar_condicion(requisito.condicion, campos)
+        regla = validar_condicion(
+            requisito.condicion,
+            campos,
+        )
 
         if regla is None:
             aplicables.append(requisito)
@@ -76,19 +95,49 @@ def requisitos_aplicables(db, solicitud, requisitos, campos, datos):
             valor = valores.get(regla.clave)
             fuente = regla.clave
         else:
-            valor = getattr(perfil, regla.campo, None)
+            valor = getattr(
+                perfil,
+                regla.campo,
+                None,
+            )
             fuente = regla.campo
 
         if valor is None:
             raise SeguimientoError(
-                f"Completa {fuente} para determinar los requisitos aplicables.",
+                f"Completa {fuente} para determinar "
+                "los requisitos aplicables.",
                 400,
             )
 
-        if igualdad_simple(valor, regla.valor):
+        if igualdad_simple(
+            valor,
+            regla.valor,
+        ):
             aplicables.append(requisito)
 
     return aplicables
+
+
+def requisitos_aplicables(
+    db,
+    solicitud,
+    requisitos,
+    campos,
+    datos,
+):
+    """
+    Interfaz de compatibilidad para solicitudes existentes.
+
+    La nueva evaluación ya no necesita que exista
+    una solicitud registrada en la base de datos.
+    """
+    return requisitos_aplicables_sin_solicitud(
+        db,
+        id_solicitante=solicitud.id_solicitante,
+        requisitos=requisitos,
+        campos=campos,
+        datos=datos,
+    )
 
 
 def validar_flujo_envio(db, tramite) -> None:

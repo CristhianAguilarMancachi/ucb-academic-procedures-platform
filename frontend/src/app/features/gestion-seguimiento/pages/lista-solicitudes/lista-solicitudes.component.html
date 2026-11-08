@@ -649,22 +649,11 @@
                 </td>
 
                 <td>
-                  <a
-                    class="follow-button"
-                    [routerLink]="[
-                      '/solicitudes',
-                      s.id_solicitud
-                    ]"
-                  >
-                    <span>
-                      Ver seguimiento
-                    </span>
-
-                    <ng-icon
-                      name="heroChevronRight"
-                      aria-hidden="true"
-                    />
-                  </a>
+                  <a class="follow-button"
+                       [routerLink]="['/solicitudes', s.id_solicitud]">
+                      <span>Ver seguimiento</span>
+                      <ng-icon name="heroChevronRight" aria-hidden="true" />
+                    </a>
                 </td>
               </tr>
             } @empty {

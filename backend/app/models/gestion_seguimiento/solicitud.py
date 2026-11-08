@@ -113,7 +113,6 @@ class Solicitud(Base):
     estado: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
-        server_default=text("'borrador'"),
     )
 
     # =========================================================
@@ -172,74 +171,8 @@ class Solicitud(Base):
     __table_args__ = (
         CheckConstraint(
             """
-            tipo_finalizacion IN (
-                'entrega',
-                'resultado_registrado',
-                'externo'
-            )
-            """,
-            name="ck_solicitud_tipo_finalizacion",
-        ),
-        CheckConstraint(
-            """
-            tipo_intervencion IN (
-                'ninguna',
-                'firma',
-                'conformidad'
-            )
-            """,
-            name="ck_solicitud_tipo_intervencion",
-        ),
-        CheckConstraint(
-            """
-            nombre_contacto IS NULL
-            OR LENGTH(TRIM(nombre_contacto)) >= 2
-            """,
-            name="ck_solicitud_nombre_contacto",
-        ),
-        CheckConstraint(
-            """
-            telefono_contacto IS NULL
-            OR LENGTH(TRIM(telefono_contacto)) >= 7
-            """,
-            name="ck_solicitud_telefono_contacto",
-        ),
-        CheckConstraint(
-            """
-            correo_contacto IS NULL
-            OR LENGTH(TRIM(correo_contacto)) >= 5
-            """,
-            name="ck_solicitud_correo_contacto",
-        ),
-        CheckConstraint(
-            """
-            estado IN (
-                'borrador',
-                'pendiente_recepcion',
-                'en_revision',
-                'en_proceso',
-                'lista_para_entrega',
-                'finalizada',
-                'cancelada',
-                'rechazada'
-            )
-            """,
-            name="ck_solicitud_estado",
-        ),
-        CheckConstraint(
-            """
-            (
-                estado = 'borrador'
-                AND fecha_envio IS NULL
-            )
-            OR estado = 'cancelada'
-            OR (
-                estado NOT IN (
-                    'borrador',
-                    'cancelada'
-                )
-                AND fecha_envio IS NOT NULL
-            )
+            estado = 'cancelada'
+            OR fecha_envio IS NOT NULL
             """,
             name="ck_solicitud_fecha_envio",
         ),
@@ -286,15 +219,8 @@ class Solicitud(Base):
     # =========================================================
 
     @property
-    def es_borrador(self) -> bool:
-        return self.estado == "borrador"
-
-    @property
     def esta_enviada(self) -> bool:
-        return (
-            self.estado != "borrador"
-            and self.fecha_envio is not None
-        )
+        return self.fecha_envio is not None
 
     @property
     def requiere_intervencion(self) -> bool:

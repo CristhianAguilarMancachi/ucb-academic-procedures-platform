@@ -50,6 +50,8 @@ import {
 } from '../../models/gestion-seguimiento.models';
 
 
+
+
 @Component({
   selector:
     'app-solicitudes-lista',
@@ -120,6 +122,7 @@ export class ListaSolicitudesComponent
       === true;
 
 
+
   readonly items =
     signal<
       SolicitudResumen[]
@@ -167,12 +170,7 @@ export class ListaSolicitudesComponent
    * Borrador tampoco corresponde
    * a la bandeja administrativa.
    */
-  readonly estados =
-    ESTADOS_FILTRO.filter(
-      (estado) =>
-        !this.vistaAdministrativa ||
-        estado !== 'borrador',
-    );
+  readonly estados = ESTADOS_FILTRO;
 
 
   readonly pageSize =
@@ -476,10 +474,6 @@ export class ListaSolicitudesComponent
     switch (
       solicitud.estado
     ) {
-      case 'borrador':
-        return (
-          'Preparación'
-        );
 
       case 'pendiente_recepcion':
         return (
@@ -534,10 +528,6 @@ export class ListaSolicitudesComponent
     switch (
       solicitud.estado
     ) {
-      case 'borrador':
-        return (
-          'Completar solicitud'
-        );
 
       case 'pendiente_recepcion':
         return (
