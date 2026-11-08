@@ -54,9 +54,15 @@ class SolicitudAdministrativaResumenResponse(BaseModel):
 
     id_tramite: int
     nombre_tramite: str
+    tipo_certificado: str | None = None
 
     estado: str
     tipo_intervencion: TipoIntervencion = "ninguna"
+    estado_pago: Literal[
+        "verificado",
+        "pendiente",
+        "no_aplica",
+    ]
 
     fecha_creacion: datetime
     fecha_envio: datetime | None

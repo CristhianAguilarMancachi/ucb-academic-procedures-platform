@@ -144,6 +144,7 @@
       [class.admin-filters-bar--disabled]="ocupado()"
     >
       <div class="admin-search-control">
+        <span class="admin-filter-label">Buscar solicitud</span>
         <ng-icon
           name="heroMagnifyingGlass"
           class="admin-control-icon"
@@ -163,6 +164,8 @@
       </div>
 
       <div class="admin-select-control">
+        <span class="admin-filter-label">Estado</span>
+        <span class="admin-filter-label">Trámite</span>
         <select
           [(ngModel)]="filtros.id_tramite"
           (ngModelChange)="buscar()"
@@ -221,6 +224,58 @@
           aria-hidden="true"
         />
       </div>
+      <div class="admin-select-control admin-select-control--payment">
+        <span class="admin-filter-label">Verificación de pago</span>
+        <select
+          [(ngModel)]="estadoPago"
+          (ngModelChange)="buscar()"
+          [disabled]="ocupado()"
+          aria-label="Filtrar por verificación de pago"
+        >
+          <option value="">Todos los pagos</option>
+          <option value="verificado">Pago verificado</option>
+          <option value="pendiente">Por verificar</option>
+          <option value="no_aplica">No requiere pago</option>
+        </select>
+        <ng-icon name="heroChevronDown"
+          class="admin-select-chevron" aria-hidden="true" />
+      </div>
+
+      <div class="admin-select-control admin-select-control--period">
+        <span class="admin-filter-label">Fecha de ingreso</span>
+        <select
+          [(ngModel)]="periodoIngreso"
+          (ngModelChange)="cambiarPeriodoIngreso()"
+          [disabled]="ocupado()"
+          aria-label="Filtrar por fecha de ingreso"
+        >
+          <option value="todas">Todas las fechas</option>
+          <option value="hoy">Ingresadas hoy</option>
+          <option value="ayer">Ingresadas ayer</option>
+          <option value="rango">Rango de fechas</option>
+        </select>
+        <ng-icon name="heroChevronDown"
+          class="admin-select-chevron" aria-hidden="true" />
+      </div>
+
+      @if (periodoIngreso === 'rango') {
+        <div class="admin-date-range">
+          <label>
+            <span>Desde</span>
+            <input type="date"
+              [(ngModel)]="fechaDesde"
+              (ngModelChange)="buscar()"
+              [disabled]="ocupado()" />
+          </label>
+          <label>
+            <span>Hasta</span>
+            <input type="date"
+              [(ngModel)]="fechaHasta"
+              (ngModelChange)="buscar()"
+              [disabled]="ocupado()" />
+          </label>
+        </div>
+      }
     </div>
 
     <div class="admin-table-card">
@@ -251,6 +306,10 @@
 
               <th class="admin-col-state">
                 Estado
+              </th>
+
+              <th class="admin-col-payment">
+                Pago
               </th>
 
               <th class="admin-col-update">
@@ -300,6 +359,12 @@
                   <span class="admin-procedure-name">
                     {{ nombreTramite(s) }}
                   </span>
+
+                  @if (s.tipo_certificado) {
+                    <small class="admin-certificate-type">
+                      {{ s.tipo_certificado }}
+                    </small>
+                  }
                 </td>
 
                 <td>
@@ -308,6 +373,15 @@
                     [attr.data-state]="estadoAdministrativo(s)"
                   >
                     {{ etiquetaAdministrativa(s) }}
+                  </span>
+                </td>
+
+                <td>
+                  <span
+                    class="admin-payment-status"
+                    [attr.data-payment]="s.estado_pago || 'desconocido'"
+                  >
+                    {{ etiquetaPago(s.estado_pago) }}
                   </span>
                 </td>
 
@@ -355,7 +429,7 @@
             } @empty {
               <tr>
                 <td
-                  colspan="6"
+                  colspan="7"
                   class="admin-table-empty"
                 >
                   @if (ocupado()) {

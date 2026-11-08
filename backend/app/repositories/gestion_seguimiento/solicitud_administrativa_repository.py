@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import String, and_, case, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.gestion_seguimiento.perfil_academico import (
@@ -31,6 +31,9 @@ def listar_solicitudes_administrativas(
     *,
     estado: str | None = None,
     id_tramite: int | None = None,
+    estado_pago: str | None = None,
+    vista: str = "todas",
+    orden: str = "prioridad",
     id_solicitud: int | None = None,
     fecha_desde: date | None = None,
     fecha_hasta: date | None = None,
@@ -67,6 +70,47 @@ def listar_solicitudes_administrativas(
     filtros = [
         Solicitud.fecha_envio.is_not(None),
     ]
+
+    estados_activos = (
+        "pendiente_recepcion",
+        "en_revision",
+        "en_proceso",
+    )
+
+    estados_finalizados = (
+        "lista_para_entrega",
+        "finalizada",
+        "rechazada",
+        "cancelada",
+    )
+
+    if vista == "por_atender":
+        filtros.append(Solicitud.estado.in_(estados_activos))
+    elif vista == "finalizadas":
+        filtros.append(Solicitud.estado.in_(estados_finalizados))
+
+    requisito_economico = (
+        SolicitudRequisito.concepto_economico.is_not(None)
+    )
+
+    requisito_sin_verificar = and_(
+        SolicitudRequisito.concepto_economico.is_not(None),
+        SolicitudRequisito.estado_verificacion != "cumple",
+    )
+
+    if estado_pago == "no_aplica":
+        filtros.append(
+            ~Solicitud.requisitos.any(requisito_economico)
+        )
+    elif estado_pago == "verificado":
+        filtros.extend([
+            Solicitud.requisitos.any(requisito_economico),
+            ~Solicitud.requisitos.any(requisito_sin_verificar),
+        ])
+    elif estado_pago == "pendiente":
+        filtros.append(
+            Solicitud.requisitos.any(requisito_sin_verificar)
+        )
 
     if id_solicitante is not None:
         filtros.append(
@@ -223,6 +267,43 @@ def listar_solicitudes_administrativas(
         or 0
     )
 
+    prioridad = case(
+        (Solicitud.estado == "pendiente_recepcion", 0),
+        (Solicitud.estado == "en_revision", 1),
+        (Solicitud.estado == "en_proceso", 2),
+        (Solicitud.estado == "lista_para_entrega", 3),
+        (Solicitud.estado == "finalizada", 4),
+        (Solicitud.estado == "rechazada", 5),
+        (Solicitud.estado == "cancelada", 6),
+        else_=7,
+    )
+
+    if orden == "recientes":
+        criterio_orden = (
+            Solicitud.fecha_envio.desc(),
+            Solicitud.id_solicitud.desc(),
+        )
+    elif orden == "antiguos":
+        criterio_orden = (
+            Solicitud.fecha_envio.asc(),
+            Solicitud.id_solicitud.asc(),
+        )
+    else:
+        fecha_activa = case(
+            (Solicitud.estado.in_(estados_activos), Solicitud.fecha_envio),
+            else_=None,
+        )
+        fecha_cerrada = case(
+            (Solicitud.estado.in_(estados_activos), None),
+            else_=Solicitud.fecha_envio,
+        )
+        criterio_orden = (
+            prioridad.asc(),
+            fecha_activa.asc().nulls_last(),
+            fecha_cerrada.desc().nulls_last(),
+            Solicitud.id_solicitud.asc(),
+        )
+
     consulta = (
         consulta_base
         .options(
@@ -232,11 +313,14 @@ def listar_solicitudes_administrativas(
             selectinload(
                 Solicitud.solicitante
             ),
+            selectinload(
+                Solicitud.requisitos
+            ),
+            selectinload(
+                Solicitud.datos
+            ),
         )
-        .order_by(
-            Solicitud.fecha_envio.asc(),
-            Solicitud.id_solicitud.asc(),
-        )
+        .order_by(*criterio_orden)
         .offset(
             (pagina - 1)
             * limite

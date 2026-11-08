@@ -337,18 +337,7 @@
   display: grid;
 
   grid-template-columns:
-    minmax(
-      360px,
-      1.55fr
-    )
-    minmax(
-      220px,
-      0.78fr
-    )
-    minmax(
-      220px,
-      0.78fr
-    );
+    repeat(4, minmax(0, 1fr));
 
   align-items: center;
 
@@ -531,6 +520,82 @@
 }
 
 
+.admin-search-control {
+  grid-column: span 2;
+}
+
+.admin-select-control--payment {
+  grid-column: 1 / 3;
+}
+
+.admin-select-control--period {
+  grid-column: 3 / 5;
+}
+
+.admin-date-range {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.admin-date-range label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  color: var(--ucb-text-soft);
+  font-size: 0.76rem;
+}
+
+.admin-date-range input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--ucb-border-strong);
+  border-radius: 6px;
+  background: var(--ucb-bg-deep);
+  color: var(--ucb-text);
+  color-scheme: dark;
+  font: inherit;
+}
+
+.admin-date-range input:focus {
+  outline: 2px solid rgba(0, 166, 200, 0.55);
+  outline-offset: 1px;
+}
+
+.admin-payment-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--ucb-border);
+  border-radius: 5px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-payment-status[data-payment='verificado'] {
+  color: #57dba5;
+  border-color: rgba(87, 219, 165, 0.35);
+}
+
+.admin-payment-status[data-payment='pendiente'] {
+  color: #ffd17a;
+  border-color: rgba(255, 209, 122, 0.35);
+}
+
+.admin-payment-status[data-payment='no_aplica'],
+.admin-payment-status[data-payment='desconocido'] {
+  color: var(--ucb-text-muted);
+}
+
 /* =========================================================
    ADMIN - TABLA
    ========================================================= */
@@ -621,7 +686,7 @@
     100%;
 
   min-width:
-    980px;
+    1100px;
 
   border-collapse:
     collapse;
@@ -728,37 +793,41 @@
 
 .admin-col-request {
   width:
-    11%;
+    10%;
 }
 
 
 .admin-col-student {
   width:
-    20%;
+    18%;
 }
 
 
 .admin-col-procedure {
   width:
-    27%;
+    23%;
 }
 
 
 .admin-col-state {
   width:
-    13%;
+    12%;
 }
 
 
+.admin-col-payment {
+  width: 12%;
+}
+
 .admin-col-update {
   width:
-    15%;
+    14%;
 }
 
 
 .admin-col-action {
   width:
-    14%;
+    11%;
 }
 
 
@@ -2511,3 +2580,201 @@
       1;
   }
 }
+
+
+@media (max-width: 1180px) {
+  .admin-search-control {
+    grid-column: 1 / -1;
+  }
+
+  .admin-select-control--payment,
+  .admin-select-control--period {
+    grid-column: auto;
+  }
+
+  .admin-date-range {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-search-control,
+  .admin-select-control--payment,
+  .admin-select-control--period {
+    grid-column: auto;
+  }
+
+  .admin-date-range {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-date-range label {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+  }
+}
+
+
+
+/* =========================================================
+   FILTROS ADMINISTRATIVOS - MEJORA VISUAL
+   ========================================================= */
+
+.admin-filters-bar {
+  gap: 0.7rem 0.8rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 11px;
+}
+
+.admin-filters-bar .admin-search-control,
+.admin-filters-bar .admin-select-control {
+  position: relative;
+  height: 59px;
+  min-width: 0;
+}
+
+.admin-filter-label {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  display: block;
+  color: var(--ucb-text-soft);
+  font-size: 0.71rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.admin-filters-bar .admin-search-control input,
+.admin-filters-bar .admin-select-control select {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 39px;
+  border-radius: 8px !important;
+  background: var(--ucb-bg-deep) !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.admin-filters-bar .admin-search-control input:hover,
+.admin-filters-bar .admin-select-control select:hover {
+  border-color: rgba(0, 166, 200, 0.5) !important;
+}
+
+.admin-filters-bar .admin-search-control input:focus-visible,
+.admin-filters-bar .admin-select-control select:focus-visible {
+  border-color: #00a6c8 !important;
+  box-shadow: 0 0 0 3px rgba(0, 166, 200, 0.13) !important;
+}
+
+.admin-filters-bar .admin-control-icon,
+.admin-filters-bar .admin-select-chevron {
+  top: auto;
+  bottom: 19.5px;
+  transform: translateY(50%);
+}
+
+.admin-filters-bar .admin-select-control--payment select,
+.admin-filters-bar .admin-select-control--period select {
+  font-weight: 550;
+}
+
+.admin-date-range {
+  padding: 0.2rem 0 0;
+}
+
+.admin-date-range input {
+  border-radius: 8px;
+}
+
+.admin-date-range input:focus-visible {
+  outline: 2px solid rgba(0, 166, 200, 0.65);
+  outline-offset: 1px;
+}
+
+.admin-procedure-name + .admin-certificate-type {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--ucb-text-muted);
+  font-size: 0.7rem;
+  line-height: 1.3;
+}
+
+@media (max-width: 720px) {
+  .admin-filters-bar {
+    gap: 0.75rem;
+  }
+}
+
+/* === AJUSTES FINALES FILTROS Y ESTADO === */
+
+/* 1) FECHAS DEL RANGO: texto más legible, blanco y menos “azul navegador” */
+.admin-date-range input {
+  color: var(--ucb-text) !important;
+  -webkit-text-fill-color: var(--ucb-text) !important;
+  font-size: 0.92rem !important;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding-inline: 0.95rem;
+  color-scheme: dark;
+}
+
+.admin-date-range input::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.82);
+  cursor: pointer;
+}
+
+.admin-date-range input::-webkit-datetime-edit,
+.admin-date-range input::-webkit-datetime-edit-year-field,
+.admin-date-range input::-webkit-datetime-edit-month-field,
+.admin-date-range input::-webkit-datetime-edit-day-field {
+  color: var(--ucb-text) !important;
+  -webkit-text-fill-color: var(--ucb-text) !important;
+  font-size: 0.92rem !important;
+  font-weight: 600;
+}
+
+.admin-date-range input::-webkit-datetime-edit-text {
+  color: var(--ucb-text-muted) !important;
+  -webkit-text-fill-color: var(--ucb-text-muted) !important;
+  padding: 0 0.08rem;
+}
+
+.admin-date-range label > span {
+  font-size: 0.76rem;
+  font-weight: 650;
+  color: var(--ucb-text-soft);
+}
+
+/* 2) COLUMNA ESTADO: más aire para “Pendiente de recepción” */
+.admin-table-card th:nth-child(4),
+.admin-table-card td:nth-child(4) {
+  min-width: 218px;
+  width: 218px;
+}
+
+.admin-table-card td:nth-child(4) {
+  overflow: visible;
+}
+
+/* Asegurar que el badge de estado no se parta ni empuje raro */
+.admin-table-card td:nth-child(4) [class*='badge'],
+.admin-table-card td:nth-child(4) [class*='status'],
+.admin-table-card td:nth-child(4) [class*='estado'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  min-width: 176px;
+  max-width: 100%;
+  padding-inline: 0.9rem;
+  text-align: center;
+}
+
+/* 3) Mantener visual limpio en pago también */
+.admin-table-card td:nth-child(5) [class*='badge'],
+.admin-table-card td:nth-child(5) [class*='status'],
+.admin-table-card td:nth-child(5) [class*='estado'] {
+  white-space: nowrap;
+}
+
+/* === FIN AJUSTES FINALES FILTROS Y ESTADO === */

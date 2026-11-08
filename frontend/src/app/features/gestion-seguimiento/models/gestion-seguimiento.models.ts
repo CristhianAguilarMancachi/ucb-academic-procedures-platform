@@ -30,7 +30,7 @@ export interface Condicion {
 
   clave?: string;
   campo?: string;
-  operador: 'igual';
+  operador: 'igual' | 'distinto';
   valor: ValorDato;
 }
 
@@ -193,7 +193,13 @@ export interface Pago {
   fecha_verificacion: string;
 }
 
+export type EstadoPagoSolicitud =
+  | 'verificado'
+  | 'pendiente'
+  | 'no_aplica';
+
 export interface SolicitudResumen {
+  estado_pago?: EstadoPagoSolicitud;
   fecha_actualizacion?: string;
   id_solicitud: number;
   id_tramite: number;
@@ -202,6 +208,7 @@ export interface SolicitudResumen {
   fecha_envio: string | null;
   nombre_tramite_snapshot?: string | null;
   nombre_tramite?: string;
+  tipo_certificado?: string | null;
   tramite?: {
     nombre: string;
   };

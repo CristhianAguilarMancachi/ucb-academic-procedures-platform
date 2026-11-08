@@ -319,6 +319,9 @@ def listar_bandeja_administrativa(
     *,
     estado: str | None = None,
     id_tramite: int | None = None,
+    estado_pago: str | None = None,
+    vista: str = "todas",
+    orden: str = "prioridad",
     id_solicitud: int | None = None,
     fecha_desde: date | None = None,
     fecha_hasta: date | None = None,
@@ -332,6 +335,9 @@ def listar_bandeja_administrativa(
             db,
             estado=estado,
             id_tramite=id_tramite,
+            estado_pago=estado_pago,
+            vista=vista,
+            orden=orden,
             id_solicitud=id_solicitud,
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
@@ -345,6 +351,39 @@ def listar_bandeja_administrativa(
     items = []
 
     for solicitud in solicitudes:
+        requisitos_economicos = [
+            requisito
+            for requisito in solicitud.requisitos
+            if requisito.es_economico
+        ]
+
+        if not requisitos_economicos:
+            situacion_pago = "no_aplica"
+        elif all(
+            requisito.estado_verificacion == "cumple"
+            for requisito in requisitos_economicos
+        ):
+            situacion_pago = "verificado"
+        else:
+            situacion_pago = "pendiente"
+
+        nombre_tramite = (
+            solicitud.nombre_tramite_snapshot
+            or solicitud.tramite.nombre
+        )
+
+        tipo_certificado = None
+
+        if nombre_tramite.strip().casefold() == "certificados académicos":
+            for dato in solicitud.datos:
+                if (dato.clave_snapshot or "").strip().casefold() != "tipo_certificado":
+                    continue
+
+                if isinstance(dato.valor, str):
+                    tipo_certificado = dato.valor.strip() or None
+
+                break
+
         documento_identidad = _obtener_documento_identidad(
             db,
             id_usuario=solicitud.id_solicitante,
@@ -363,13 +402,12 @@ def listar_bandeja_administrativa(
 
                 id_tramite=solicitud.id_tramite,
 
-                nombre_tramite=(
-                    solicitud.nombre_tramite_snapshot
-                    or solicitud.tramite.nombre
-                ),
+                nombre_tramite=nombre_tramite,
+                tipo_certificado=tipo_certificado,
 
                 estado=solicitud.estado,
                 tipo_intervencion=solicitud.tipo_intervencion,
+                estado_pago=situacion_pago,
 
                 fecha_creacion=solicitud.fecha_creacion,
                 fecha_envio=solicitud.fecha_envio,

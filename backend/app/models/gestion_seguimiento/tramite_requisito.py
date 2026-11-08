@@ -126,7 +126,7 @@ class TramiteRequisito(Base):
     # =====================================================
 
     __table_args__ = (
-        CheckConstraint("condicion IS NULL OR (jsonb_typeof(condicion) = 'object' AND condicion->>'operador' = 'igual' AND condicion->>'origen' IN ('solicitud_dato', 'perfil_academico'))", name="ck_tramite_requisito_condicion"),
+        CheckConstraint("condicion IS NULL OR (jsonb_typeof(condicion) = 'object' AND condicion->>'operador' IN ('igual', 'distinto') AND condicion->>'origen' IN ('solicitud_dato', 'perfil_academico'))", name="ck_tramite_requisito_condicion"),
 
         UniqueConstraint(
             "id_tramite",

@@ -42,7 +42,7 @@ class CondicionDato(BaseModel):
 
     origen: Literal["solicitud_dato"]
     clave: str = Field(min_length=1, max_length=100)
-    operador: Literal["igual"]
+    operador: Literal["igual", "distinto"]
 
     valor: (
         StrictStr
@@ -68,7 +68,7 @@ class CondicionPerfil(BaseModel):
         "documento_identidad",
     ]
 
-    operador: Literal["igual"]
+    operador: Literal["igual", "distinto"]
 
     valor: str = Field(
         min_length=1,

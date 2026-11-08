@@ -109,9 +109,14 @@ def requisitos_aplicables_sin_solicitud(
                 400,
             )
 
-        if igualdad_simple(
+        coincide = igualdad_simple(
             valor,
             regla.valor,
+        )
+
+        if (
+            (regla.operador == "igual" and coincide)
+            or (regla.operador == "distinto" and not coincide)
         ):
             aplicables.append(requisito)
 

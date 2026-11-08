@@ -121,14 +121,53 @@ export class TramitesDisponiblesComponent implements OnInit {
   }
 
   costosInformativos(t: Tramite) {
-    return t.requisitos.filter(
-      (requisito) =>
-        !!requisito.informacion_economica,
+    const requisitos = t.id_tramite === 8
+      ? this.requisitosPorTipo(t, false)
+      : t.requisitos;
+
+    return requisitos.filter(
+      requisito => !!requisito.informacion_economica,
     );
   }
 
   condicion(c: Condicion) {
     return `${c.clave || c.campo} = ${c.valor}`;
+  }
+
+  requisitosPorTipo(t: Tramite, conclusion: boolean) {
+    if (t.id_tramite !== 8) {
+      return t.requisitos;
+    }
+
+    const nombreConclusion =
+      'Certificado de Conclusión de Estudios';
+
+    return t.requisitos.filter(requisito => {
+      const regla = requisito.condicion;
+
+      if (!regla) {
+        return true;
+      }
+
+      if (
+        regla.origen !== 'solicitud_dato' ||
+        regla.clave !== 'tipo_certificado'
+      ) {
+        return false;
+      }
+
+      const coincide = regla.valor === nombreConclusion;
+
+      if (regla.operador === 'igual') {
+        return coincide === conclusion;
+      }
+
+      if (regla.operador === 'distinto') {
+        return coincide !== conclusion;
+      }
+
+      return false;
+    });
   }
 
   crear(t: Tramite) {

@@ -1347,3 +1347,225 @@
     justify-content: stretch;
   }
 }
+
+/* =========================================================
+   CORRECCIONES DEL CATÁLOGO - NOVIEMBRE 2026
+   Conserva la lista grande y la distribución original.
+   ========================================================= */
+
+/* No aumentar las filas del catálogo. Mejorar su selección. */
+.catalog-option {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.catalog-option:hover:not(:disabled):not(.is-selected) {
+  background: rgba(169, 193, 219, 0.075) !important;
+  border-color: rgba(169, 193, 219, 0.13) !important;
+}
+
+.catalog-option.is-selected {
+  border-color: rgba(255, 208, 21, 0.4) !important;
+  background: linear-gradient(
+    90deg,
+    rgba(28, 60, 92, 0.98),
+    rgba(15, 43, 75, 0.93)
+  ) !important;
+  box-shadow: inset 3px 0 0 #ffd21d !important;
+}
+
+/* Las duraciones extensas deben ocupar su altura real.
+   Los documentos usan el espacio restante. */
+.information-column {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.stats-card {
+  min-height: 112px;
+  max-height: min(40vh, 290px);
+  align-items: start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+
+.stat-block,
+.stat-block > div {
+  min-width: 0;
+}
+
+.stat-value {
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+}
+
+.requirements-card {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.requirements-list {
+  min-height: 0;
+  height: auto;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Dos configuraciones informativas de certificados */
+.certificate-requirements-summary {
+  height: calc(100% - 34px);
+  min-height: 0;
+  margin-top: 0.7rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.certificate-group + .certificate-group {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.certificate-group__title {
+  display: block;
+  color: #ffd21d;
+  font-size: 0.79rem;
+  line-height: 1.35;
+  font-weight: 650;
+}
+
+.certificate-group .requirements-list {
+  height: auto;
+  margin-top: 0.4rem;
+  overflow: visible;
+}
+
+.certificate-group .requirements-list li {
+  margin-bottom: 0.38rem;
+}
+
+/* Modal lateral: conservar su ubicación y permitir
+   contenido extenso sin comprimir la tipografía. */
+.tramite-detail-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+
+.detail-overview,
+.detail-section,
+.detail-two-columns,
+.detail-observations {
+  flex-shrink: 0;
+}
+
+.detail-heading h3 {
+  font-size: 0.88rem;
+}
+
+.detail-description p {
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.detail-requirements-list li {
+  font-size: 0.83rem;
+  line-height: 1.5;
+  margin: 0.36rem 0;
+}
+
+.detail-steps li {
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.detail-small-card {
+  height: auto;
+  overflow: visible;
+}
+
+.detail-small-card p,
+.detail-observations p {
+  font-size: 0.82rem;
+  line-height: 1.48;
+}
+
+.detail-certificate-groups {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+
+.detail-certificate-group {
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 7px;
+  background: rgba(9, 34, 59, 0.55);
+}
+
+.detail-certificate-group h4 {
+  margin: 0;
+  color: #ffd21d;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.detail-certificate-group .detail-requirements-list {
+  margin-top: 0.4rem;
+}
+
+.detail-certificate-group .detail-requirements-list li strong {
+  font-weight: 600;
+}
+
+.detail-certificate-group .detail-requirements-list li p {
+  margin: 0.2rem 0 0.45rem;
+  color: #aebfd0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.detail-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+.detail-understood {
+  height: 38px;
+  font-size: 0.78rem !important;
+}
+
+/* Los diseños de poca altura no deben reducir
+   nuevamente el texto de lectura. */
+@media (max-height: 820px) and (min-width: 1001px) {
+  .tramite-detail-panel .detail-requirements-list li {
+    font-size: 0.83rem;
+    margin: 0.36rem 0;
+  }
+
+  .tramite-detail-panel .detail-steps li {
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .detail-overview,
+  .detail-two-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-card {
+    max-height: none;
+  }
+}

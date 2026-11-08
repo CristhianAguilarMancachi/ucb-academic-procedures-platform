@@ -201,6 +201,77 @@ export class ListaSolicitudesComponent
   };
 
 
+  // Filtros exclusivos del personal administrativo.
+  estadoPago: '' | 'verificado' | 'pendiente' | 'no_aplica' = '';
+
+  periodoIngreso: 'todas' | 'hoy' | 'ayer' | 'rango' = 'todas';
+
+  fechaDesde = '';
+  fechaHasta = '';
+
+  private fechaBolivia(diasRelativos = 0): string {
+    const partes = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/La_Paz',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+
+    const valor = (tipo: string): number =>
+      Number(partes.find(parte => parte.type === tipo)?.value);
+
+    const fecha = new Date(
+      Date.UTC(
+        valor('year'),
+        valor('month') - 1,
+        valor('day') + diasRelativos,
+      ),
+    );
+
+    return fecha.toISOString().slice(0, 10);
+  }
+
+  private fechasIngreso(): {
+    desde?: string;
+    hasta?: string;
+  } {
+    if (this.periodoIngreso === 'hoy') {
+      const fecha = this.fechaBolivia();
+      return { desde: fecha, hasta: fecha };
+    }
+
+    if (this.periodoIngreso === 'ayer') {
+      const fecha = this.fechaBolivia(-1);
+      return { desde: fecha, hasta: fecha };
+    }
+
+    if (this.periodoIngreso === 'rango') {
+      return {
+        desde: this.fechaDesde || undefined,
+        hasta: this.fechaHasta || undefined,
+      };
+    }
+
+    return {};
+  }
+
+  cambiarPeriodoIngreso(): void {
+    this.buscar();
+  }
+
+  etiquetaPago(estado?: string): string {
+    switch (estado) {
+      case 'verificado':
+        return 'Verificado';
+      case 'pendiente':
+        return 'Por verificar';
+      case 'no_aplica':
+        return 'No requiere pago';
+      default:
+        return '—';
+    }
+  }
+
   private temporizadorBusqueda:
     ReturnType<
       typeof setTimeout
@@ -616,6 +687,25 @@ export class ListaSolicitudesComponent
 
 
   cargar(): void {
+    const fechas = this.vistaAdministrativa
+      ? this.fechasIngreso()
+      : {};
+
+    if (
+      this.vistaAdministrativa &&
+      fechas.desde &&
+      fechas.hasta &&
+      fechas.desde > fechas.hasta
+    ) {
+      this.error.set(
+        'La fecha inicial no puede ser posterior a la fecha final.',
+      );
+      this.items.set([]);
+      this.total.set(0);
+      this.ocupado.set(false);
+      return;
+    }
+
     this.ocupado.set(
       true,
     );
@@ -647,6 +737,10 @@ export class ListaSolicitudesComponent
               this.busqueda
                 .trim() ||
               undefined,
+
+            estado_pago: this.estadoPago || undefined,
+            fecha_desde: fechas.desde,
+            fecha_hasta: fechas.hasta,
 
             pagina:
               this.pagina,

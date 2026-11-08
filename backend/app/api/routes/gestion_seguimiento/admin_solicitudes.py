@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from fastapi import (
     APIRouter,
@@ -224,6 +225,21 @@ def consultar_bandeja_solicitudes(
         default=None,
         gt=0,
     ),
+    estado_pago: Literal[
+        "verificado",
+        "pendiente",
+        "no_aplica",
+    ] | None = Query(default=None),
+    vista: Literal[
+        "todas",
+        "por_atender",
+        "finalizadas",
+    ] = Query(default="todas"),
+    orden: Literal[
+        "prioridad",
+        "recientes",
+        "antiguos",
+    ] = Query(default="prioridad"),
     id_solicitud: int | None = Query(
         default=None,
         gt=0,
@@ -276,6 +292,9 @@ def consultar_bandeja_solicitudes(
         db,
         estado=estado,
         id_tramite=id_tramite,
+        estado_pago=estado_pago,
+        vista=vista,
+        orden=orden,
         id_solicitud=id_solicitud,
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
