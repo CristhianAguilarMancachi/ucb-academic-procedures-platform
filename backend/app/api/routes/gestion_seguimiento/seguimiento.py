@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import (
     APIRouter,
     HTTPException,
@@ -54,6 +56,7 @@ from app.services.gestion_seguimiento import (
 
 from app.services.gestion_seguimiento.notificacion_solicitud_service import (
     notificar_resultado_solicitud,
+    notificar_observacion_solicitud,
 )
 
 from app.services.gestion_seguimiento.solicitud_administrativa_service import (
@@ -69,6 +72,7 @@ from app.services.gestion_seguimiento.tramite_service import (
 router = APIRouter(
     tags=["Seguimiento de solicitudes"],
 )
+logger = logging.getLogger(__name__)
 
 
 def _direccion_ip(
@@ -374,12 +378,24 @@ def crear_observacion(
     db: DatabaseSession,
     usuario: PersonalAdministrativoActual,
 ):
-    servicio.crear_observacion(
+    id_observacion = servicio.crear_observacion(
         db,
         id_solicitud,
         usuario.id_usuario,
         datos,
     )
+
+    # La observación y el historial están confirmados antes del correo.
+    try:
+        notificar_observacion_solicitud(
+            db, id_solicitud, id_observacion
+        )
+    except Exception:
+        db.rollback()
+        logger.exception(
+            "No pudo notificarse la observación %s de solicitud %s.",
+            id_observacion, id_solicitud,
+        )
 
     return obtener_detalle_administrativo(
         db,

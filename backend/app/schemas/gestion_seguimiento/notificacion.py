@@ -13,8 +13,9 @@ class NotificacionResponse(BaseModel):
     id_notificacion: int
     id_solicitud: int
     id_intervencion: int | None
+    id_observacion: int | None
 
-    tipo: Literal["convocatoria", "resultado"]
+    tipo: Literal["convocatoria", "resultado", "observacion"]
     estado: Literal["pendiente", "enviado", "fallido"]
 
     destinatario: str

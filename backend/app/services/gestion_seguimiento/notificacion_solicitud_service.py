@@ -11,6 +11,7 @@ from app.core.config import FRONTEND_BASE_URL
 from app.models.gestion_seguimiento import (
     SolicitudIntervencion,
     SolicitudNotificacion,
+    SolicitudObservacion,
 )
 from app.repositories.gestion_seguimiento import (
     seguimiento_repository as repo,
@@ -309,6 +310,22 @@ def _enviar_notificacion_registrada(
                 notificacion
             )
 
+        elif notificacion.tipo == "observacion":
+            html = construir_html_institucional(
+                titulo="Nueva observación en tu solicitud",
+                referencia=f"Solicitud #{notificacion.id_solicitud}",
+                parrafos=[notificacion.contenido_texto],
+                texto_accion="Ver mi solicitud",
+                url_accion=_enlace_solicitud(
+                    notificacion.id_solicitud
+                ),
+                aviso=(
+                    "Este mensaje es informativo. "
+                    "La plataforma permite consultar las "
+                    "observaciones registradas."
+                ),
+            )
+
         try:
             enviar_correo(
                 destinatario=notificacion.destinatario,
@@ -480,6 +497,76 @@ def notificar_resultado_solicitud(
 
 
 # ============================================================
+# OBSERVACIONES
+# ============================================================
+
+def notificar_observacion_solicitud(
+    db: Session,
+    id_solicitud: int,
+    id_observacion: int,
+) -> bool:
+    """Notifica una observación ya confirmada, sin afectar su registro."""
+    existente = notificaciones.obtener_observacion(db, id_observacion)
+    if existente is not None:
+        if existente.id_solicitud != id_solicitud:
+            return False
+        return _enviar_notificacion_registrada(
+            db, existente.id_notificacion
+        )
+
+    observacion = db.get(SolicitudObservacion, id_observacion)
+    if observacion is None or observacion.id_solicitud != id_solicitud:
+        return False
+
+    solicitud = repo.obtener_solicitud_completa(db, id_solicitud)
+    if solicitud is None:
+        return False
+
+    destinatario = _obtener_correo_destino(solicitud)
+    if destinatario is None:
+        logger.warning(
+            "La solicitud %s no tiene correo de destino para observación %s.",
+            id_solicitud, id_observacion,
+        )
+        return False
+
+    numero = solicitud.id_solicitud
+    nombre = _obtener_nombre_tramite(solicitud)
+    asunto = f"UCB | Nueva observación — Solicitud #{numero}"
+    texto = (
+        "Se ha registrado una observación en tu solicitud académica.\n\n"
+        f"Solicitud #{numero} — {nombre}\n\n"
+        "Observación registrada:\n"
+        f"{observacion.detalle}\n\n"
+        "Puedes consultar esta observación y el estado de tu trámite "
+        "en el Sistema de Trámites Académicos.\n\n"
+        f"Consultar solicitud: {_enlace_solicitud(numero)}\n\n"
+        "Este mensaje es informativo."
+    )
+
+    try:
+        registro = notificaciones.crear(
+            db,
+            id_solicitud=id_solicitud,
+            tipo="observacion",
+            destinatario=destinatario,
+            asunto=asunto,
+            contenido_texto=texto,
+            id_observacion=id_observacion,
+        )
+        id_notificacion = registro.id_notificacion
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existente = notificaciones.obtener_observacion(db, id_observacion)
+        if existente is None or existente.id_solicitud != id_solicitud:
+            raise
+        id_notificacion = existente.id_notificacion
+
+    return _enviar_notificacion_registrada(db, id_notificacion)
+
+
+# ============================================================
 # REINTENTO ADMINISTRATIVO
 # ============================================================
 
@@ -539,6 +626,19 @@ def reintentar_notificacion(
         ):
             raise SeguimientoError(
                 "Esta convocatoria ya no puede enviarse."
+            )
+
+    elif notificacion.tipo == "observacion":
+        observacion = db.get(
+            SolicitudObservacion,
+            notificacion.id_observacion,
+        )
+        if (
+            observacion is None
+            or observacion.id_solicitud != id_solicitud
+        ):
+            raise SeguimientoError(
+                "La observación asociada ya no existe."
             )
 
     elif notificacion.tipo == "resultado":

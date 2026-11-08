@@ -54,6 +54,19 @@ def obtener_resultado(
     )
 
 
+def obtener_observacion(
+    db: Session,
+    id_observacion: int,
+) -> SolicitudNotificacion | None:
+    return db.scalar(
+        select(SolicitudNotificacion)
+        .where(
+            SolicitudNotificacion.id_observacion == id_observacion,
+            SolicitudNotificacion.tipo == "observacion",
+        )
+    )
+
+
 def crear(
     db: Session,
     *,
@@ -63,10 +76,12 @@ def crear(
     asunto: str,
     contenido_texto: str,
     id_intervencion: int | None = None,
+    id_observacion: int | None = None,
 ) -> SolicitudNotificacion:
     item = SolicitudNotificacion(
         id_solicitud=id_solicitud,
         id_intervencion=id_intervencion,
+        id_observacion=id_observacion,
         tipo=tipo,
         estado="pendiente",
         destinatario=destinatario,

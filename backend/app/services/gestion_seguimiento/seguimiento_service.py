@@ -704,7 +704,7 @@ def crear_observacion(
     id_solicitud: int,
     actor: int,
     datos: ObservacionCrearRequest,
-) -> None:
+) -> int:
     solicitud = obtener_para_accion(
         db,
         id_solicitud,
@@ -744,6 +744,9 @@ def crear_observacion(
         datos.detalle,
         requisito=datos.id_solicitud_requisito,
     )
+
+    db.flush()
+    return observacion.id_observacion
 
 
 @transaccion

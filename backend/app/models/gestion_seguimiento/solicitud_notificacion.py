@@ -39,6 +39,7 @@ class SolicitudNotificacion(Base):
     Tipos:
         convocatoria: aviso para revisión o firma.
         resultado: aviso del resultado del trámite.
+        observacion: aviso de una observación registrada.
 
     Estados:
         pendiente: aún no enviado.
@@ -75,6 +76,16 @@ class SolicitudNotificacion(Base):
         ForeignKey(
             "solicitud_intervencion.id_intervencion",
             name="fk_notificacion_intervencion",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+
+    id_observacion: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey(
+            "solicitud_observacion.id_observacion",
+            name="fk_notificacion_observacion",
             ondelete="RESTRICT",
         ),
         nullable=True,
@@ -174,7 +185,7 @@ class SolicitudNotificacion(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "tipo IN ('convocatoria', 'resultado')",
+            "tipo IN ('convocatoria', 'resultado', 'observacion')",
             name="ck_notificacion_tipo",
         ),
         CheckConstraint(
@@ -182,11 +193,19 @@ class SolicitudNotificacion(Base):
             (
                 tipo = 'convocatoria'
                 AND id_intervencion IS NOT NULL
+                AND id_observacion IS NULL
             )
             OR
             (
                 tipo = 'resultado'
                 AND id_intervencion IS NULL
+                AND id_observacion IS NULL
+            )
+            OR
+            (
+                tipo = 'observacion'
+                AND id_intervencion IS NULL
+                AND id_observacion IS NOT NULL
             )
             """,
             name="ck_notificacion_tipo_intervencion",
@@ -242,6 +261,14 @@ class SolicitudNotificacion(Base):
             unique=True,
             postgresql_where=text(
                 "tipo = 'convocatoria'"
+            ),
+        ),
+        Index(
+            "uq_notificacion_observacion",
+            "id_observacion",
+            unique=True,
+            postgresql_where=text(
+                "tipo = 'observacion'"
             ),
         ),
         Index(
