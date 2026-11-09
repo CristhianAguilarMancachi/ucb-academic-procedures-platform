@@ -18,6 +18,19 @@
 
   </header>
 
+  @if (conectandoServidor) {
+    <p
+      class="auth-connection-status"
+      role="status"
+      aria-live="polite"
+    >
+      Conectando con el servidor académico…
+      <span>
+        Estamos preparando el servicio para continuar.
+      </span>
+    </p>
+  }
+
 
   <form
     [formGroup]="formulario"

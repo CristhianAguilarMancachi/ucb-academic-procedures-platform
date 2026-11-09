@@ -45,3 +45,23 @@
 
   opacity: 0.7;
 }
+
+// ============================================================
+// AVISO DE CONEXIÓN LENTA
+// ============================================================
+
+.auth-connection-status {
+  padding: 0.75rem 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.65rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  text-align: center;
+  opacity: 0.85;
+
+  span {
+    display: block;
+    font-size: 0.78rem;
+    opacity: 0.8;
+  }
+}
