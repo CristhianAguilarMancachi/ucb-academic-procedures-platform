@@ -134,6 +134,8 @@ function unavailableResponse() {
         'Cache-Control': 'no-store',
         'Retry-After': '10',
         'X-Backend-Recovery': 'not-ready',
+        'X-UCB-Proxy': 'render-recovery-v1',
+        'X-UCB-Recovery': 'failed',
       },
     }
   );
@@ -184,11 +186,28 @@ async function forwardRequest(
   return fetch(upstreamRequest);
 }
 
-function relayResponse(upstreamResponse) {
+function relayResponse(
+  upstreamResponse,
+  recoveryStatus = 'not-needed'
+) {
+  const responseHeaders = new Headers(
+    upstreamResponse.headers
+  );
+
+  responseHeaders.set(
+    'X-UCB-Proxy',
+    'render-recovery-v1'
+  );
+
+  responseHeaders.set(
+    'X-UCB-Recovery',
+    recoveryStatus
+  );
+
   return new Response(upstreamResponse.body, {
     status: upstreamResponse.status,
     statusText: upstreamResponse.statusText,
-    headers: upstreamResponse.headers,
+    headers: responseHeaders,
   });
 }
 
@@ -260,7 +279,7 @@ export async function onRequest({ request }) {
         headers
       );
 
-      return relayResponse(retryResponse);
+      return relayResponse(retryResponse, 'recovered');
     }
 
     // No repetir POST ni operaciones de escritura.
@@ -276,6 +295,8 @@ export async function onRequest({ request }) {
         status: 502,
         headers: {
           'Cache-Control': 'no-store',
+          'X-UCB-Proxy': 'render-recovery-v1',
+          'X-UCB-Recovery': 'error',
         },
       }
     );
