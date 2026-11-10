@@ -105,12 +105,6 @@ export class LoginComponent
 
   error: string | null = null;
 
-  conectandoServidor = false;
-
-  private operacionesPendientes = 0;
-  private temporizadorConexion:
-    ReturnType<typeof setTimeout> | null = null;
-
 
   readonly formulario =
     this.fb.nonNullable.group({
@@ -149,8 +143,6 @@ export class LoginComponent
       return;
     }
 
-    this.iniciarEsperaConexion();
-
     try {
 
       await this.googleIdentityService
@@ -183,8 +175,6 @@ export class LoginComponent
 
       this.changeDetector
         .detectChanges();
-    } finally {
-      this.finalizarEsperaConexion();
     }
   }
 
@@ -205,7 +195,6 @@ export class LoginComponent
     }
 
     this.cargandoGoogle = true;
-    this.iniciarEsperaConexion();
     this.error = null;
 
 
@@ -231,7 +220,6 @@ export class LoginComponent
 
           this.cargandoGoogle =
             false;
-          this.finalizarEsperaConexion();
 
           this.changeDetector
             .markForCheck();
@@ -241,7 +229,6 @@ export class LoginComponent
 
           this.cargandoGoogle =
             false;
-          this.finalizarEsperaConexion();
 
           this.changeDetector
             .markForCheck();
@@ -270,7 +257,6 @@ export class LoginComponent
     }
 
     this.cargando = true;
-    this.iniciarEsperaConexion();
     this.error = null;
 
 
@@ -296,7 +282,6 @@ export class LoginComponent
             );
 
           this.cargando = false;
-          this.finalizarEsperaConexion();
 
           this.changeDetector
             .markForCheck();
@@ -305,7 +290,6 @@ export class LoginComponent
         complete: () => {
 
           this.cargando = false;
-          this.finalizarEsperaConexion();
 
           this.changeDetector
             .markForCheck();
@@ -357,48 +341,4 @@ export class LoginComponent
       'No fue posible iniciar sesión.'
     );
   }
-
-  // =========================================================
-  // INDICADOR DE CONEXIÓN LENTA
-  // =========================================================
-
-  private iniciarEsperaConexion(): void {
-    this.operacionesPendientes += 1;
-
-    if (
-      this.temporizadorConexion !== null
-      || this.conectandoServidor
-    ) {
-      return;
-    }
-
-    this.temporizadorConexion = setTimeout(() => {
-      this.temporizadorConexion = null;
-
-      if (this.operacionesPendientes > 0) {
-        this.conectandoServidor = true;
-        this.changeDetector.markForCheck();
-      }
-    }, 4500);
-  }
-
-  private finalizarEsperaConexion(): void {
-    this.operacionesPendientes = Math.max(
-      0,
-      this.operacionesPendientes - 1,
-    );
-
-    if (this.operacionesPendientes > 0) {
-      return;
-    }
-
-    if (this.temporizadorConexion !== null) {
-      clearTimeout(this.temporizadorConexion);
-      this.temporizadorConexion = null;
-    }
-
-    this.conectandoServidor = false;
-    this.changeDetector.markForCheck();
-  }
-
 }
