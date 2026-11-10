@@ -65,6 +65,7 @@ export class ConfiguracionTramitesComponent implements OnInit {
   condicionCampo = '';
   condicionValor = '';
   condicionTipo = 'texto';
+  condicionOperador: 'igual' | 'distinto' = 'igual';
 
   opcionesCampo = '';
   economicosDelRequisito: Economico[] = [];
@@ -515,6 +516,7 @@ export class ConfiguracionTramitesComponent implements OnInit {
     this.condicionCampo = '';
     this.condicionValor = '';
     this.condicionTipo = 'texto';
+    this.condicionOperador = 'igual';
     this.economicosDelRequisito = [];
 
     this.error.set('');
@@ -552,6 +554,9 @@ export class ConfiguracionTramitesComponent implements OnInit {
           ? 'numero'
           : 'texto';
 
+    this.condicionOperador =
+      r.condicion?.operador === 'distinto' ? 'distinto' : 'igual';
+
     this.economicosDelRequisito =
       r.configuraciones_economicas || [];
 
@@ -563,6 +568,7 @@ export class ConfiguracionTramitesComponent implements OnInit {
     this.condicionCampo = '';
     this.condicionValor = '';
     this.condicionTipo = 'texto';
+    this.condicionOperador = 'igual';
   }
 
   guardarRequisito(): void {
@@ -609,13 +615,13 @@ export class ConfiguracionTramitesComponent implements OnInit {
           ? {
               origen: 'solicitud_dato',
               clave: this.condicionCampo,
-              operador: 'igual',
+              operador: this.condicionOperador,
               valor,
             }
           : {
               origen: 'perfil_academico',
               campo: this.condicionCampo,
-              operador: 'igual',
+              operador: this.condicionOperador,
               valor,
             };
     }

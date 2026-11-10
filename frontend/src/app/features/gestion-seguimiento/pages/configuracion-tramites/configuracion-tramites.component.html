@@ -1162,10 +1162,23 @@
                   </div>
                 </div>
 
+                <div class="form-field">
+                  <label for="condicion-operador">
+                    La respuesta debe...
+                  </label>
+                  <div class="select-wrap">
+                    <select id="condicion-operador"
+                      [(ngModel)]="condicionOperador">
+                      <option value="igual">Coincidir con</option>
+                      <option value="distinto">Ser diferente de</option>
+                    </select>
+                  </div>
+                </div>
+
                 @if (condicionOrigen === 'solicitud_dato') {
                   <div class="form-field">
                     <label for="condicion-tipo">
-                      Tipo de comparación
+                      Formato de la respuesta
                     </label>
                     <div class="select-wrap">
                       <select id="condicion-tipo"
@@ -1188,7 +1201,7 @@
                 <div class="form-field"
                   [class.form-field--wide]="condicionOrigen === 'perfil_academico'">
                   <label for="condicion-valor">
-                    Valor que activa el requisito
+                    Valor de referencia
                   </label>
 
                   @if (
