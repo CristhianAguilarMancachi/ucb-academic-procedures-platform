@@ -1350,171 +1350,117 @@ class PagoServicioTest(unittest.TestCase):
 class EnvioSolicitudTest(unittest.TestCase):
 
     def test_envio_genera_snapshot_actual_sin_etapas(self):
+        from unittest.mock import Mock, patch
+        from types import SimpleNamespace
+
         db = Mock()
 
-        solicitud = NS(
+        solicitud = SimpleNamespace(
             id_solicitud=1,
             id_solicitante=7,
             id_tramite=2,
-            estado="borrador",
-            nombre_contacto="Daniel",
+            estado="pendiente_recepcion",
+            fecha_envio=None,
+            nombre_contacto="Estudiante",
             telefono_contacto="77777777",
-            correo_contacto="daniel@example.com",
+            correo_contacto="estudiante@example.com",
             nombre_tramite_snapshot=None,
             tipo_finalizacion=None,
             tipo_intervencion="ninguna",
         )
 
-        tramite = NS(
+        tramite = SimpleNamespace(
             nombre="Trámite confirmado",
             tipo_finalizacion="resultado_registrado",
             tipo_intervencion="conformidad",
         )
 
-        with ExitStack() as stack:
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "_obtener_solicitud_del_usuario",
-                    return_value=solicitud,
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "_obtener_tramite_habilitado",
-                    return_value=tramite,
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "_obtener_perfil_minimo",
-                    return_value={
-                        "carrera_programa":
-                            "Ingeniería de Sistemas",
-                        "documento_identidad":
-                            "1234567",
-                    },
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "validar_flujo_envio",
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "requisitos_aplicables",
-                    return_value=[],
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "_obtener_respuesta_completa",
-                    return_value=solicitud,
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio.tramite_repository,
-                    "listar_campos_tramite",
-                    return_value=[],
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio.tramite_repository,
-                    "listar_requisitos_tramite",
-                    return_value=[],
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio.solicitud_repository,
-                    "listar_datos_solicitud",
-                    return_value=[],
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio.solicitud_repository,
-                    "contar_requisitos_solicitud",
-                    return_value=0,
-                )
-            )
-
-            marcar = stack.enter_context(
-                patch.object(
-                    envio.solicitud_repository,
-                    "marcar_solicitud_enviada",
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "registrar_accion_simple",
-                )
-            )
-
-            historial = stack.enter_context(
-                patch.object(
-                    envio.seguimiento_repo,
-                    "registrar_historial",
-                )
-            )
-
-            resultado = envio.enviar_solicitud(
+        with (
+            patch.object(
+                envio, "_obtener_tramite_habilitado",
+                return_value=tramite,
+            ),
+            patch.object(
+                envio, "_obtener_perfil_minimo",
+                return_value={
+                    "carrera_programa": "Ingeniería de Sistemas",
+                    "documento_identidad": "1234567",
+                },
+            ),
+            patch.object(envio, "validar_flujo_envio"),
+            patch.object(
+                envio, "requisitos_aplicables",
+                return_value=[],
+            ),
+            patch.object(
+                envio, "_obtener_respuesta_completa",
+                return_value=solicitud,
+            ),
+            patch.object(
+                envio.tramite_repository,
+                "listar_campos_tramite",
+                return_value=[],
+            ),
+            patch.object(
+                envio.tramite_repository,
+                "listar_requisitos_tramite",
+                return_value=[],
+            ),
+            patch.object(
+                envio.solicitud_repository,
+                "listar_datos_solicitud",
+                return_value=[],
+            ),
+            patch.object(
+                envio.solicitud_repository,
+                "contar_requisitos_solicitud",
+                return_value=0,
+            ),
+            patch.object(envio, "registrar_accion_simple") as auditoria,
+            patch.object(
+                envio.seguimiento_repo,
+                "registrar_historial",
+            ) as historial,
+        ):
+            resultado = envio._completar_registro_directo(
                 db,
-                id_solicitud=1,
+                solicitud=solicitud,
                 id_solicitante=7,
             )
 
-        self.assertIs(
-            resultado,
-            solicitud,
-        )
-
+        self.assertIs(resultado, solicitud)
         self.assertEqual(
             solicitud.nombre_tramite_snapshot,
             "Trámite confirmado",
         )
-
         self.assertEqual(
             solicitud.tipo_finalizacion,
             "resultado_registrado",
         )
-
         self.assertEqual(
             solicitud.tipo_intervencion,
             "conformidad",
         )
-
-        marcar.assert_called_once()
+        self.assertEqual(
+            solicitud.estado,
+            "pendiente_recepcion",
+        )
+        self.assertIsNotNone(solicitud.fecha_envio)
+        auditoria.assert_called_once()
         historial.assert_called_once()
         db.commit.assert_called_once()
 
     def test_envio_exige_datos_basicos_actuales(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+
         db = Mock()
 
-        solicitud = NS(
+        solicitud = SimpleNamespace(
             id_solicitud=1,
             id_solicitante=7,
             id_tramite=2,
-            estado="borrador",
+            estado="pendiente_recepcion",
             nombre_contacto=None,
             telefono_contacto=None,
             correo_contacto=None,
@@ -1522,18 +1468,11 @@ class EnvioSolicitudTest(unittest.TestCase):
 
         with (
             patch.object(
-                envio,
-                "_obtener_solicitud_del_usuario",
-                return_value=solicitud,
+                envio, "_obtener_tramite_habilitado",
+                return_value=SimpleNamespace(),
             ),
             patch.object(
-                envio,
-                "_obtener_tramite_habilitado",
-                return_value=NS(),
-            ),
-            patch.object(
-                envio,
-                "_obtener_perfil_minimo",
+                envio, "_obtener_perfil_minimo",
                 return_value={
                     "carrera_programa": None,
                     "documento_identidad": None,
@@ -1542,13 +1481,21 @@ class EnvioSolicitudTest(unittest.TestCase):
         ):
             with self.assertRaises(
                 envio.CamposObligatoriosFaltantesError
-            ):
-                envio.enviar_solicitud(
+            ) as error:
+                envio._completar_registro_directo(
                     db,
-                    id_solicitud=1,
+                    solicitud=solicitud,
                     id_solicitante=7,
                 )
 
+        self.assertIn(
+            "Nombre de contacto",
+            str(error.exception),
+        )
+        self.assertIn(
+            "Documento de identidad",
+            str(error.exception),
+        )
         db.commit.assert_not_called()
 
 

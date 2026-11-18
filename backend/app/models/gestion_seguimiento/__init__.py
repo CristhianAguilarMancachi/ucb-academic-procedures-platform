@@ -31,10 +31,6 @@ from app.models.gestion_seguimiento.tramite_campo import (
     TramiteCampo,
 )
 
-from app.models.gestion_seguimiento.tramite_etapa import (
-    TramiteEtapa,
-)
-
 from app.models.gestion_seguimiento.tramite_requisito import (
     TramiteRequisito,
 )
@@ -86,7 +82,6 @@ __all__ = [
     "SolicitudRequisito",
     "Tramite",
     "TramiteCampo",
-    "TramiteEtapa",
     "TramiteRequisito",
     "TramiteRequisitoEconomico",
     "UnidadAdministrativa",

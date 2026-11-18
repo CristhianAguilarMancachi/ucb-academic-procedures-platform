@@ -185,9 +185,6 @@ class TramiteResponse(TramiteResumenResponse):
 
     cantidad_requisitos_activos: int = 0
 
-    # Compatibilidad temporal con frontend.
-    cantidad_etapas_activas: int = 0
-
 
 # ============================================================
 # CATÁLOGO PÚBLICO
@@ -277,10 +274,6 @@ class TramiteDetalleResponse(TramiteResponse):
         default_factory=list,
     )
 
-    # Se retirará tras la actualización del frontend.
-    etapas: list["TramiteEtapaResponse"] = Field(
-        default_factory=list,
-    )
 
 
 # ============================================================
@@ -310,10 +303,6 @@ from app.schemas.gestion_seguimiento.tramite_campo import (
 
 from app.schemas.gestion_seguimiento.tramite_requisito import (
     TramiteRequisitoResponse,
-)
-
-from app.schemas.gestion_seguimiento.tramite_etapa import (
-    TramiteEtapaResponse,
 )
 
 TramiteDetalleResponse.model_rebuild()

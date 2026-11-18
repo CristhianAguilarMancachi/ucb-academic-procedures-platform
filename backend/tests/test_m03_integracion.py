@@ -511,160 +511,77 @@ class DeclaracionFisicaTest(unittest.TestCase):
 class EnvioActualTest(unittest.TestCase):
 
     def test_envio_no_recibe_facturas_ni_etapas(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+
+        from pydantic import ValidationError
+
+        from app.schemas.gestion_seguimiento.solicitud import (
+            SolicitudRegistrarRequest,
+        )
+
+        datos_validos = {
+            "id_tramite": 2,
+            "nombre_contacto": "Estudiante",
+            "telefono_contacto": "77777777",
+            "correo_contacto": "estudiante@example.com",
+            "datos": [],
+        }
+
+        for campo in ("numero_factura", "etapas"):
+            with self.subTest(campo=campo):
+                with self.assertRaises(ValidationError):
+                    SolicitudRegistrarRequest(
+                        **datos_validos,
+                        **{campo: "valor_no_permitido"},
+                    )
+
+        datos = SolicitudRegistrarRequest(**datos_validos)
         db = Mock()
 
-        solicitud = NS(
+        solicitud = SimpleNamespace(
             id_solicitud=1,
             id_solicitante=7,
-            id_tramite=1,
-            estado="borrador",
-            nombre_contacto="Daniel",
-            telefono_contacto="77777777",
-            correo_contacto="daniel@example.com",
-            nombre_tramite_snapshot=None,
-            tipo_finalizacion=None,
-            tipo_intervencion="ninguna",
+            id_tramite=2,
+            estado="pendiente_recepcion",
+            nombre_contacto=datos.nombre_contacto,
+            telefono_contacto=datos.telefono_contacto,
+            correo_contacto=str(datos.correo_contacto),
         )
 
-        tramite = NS(
-            nombre="Trámite",
-            tipo_finalizacion=(
-                "resultado_registrado"
+        respuesta = object()
+
+        with (
+            patch.object(
+                envio, "_obtener_tramite_habilitado",
             ),
-            tipo_intervencion="ninguna",
-        )
-
-        with ExitStack() as stack:
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "_obtener_solicitud_del_usuario",
-                    return_value=solicitud,
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "_obtener_tramite_habilitado",
-                    return_value=tramite,
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "_obtener_perfil_minimo",
-                    return_value={
-                        "carrera_programa":
-                            "Ingeniería de Sistemas",
-                        "documento_identidad":
-                            "1234567",
-                    },
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "validar_flujo_envio",
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "requisitos_aplicables",
-                    return_value=[],
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "_obtener_respuesta_completa",
-                    return_value=solicitud,
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio.tramite_repository,
-                    "listar_campos_tramite",
-                    return_value=[],
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio.tramite_repository,
-                    "listar_requisitos_tramite",
-                    return_value=[],
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio.solicitud_repository,
-                    "listar_datos_solicitud",
-                    return_value=[],
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio.solicitud_repository,
-                    "contar_requisitos_solicitud",
-                    return_value=0,
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio.solicitud_repository,
-                    "marcar_solicitud_enviada",
-                )
-            )
-
-            stack.enter_context(
-                patch.object(
-                    envio,
-                    "registrar_accion_simple",
-                )
-            )
-
-            historial = (
-                stack.enter_context(
-                    patch.object(
-                        envio.seguimiento_repo,
-                        "registrar_historial",
-                    )
-                )
-            )
-
-            resultado = envio.enviar_solicitud(
+            patch.object(
+                envio, "_normalizar_datos_formulario",
+                return_value={},
+            ),
+            patch.object(
+                envio, "Solicitud",
+                return_value=solicitud,
+            ),
+            patch.object(
+                envio, "_completar_registro_directo",
+                return_value=respuesta,
+            ) as completar,
+        ):
+            resultado = envio.registrar_solicitud_directa(
                 db,
-                id_solicitud=1,
                 id_solicitante=7,
+                datos=datos,
             )
 
-        self.assertIs(
-            resultado,
-            solicitud,
-        )
-
+        self.assertIs(resultado, respuesta)
         self.assertEqual(
-            solicitud.nombre_tramite_snapshot,
-            "Trámite",
+            solicitud.estado,
+            "pendiente_recepcion",
         )
-
-        self.assertEqual(
-            solicitud.tipo_finalizacion,
-            "resultado_registrado",
-        )
-
-        historial.assert_called_once()
-        db.commit.assert_called_once()
+        db.add.assert_called_once_with(solicitud)
+        db.flush.assert_called_once()
+        completar.assert_called_once()
 
 
 if __name__ == "__main__":

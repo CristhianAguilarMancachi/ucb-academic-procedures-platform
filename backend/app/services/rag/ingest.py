@@ -12,6 +12,15 @@ from PIL import Image
 
 from app.services.rag.embeddings import generate_embeddings
 
+# Reconoce encabezados normativos sin confundir referencias internas.
+# El segundo grupo captura exclusivamente el número del artículo.
+ARTICLE_HEADING_PATTERN = re.compile(
+    r"^(ART[IÍ]CULO\s+(\d+)(?:[°º]|o)?)"
+    r"(?=\s*(?:[.:\-(]|$))",
+    re.IGNORECASE,
+)
+
+
 
 def calculate_file_hash(file_path: Path) -> str:
     sha256 = hashlib.sha256()
@@ -330,6 +339,114 @@ def extract_text_by_page_hybrid(
     return pages
 
 
+
+def prefer_sorted_normative_text(
+    file_path: str | Path,
+    pages: list[dict],
+) -> list[dict]:
+    """Selecciona lectura visual solo ante una mejora normativa verificable.
+
+    Conserva el OCR y la extracción original cuando la comparación
+    es ambigua o no supera las comprobaciones de integridad.
+    """
+    from collections import Counter
+
+    article_pattern = ARTICLE_HEADING_PATTERN
+    word_pattern = re.compile(r"\w+", re.UNICODE)
+
+    def articles(items: list[dict]) -> list[int]:
+        return [
+            int(match.group(2))
+            for item in items
+            for line in item["text"].splitlines()
+            if (match := article_pattern.match(line.strip()))
+        ]
+
+    def inversions(numbers: list[int]) -> int:
+        return sum(
+            right < left
+            for left, right in zip(numbers, numbers[1:])
+        )
+
+    with fitz.open(file_path) as pdf:
+        if len(pdf) != len(pages):
+            return pages
+
+        candidates = []
+
+        for index, page in enumerate(pdf):
+            native = page.get_text("text").strip()
+            selected = pages[index]["text"].strip()
+
+            # Si la extracción híbrida utilizó otro texto, por ejemplo
+            # OCR, preservar su resultado sin modificaciones.
+            if selected != native:
+                candidates.append(dict(pages[index]))
+            else:
+                candidates.append({
+                    "page_number": pages[index]["page_number"],
+                    "text": page.get_text(
+                        "text", sort=True
+                    ).strip(),
+                })
+
+    current_articles = articles(pages)
+    ordered_articles = articles(candidates)
+
+    # Comparar únicamente estructuras normativas reconocibles.
+    if (
+        len(current_articles) < 3
+        or sorted(current_articles) != sorted(ordered_articles)
+    ):
+        return pages
+
+    current_inversions = inversions(current_articles)
+    ordered_inversions = inversions(ordered_articles)
+
+    if ordered_inversions >= current_inversions:
+        return pages
+
+    def words(items: list[dict]) -> Counter:
+        joined = " ".join(
+            item["text"] for item in items
+        )
+        folded = unicodedata.normalize(
+            "NFKD", joined
+        ).casefold()
+        folded = "".join(
+            char for char in folded
+            if not unicodedata.combining(char)
+        )
+        return Counter(word_pattern.findall(folded))
+
+    original_words = words(pages)
+    ordered_words = words(candidates)
+
+    overlap = sum(
+        (original_words & ordered_words).values()
+    )
+    original_count = sum(original_words.values())
+    candidate_count = sum(ordered_words.values())
+
+    if not original_count or not candidate_count:
+        return pages
+
+    if min(
+        overlap / original_count,
+        overlap / candidate_count,
+    ) < 0.98:
+        return pages
+
+    logger.info(
+        "[RAG][PDF] orden_visual_aceptado "
+        "inversiones=%s->%s articulos=%s",
+        current_inversions,
+        ordered_inversions,
+        len(current_articles),
+    )
+
+    return candidates
+
 def clean_page_lines(
     lines: list[str],
 ) -> list[str]:
@@ -444,10 +561,7 @@ def split_normative_blocks(
     current_subsection = None
     chunk_number = 1
 
-    article_pattern = re.compile(
-        r"^(ART[IÍ]CULO\s+\d+[°º]?)",
-        re.IGNORECASE,
-    )
+    article_pattern = ARTICLE_HEADING_PATTERN
 
     chapter_pattern = re.compile(
         r"^(CAP[IÍ]TULO\s+[IVXLC\d]+)",
@@ -875,10 +989,7 @@ def split_normative_with_attachments(
 
     No depende del título ni del nombre del PDF.
     """
-    article_pattern = re.compile(
-        r"^ART[IÍ]CULO\s+\d+",
-        re.IGNORECASE,
-    )
+    article_pattern = ARTICLE_HEADING_PATTERN
 
     attachment_pattern = re.compile(
         r"^(?:CIRCULAR|RESOLUCI[ÓO]N|ANEXO|"
@@ -948,6 +1059,8 @@ def preparar_chunks(file_path: str | Path, chunking_mode: str = "auto") -> tuple
 
     file_hash = calculate_file_hash(path)
     pages = extract_text_by_page_hybrid(path)
+    if chunking_mode in ('auto', 'normativo'):
+        pages = prefer_sorted_normative_text(path, pages)
 
     pages = normalize_page_text_content(pages)
     pages = normalize_pages_text(pages)
@@ -963,11 +1076,7 @@ def preparar_chunks(file_path: str | Path, chunking_mode: str = "auto") -> tuple
         ]
 
         if any(
-            re.match(
-                r"^ART[IÍ]CULO\s+\d+[°º]?",
-                line,
-                re.I,
-            )
+            ARTICLE_HEADING_PATTERN.match(line)
             for line in lines
         ):
             mode = "normativo"

@@ -281,7 +281,7 @@ def _obtener_campo_del_tramite(
 
 def _respuesta_tramite(tramite) -> TramiteResponse:
     """
-    Construye la respuesta sin consultar Tramite.etapas.
+    Construye la respuesta administrativa del trámite.
     """
 
     return TramiteResponse.model_validate({
@@ -303,7 +303,6 @@ def _respuesta_tramite(tramite) -> TramiteResponse:
             requisito.activo
             for requisito in tramite.requisitos
         ),
-        "cantidad_etapas_activas": 0,
     })
 
 
@@ -454,7 +453,6 @@ def obtener_tramite_administracion(
         **_respuesta_tramite(tramite).model_dump(),
         "requisitos": requisitos,
         "campos": campos,
-        "etapas": [],
     })
 
 

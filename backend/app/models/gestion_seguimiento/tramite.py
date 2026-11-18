@@ -180,11 +180,6 @@ class Tramite(Base):
         )
 
     @property
-    def cantidad_etapas_activas(self) -> int:
-        # Compatibilidad temporal con los clientes existentes.
-        return 0
-
-    @property
     def requiere_intervencion(self) -> bool:
         return self.tipo_intervencion != "ninguna"
 

@@ -54,11 +54,6 @@ from app.schemas.gestion_seguimiento.tramite_campo import (
     TramiteCampoCrearRequest,
     TramiteCampoResponse,
 )
-from app.schemas.gestion_seguimiento.tramite_etapa import (
-    TramiteEtapaActualizarRequest,
-    TramiteEtapaCrearRequest,
-    TramiteEtapaResponse,
-)
 from app.schemas.gestion_seguimiento.tramite_requisito import (
     RequisitoEconomicoActualizarRequest,
     RequisitoEconomicoCrearRequest,
@@ -118,11 +113,6 @@ __all__ = [
     "TramiteCampoCrearRequest",
     "TramiteCampoActualizarRequest",
     "TramiteCampoResponse",
-
-    # Etapas
-    "TramiteEtapaCrearRequest",
-    "TramiteEtapaActualizarRequest",
-    "TramiteEtapaResponse",
 
     # Perfil académico
     "PerfilAcademicoActualizarRequest",

@@ -723,23 +723,74 @@ class DocumentosTests(PruebasAisladas):
 class ContratosTests(PruebasAisladas):
     def test_pipeline_exige_embeddings_completos_de_512(self):
         self.mock(ingest.Path, 'exists', return_value=True)
-        self.mock(ingest, 'calculate_file_hash', return_value='hash')
-        self.mock(ingest, 'extract_text_by_page', return_value=[{'page_number': 1, 'text': 'Texto ' * 100}])
-        self.mock(ingest, 'normalize_page_text_content', side_effect=lambda x: x)
-        self.mock(ingest, 'normalize_pages_text', side_effect=lambda x: x)
-        self.mock(ingest, 'split_normative_blocks', return_value=[{
-            'content': 'Texto', 'pagina_inicio': 1, 'pagina_fin': 1, 'seccion': None,
-            'subseccion': None, 'articulo_numero': None, 'estrategia_chunking': 'normativo',
-        }])
-        embeddings = self.mock(ingest, 'create_embeddings', return_value=[])
+        self.mock(
+            ingest,
+            'calculate_file_hash',
+            return_value='hash',
+        )
+        self.mock(
+            ingest,
+            'extract_text_by_page_hybrid',
+            return_value=[
+                {
+                    'page_number': 1,
+                    'text': 'Texto ' * 100,
+                }
+            ],
+        )
+        self.mock(
+            ingest,
+            'normalize_page_text_content',
+            side_effect=lambda x: x,
+        )
+        self.mock(
+            ingest,
+            'normalize_pages_text',
+            side_effect=lambda x: x,
+        )
+        self.mock(
+            ingest,
+            'split_general_blocks',
+            return_value=[
+                {
+                    'content': 'Texto',
+                    'pagina_inicio': 1,
+                    'pagina_fin': 1,
+                    'seccion': None,
+                    'subseccion': None,
+                    'articulo_numero': None,
+                    'estrategia_chunking': 'general_parrafos',
+                }
+            ],
+        )
+
+        embeddings = self.mock(
+            ingest,
+            'create_embeddings',
+            return_value=[],
+        )
+
         for respuesta in ([], [[0.0] * 256]):
             embeddings.return_value = respuesta
+
             with self.assertRaises(ValueError):
-                ingest.preparar_chunks('/no-se-abre.pdf')
+                ingest.preparar_chunks(
+                    '/no-se-abre.pdf',
+                    chunking_mode='general',
+                )
+
         embeddings.return_value = [[0.0] * 512]
-        _, chunks = ingest.preparar_chunks('/no-se-abre.pdf')
+
+        _, chunks = ingest.preparar_chunks(
+            '/no-se-abre.pdf',
+            chunking_mode='general',
+        )
+
         self.assertEqual(len(chunks), 1)
-        self.assertEqual(len(chunks[0]['embedding']), 512)
+        self.assertEqual(
+            len(chunks[0]['embedding']),
+            512,
+        )
 
     def test_retriever_filtra_actual_activa_y_vigente(self):
         self.db.execute.return_value.all.return_value = []

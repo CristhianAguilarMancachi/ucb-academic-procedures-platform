@@ -76,23 +76,8 @@ export interface RequisitoCatalogo {
   condicion: Condicion | null;
   informacion_economica: Economico | null;
 
-  // Compatibilidad temporal.
-  id_etapa?: number | null;
-
   activo?: boolean;
   configuraciones_economicas?: Economico[];
-}
-
-export interface EtapaConfigurada {
-  id_etapa: number;
-  nombre: string;
-  descripcion: string | null;
-  orden: number;
-  id_unidad: number | null;
-  activo: boolean;
-  es_inicial: boolean;
-  es_final: boolean;
-  visible_solicitante: boolean;
 }
 
 export interface Unidad {
@@ -104,9 +89,6 @@ export interface Unidad {
 
 export interface Tramite {
   cantidad_requisitos_activos?: number;
-
-  // Compatibilidad con pantallas anteriores.
-  cantidad_etapas_activas?: number;
 
   fecha_actualizacion?: string;
   id_tramite: number;
@@ -125,8 +107,6 @@ export interface Tramite {
   campos: Campo[];
   requisitos: RequisitoCatalogo[];
 
-  // Se retirará al migrar el resto del frontend.
-  etapas?: EtapaConfigurada[];
 }
 
 export interface Dato {

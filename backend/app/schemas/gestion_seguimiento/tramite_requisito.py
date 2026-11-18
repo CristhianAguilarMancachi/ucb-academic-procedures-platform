@@ -305,6 +305,3 @@ class TramiteRequisitoResponse(BaseModel):
         RequisitoEconomicoResponse
     ] = Field(default_factory=list)
 
-    # Compatibilidad temporal con Angular.
-    # No forma parte de las nuevas operaciones.
-    id_etapa: int | None = None

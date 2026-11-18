@@ -728,62 +728,92 @@ def select_with_query_coverage(
     effective_top_k: int,
 ) -> list[dict]:
     """
-    Conserva al menos un candidato fuerte por cada subpregunta
-    principal cuando es posible y completa los cupos usando el
-    ranking fusionado global.
+    Conserva evidencia relevante de cada subconsulta y
+    completa los cupos mediante el ranking fusionado.
+
+    Cuando el mejor candidato semántico supera claramente
+    al mejor candidato híbrido, protege el resultado
+    semántico para evitar que reglas breves y precisas
+    queden desplazadas por coincidencias léxicas generales.
+
+    No depende de nombres de documentos, artículos ni
+    vocabulario específico de un procedimiento.
     """
 
-    if effective_top_k <= 0:
+    if effective_top_k <= 0 or not fused_results:
         return []
 
-    required_ids: list[object] = []
-    required_seen: set[object] = set()
+    fused_by_id = {
+        get_chunk_id(item["chunk"]): item
+        for item in fused_results
+    }
 
+    selected_ids: set[object] = set()
+
+    # Reservar evidencia para las subconsultas principales.
     for ranked in primary_ranked_results:
-        for item in ranked:
-            chunk_id = get_chunk_id(
-                item["chunk"]
-            )
-
-            if chunk_id in required_seen:
-                continue
-
-            required_seen.add(
-                chunk_id
-            )
-            required_ids.append(
-                chunk_id
-            )
+        if len(selected_ids) >= effective_top_k:
             break
 
-        if len(required_ids) >= effective_top_k:
-            break
+        available = [
+            item
+            for item in ranked
+            if (
+                get_chunk_id(item["chunk"]) in fused_by_id
+                and get_chunk_id(item["chunk"])
+                not in selected_ids
+            )
+        ]
 
-    selected_ids: set[object] = set(
-        required_ids
-    )
+        if not available:
+            continue
 
+        hybrid_best = available[0]
+
+        semantic_best = min(
+            available,
+            key=lambda item: item["distance"],
+        )
+
+        semantic_advantage = (
+            hybrid_best["distance"]
+            - semantic_best["distance"]
+        )
+
+        # Preservar un candidato semántico cuando existe
+        # evidencia de una ventaja clara y su distancia
+        # sigue dentro de un rango razonable.
+        if (
+            semantic_best["distance"] <= 0.50
+            and semantic_advantage >= 0.06
+        ):
+            chosen = semantic_best
+        else:
+            chosen = hybrid_best
+
+        selected_ids.add(
+            get_chunk_id(chosen["chunk"])
+        )
+
+    # Completar los espacios con el ranking fusionado,
+    # sin eliminar las reservas anteriores.
     for item in fused_results:
         if len(selected_ids) >= effective_top_k:
             break
 
         selected_ids.add(
-            get_chunk_id(
-                item["chunk"]
-            )
+            get_chunk_id(item["chunk"])
         )
 
+    # Mantener el orden de puntuación global, pero solo
+    # entre los elementos que fueron seleccionados.
     selected = [
         item
         for item in fused_results
-        if get_chunk_id(
-            item["chunk"]
-        ) in selected_ids
+        if get_chunk_id(item["chunk"]) in selected_ids
     ]
 
-    return selected[
-        :effective_top_k
-    ]
+    return selected[:effective_top_k]
 
 
 # ============================================================

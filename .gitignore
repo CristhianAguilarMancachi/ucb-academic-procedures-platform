@@ -1,32 +1,43 @@
+# Variables de entorno y credenciales
 backend/.env
-backend/venv/
+.env
+.env.local
+.env.*.local
 
+# Entornos y archivos de Python
+backend/venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
+# Archivos temporales y del sistema
 .DS_Store
 desktop.ini
 Thumbs.db
-
 *.log
+*.tmp
 
+# Resultados de pruebas
 .pytest_cache/
 .coverage
 htmlcov/
 
+# Bases de datos locales
 *.sqlite
 *.sqlite3
 *.db
 
+# Copias de seguridad
 backups/
 respaldos_bd/
-
 respaldos_codigo/
-
 *.bak
-
 *.bak-*
+*.backup_*
+*.orig
+*.rej
 
+# Volcados de base de datos
 *.dump
