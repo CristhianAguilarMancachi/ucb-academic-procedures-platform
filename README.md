@@ -161,13 +161,6 @@ No utilizar opciones de eliminación de volúmenes si se desea conservar la info
 
 El repositorio contiene pruebas automatizadas de las funciones principales del sistema.
 
-Para ejecutar el conjunto de pruebas basado en unittest desde el contenedor del backend:
-
-```bash
-docker compose exec backend sh -lc \
-  'cd /app && PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -p "test_*.py" -v'
-```
-
 Las pruebas cubren diferentes aspectos de la plataforma, entre ellos:
 
 - Autenticación y control de acceso.
